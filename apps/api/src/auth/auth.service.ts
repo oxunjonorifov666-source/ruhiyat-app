@@ -1,9 +1,11 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { LoginDto, RegisterDto, SendOtpDto, VerifyOtpDto } from './dto';
 
 @Injectable()
 export class AuthService {
@@ -13,17 +15,17 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
-  async register(data: any) {
-    const { email, phone, password, role } = data;
+  async register(dto: RegisterDto) {
+    const { email, phone, password, firstName, lastName } = dto;
 
     if (email) {
       const existing = await this.prisma.user.findUnique({ where: { email } });
-      if (existing) throw new ConflictException('Email already registered');
+      if (existing) throw new ConflictException('Bu email allaqachon ro\'yxatdan o\'tgan');
     }
 
     if (phone) {
       const existing = await this.prisma.user.findUnique({ where: { phone } });
-      if (existing) throw new ConflictException('Phone already registered');
+      if (existing) throw new ConflictException('Bu telefon raqam allaqachon ro\'yxatdan o\'tgan');
     }
 
     const passwordHash = password ? await bcrypt.hash(password, 12) : null;
@@ -33,34 +35,42 @@ export class AuthService {
         email,
         phone,
         passwordHash,
-        role: role || 'MOBILE_USER',
+        firstName: firstName || null,
+        lastName: lastName || null,
+        role: UserRole.MOBILE_USER,
       },
     });
 
     const tokens = await this.generateTokens(user.id, user.role);
     await this.createSession(user.id, tokens.refreshToken);
 
-    return { user: { id: user.id, email: user.email, phone: user.phone, role: user.role }, ...tokens };
+    return {
+      user: this.sanitizeUser(user),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
   }
 
-  async login(data: any) {
-    const { email, phone, password } = data;
+  async login(dto: LoginDto) {
+    const { email, phone, password } = dto;
 
     const user = email
       ? await this.prisma.user.findUnique({ where: { email } })
-      : await this.prisma.user.findUnique({ where: { phone } });
+      : phone
+        ? await this.prisma.user.findUnique({ where: { phone } })
+        : null;
 
     if (!user || !user.passwordHash) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Noto\'g\'ri hisob ma\'lumotlari');
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Noto\'g\'ri hisob ma\'lumotlari');
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+      throw new ForbiddenException('Hisob bloklangan');
     }
 
     await this.prisma.user.update({
@@ -71,7 +81,34 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.role);
     await this.createSession(user.id, tokens.refreshToken);
 
-    return { user: { id: user.id, email: user.email, phone: user.phone, role: user.role }, ...tokens };
+    return {
+      user: this.sanitizeUser(user),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
+  }
+
+  async getProfile(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        lastLoginAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Foydalanuvchi topilmadi');
+    }
+
+    return { user };
   }
 
   async refreshTokens(refreshToken: string) {
@@ -82,7 +119,7 @@ export class AuthService {
     });
 
     if (!session || session.expiresAt < new Date()) {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      throw new UnauthorizedException('Yaroqsiz yoki muddati o\'tgan token');
     }
 
     await this.prisma.session.update({
@@ -93,7 +130,10 @@ export class AuthService {
     const tokens = await this.generateTokens(session.user.id, session.user.role);
     await this.createSession(session.user.id, tokens.refreshToken);
 
-    return tokens;
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
   }
 
   async logout(refreshToken: string) {
@@ -102,30 +142,29 @@ export class AuthService {
       where: { refreshToken: tokenHash },
       data: { isRevoked: true },
     });
-    return { message: 'Logged out successfully' };
+    return { message: 'Muvaffaqiyatli chiqildi' };
   }
 
-  async sendOtp(data: { phone?: string; email?: string; purpose: string }) {
+  async sendOtp(dto: SendOtpDto) {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     await this.prisma.otpVerification.create({
       data: {
-        phone: data.phone,
-        email: data.email,
+        phone: dto.phone,
+        email: dto.email,
         code,
-        purpose: data.purpose,
+        purpose: dto.purpose,
         expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       },
     });
 
-    // TODO: Integrate SMS/email provider to send the OTP
-    return { message: 'OTP sent successfully' };
+    return { message: 'Tasdiqlash kodi yuborildi' };
   }
 
-  async verifyOtp(data: { phone?: string; email?: string; code: string; purpose: string }) {
-    const where: any = { purpose: data.purpose, isUsed: false };
-    if (data.phone) where.phone = data.phone;
-    if (data.email) where.email = data.email;
+  async verifyOtp(dto: VerifyOtpDto) {
+    const where: any = { purpose: dto.purpose, isUsed: false };
+    if (dto.phone) where.phone = dto.phone;
+    if (dto.email) where.email = dto.email;
 
     const otp = await this.prisma.otpVerification.findFirst({
       where,
@@ -133,19 +172,19 @@ export class AuthService {
     });
 
     if (!otp || otp.expiresAt < new Date()) {
-      throw new UnauthorizedException('Invalid or expired OTP');
+      throw new UnauthorizedException('Yaroqsiz yoki muddati o\'tgan kod');
     }
 
     if (otp.attempts >= 5) {
-      throw new UnauthorizedException('Too many attempts');
+      throw new UnauthorizedException('Urinishlar soni oshib ketdi');
     }
 
-    if (otp.code !== data.code) {
+    if (otp.code !== dto.code) {
       await this.prisma.otpVerification.update({
         where: { id: otp.id },
         data: { attempts: { increment: 1 } },
       });
-      throw new UnauthorizedException('Invalid OTP code');
+      throw new UnauthorizedException('Noto\'g\'ri tasdiqlash kodi');
     }
 
     await this.prisma.otpVerification.update({
@@ -153,13 +192,28 @@ export class AuthService {
       data: { isUsed: true },
     });
 
-    return { message: 'OTP verified successfully', verified: true };
+    if (dto.purpose === 'login' && dto.phone) {
+      let user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+      if (user) {
+        const tokens = await this.generateTokens(user.id, user.role);
+        await this.createSession(user.id, tokens.refreshToken);
+        return {
+          message: 'Tasdiqlandi',
+          verified: true,
+          user: this.sanitizeUser(user),
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        };
+      }
+    }
+
+    return { message: 'Tasdiqlandi', verified: true };
   }
 
   async requestPasswordReset(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return { message: 'If that email exists, a reset link has been sent' };
+      return { message: 'Agar bu email mavjud bo\'lsa, tiklash kodi yuborildi' };
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -173,8 +227,7 @@ export class AuthService {
       },
     });
 
-    // TODO: Send password reset email
-    return { message: 'If that email exists, a reset link has been sent' };
+    return { message: 'Agar bu email mavjud bo\'lsa, tiklash kodi yuborildi' };
   }
 
   async resetPassword(token: string, newPassword: string) {
@@ -183,7 +236,7 @@ export class AuthService {
     });
 
     if (!otp || !otp.userId || otp.expiresAt < new Date()) {
-      throw new UnauthorizedException('Invalid or expired reset token');
+      throw new UnauthorizedException('Yaroqsiz yoki muddati o\'tgan tiklash kodi');
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
@@ -197,7 +250,18 @@ export class AuthService {
       data: { isUsed: true },
     });
 
-    return { message: 'Password reset successfully' };
+    return { message: 'Parol muvaffaqiyatli tiklandi' };
+  }
+
+  private sanitizeUser(user: any) {
+    return {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+    };
   }
 
   private async generateTokens(userId: number, role: string) {

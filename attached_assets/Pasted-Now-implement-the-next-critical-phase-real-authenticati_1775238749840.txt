@@ -1,0 +1,116 @@
+Now implement the next critical phase: real authentication, authorization, route protection, and API integration across all three products.
+
+IMPORTANT:
+- Do not rebuild the project
+- Do not change the confirmed stack
+- Do not replace the existing structure
+- Keep the current monorepo and foundations exactly as they are
+- Integrate carefully into the existing codebase
+- All user-facing UI text must remain in Uzbek
+- Keep backend, web, and mobile separated
+- Do not use fake auth anymore where real auth should exist
+
+GOAL:
+Turn the current scaffolded system into a real working product foundation by connecting frontend/mobile auth flows and key pages to the real NestJS backend API.
+
+PHASE A — BACKEND AUTH/API REFINEMENT
+1) Finalize real auth flows in apps/api:
+   - Superadmin login
+   - Administrator login
+   - Mobile user register/login
+   - Phone + OTP verification
+   - Refresh token flow
+   - Logout flow
+   - Password reset flow
+   - Session management
+2) Ensure JWT access/refresh token flow is complete and correct
+3) Ensure refresh token handling is secure
+4) Ensure OTP verification flow is usable by the mobile app
+5) Ensure role-based access control works correctly for:
+   - SUPERADMIN
+   - ADMINISTRATOR
+   - MOBILE_USER
+6) Add clear and structured API responses
+7) Keep validation and DTOs clean
+8) Make error handling safe and understandable
+
+PHASE B — SUPERADMIN WEB AUTH + PROTECTION
+Implement real auth integration for apps/superadmin-web:
+1) Real login page connected to backend API
+2) Store tokens correctly
+3) Protect private routes
+4) Redirect unauthenticated users to login
+5) Show authenticated user info in header
+6) Add logout flow
+7) Add role-aware protection so only superadmin can access this panel
+
+PHASE C — ADMINISTRATOR WEB AUTH + PROTECTION
+Implement real auth integration for apps/admin-web:
+1) Real login page connected to backend API
+2) Store tokens correctly
+3) Protect private routes
+4) Redirect unauthenticated users to login
+5) Show authenticated user info in header
+6) Add logout flow
+7) Add role-aware protection so only administrators can access this panel
+
+PHASE D — MOBILE AUTH + API INTEGRATION
+Implement real mobile auth integration in apps/mobile:
+1) Register screen connected to backend
+2) Login screen connected to backend
+3) OTP send/verify flow connected to backend
+4) Secure token storage
+5) Persist login session
+6) Protected app navigation
+7) Logout flow
+8) Profile fetch for authenticated user
+9) Keep Android-first Expo structure intact
+10) Keep it ready for future APK/AAB release
+
+PHASE E — API CLIENT LAYER
+Across web and mobile:
+1) Create/finish reusable API client logic
+2) Add auth token injection
+3) Add refresh-token handling where appropriate
+4) Add typed request/response contracts using shared types
+5) Keep code clean and reusable
+
+PHASE F — INITIAL REAL DATA INTEGRATION
+Start replacing placeholder-only pages with real backend-connected data in these first areas:
+- Superadmin dashboard
+- Administrator dashboard
+- Mobile profile
+- Notifications/messages where practical
+- Basic user/profile fetch
+Do not try to fully complete every module yet — focus on real working auth and the first real connected pages.
+
+SECURITY REQUIREMENTS:
+- Keep password handling secure
+- Keep JWT handling secure
+- Do not expose secrets
+- Protect private routes/screens
+- Keep role boundaries strict
+- Superadmin must not share administrator routes
+- Administrator must not access superadmin routes
+- Mobile users must only access user features
+
+UZBEK UI REQUIREMENT:
+- All login forms
+- all labels
+- all buttons
+- all validation messages
+- all auth-related screens
+must remain in Uzbek.
+
+DELIVERABLE FOR THIS STEP:
+1) Real working auth integrated across backend, superadmin web, admin web, and mobile
+2) Protected routes/screens working
+3) Real API client layer wired
+4) Initial real data connected in key pages
+5) Summary of what is now truly functional vs still placeholder
+
+EXECUTION RULE:
+First show the implementation plan for this auth + API integration phase.
+Then implement step by step carefully.
+Do not rush.
+Do not rebuild unrelated parts.

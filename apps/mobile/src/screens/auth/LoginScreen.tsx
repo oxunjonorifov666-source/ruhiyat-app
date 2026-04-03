@@ -1,17 +1,34 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { authService } from '../../services/auth';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function LoginScreen({ navigation }: any) {
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    if (!phone.trim()) {
+      Alert.alert('Xatolik', 'Telefon raqamni kiriting');
+      return;
+    }
+    if (!password.trim()) {
+      Alert.alert('Xatolik', 'Parolni kiriting');
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const data = await authService.login(phone.trim(), password);
+      await login(data.accessToken, data.refreshToken, data.user);
+    } catch (err: any) {
+      Alert.alert('Kirish xatoligi', err.message || 'Noto\'g\'ri ma\'lumotlar');
+    } finally {
       setLoading(false);
-      navigation.navigate('OTPVerify', { phone });
-    }, 1000);
+    }
   };
 
   return (
@@ -28,9 +45,20 @@ export function LoginScreen({ navigation }: any) {
             style={styles.input}
             value={phone}
             onChangeText={setPhone}
-            placeholder="+998 90 123 45 67"
+            placeholder="+998901234567"
             placeholderTextColor={Colors.light.textSecondary}
             keyboardType="phone-pad"
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.label}>Parol</Text>
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Parolni kiriting"
+            placeholderTextColor={Colors.light.textSecondary}
+            secureTextEntry
           />
 
           <TouchableOpacity
@@ -38,7 +66,7 @@ export function LoginScreen({ navigation }: any) {
             onPress={handleLogin}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>{loading ? 'Yuborilmoqda...' : 'Kirish'}</Text>
+            <Text style={styles.buttonText}>{loading ? 'Kirish...' : 'Kirish'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.linkButton}>
@@ -62,7 +90,7 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', marginBottom: 48 },
   logo: { fontSize: 36, fontWeight: 'bold', color: Colors.light.primary },
   subtitle: { fontSize: 16, color: Colors.light.textSecondary, marginTop: 8 },
-  form: { gap: 16 },
+  form: { gap: 12 },
   label: { fontSize: 14, fontWeight: '600', color: Colors.light.text, marginBottom: 4 },
   input: {
     backgroundColor: Colors.light.surface,

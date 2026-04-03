@@ -1,9 +1,72 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { Users, Brain, Building2, CreditCard, MessageSquare, Globe, FileText, TrendingUp } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
 import { StatsCard } from "@/components/stats-card"
+import { useAuth } from "@/components/auth-provider"
+
+interface DashboardStats {
+  totalUsers: number
+  activePsychologists: number
+  educationCenters: number
+  totalPayments: number
+  activeSessions: number
+  communityPosts: number
+  articles: number
+}
+
+interface RecentUser {
+  id: number
+  email: string | null
+  phone: string | null
+  firstName: string | null
+  lastName: string | null
+  role: string
+  createdAt: string
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+
+function formatTimeSince(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return "Hozirgina"
+  if (mins < 60) return `${mins} daqiqa oldin`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} soat oldin`
+  const days = Math.floor(hours / 24)
+  return `${days} kun oldin`
+}
 
 export default function DashboardPage() {
+  const { accessToken } = useAuth()
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [recentUsers, setRecentUsers] = useState<RecentUser[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!accessToken) return
+
+    fetch(`${API_URL}/dashboard/superadmin/stats`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(res => res.json())
+      .then(data => {
+        setStats(data.stats)
+        setRecentUsers(data.recentUsers || [])
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [accessToken])
+
+  const roleLabels: Record<string, string> = {
+    SUPERADMIN: "Superadmin",
+    ADMINISTRATOR: "Administrator",
+    MOBILE_USER: "Foydalanuvchi",
+  }
+
   return (
     <>
       <PageHeader
@@ -14,27 +77,23 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Jami foydalanuvchilar"
-          value="12,847"
+          value={loading ? "..." : (stats?.totalUsers?.toLocaleString() || "0")}
           icon={Users}
-          trend={{ value: 12.5, label: "o'tgan oyga nisbatan" }}
         />
         <StatsCard
           title="Faol psixologlar"
-          value="48"
+          value={loading ? "..." : String(stats?.activePsychologists || 0)}
           icon={Brain}
-          trend={{ value: 8.2, label: "o'tgan oyga nisbatan" }}
         />
         <StatsCard
           title="Ta'lim markazlari"
-          value="156"
+          value={loading ? "..." : String(stats?.educationCenters || 0)}
           icon={Building2}
-          trend={{ value: 4.1, label: "o'tgan oyga nisbatan" }}
         />
         <StatsCard
-          title="Oylik daromad"
-          value="45,230,000 so'm"
+          title="Jami to'lovlar"
+          value={loading ? "..." : String(stats?.totalPayments || 0)}
           icon={CreditCard}
-          trend={{ value: 18.7, label: "o'tgan oyga nisbatan" }}
         />
       </div>
 
@@ -56,21 +115,27 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>So'nggi faoliyatlar</CardTitle>
-            <CardDescription>Platformadagi oxirgi harakatlar</CardDescription>
+            <CardTitle>So'nggi foydalanuvchilar</CardTitle>
+            <CardDescription>Yaqinda ro'yxatdan o'tganlar</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { text: "Yangi foydalanuvchi ro'yxatdan o'tdi", time: "2 daqiqa oldin" },
-                { text: "Psixolog seans yakunladi", time: "15 daqiqa oldin" },
-                { text: "Yangi kurs qo'shildi", time: "1 soat oldin" },
-                { text: "To'lov amalga oshirildi", time: "2 soat oldin" },
-                { text: "Yangi maqola nashr etildi", time: "3 soat oldin" },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <span>{item.text}</span>
-                  <span className="text-muted-foreground text-xs">{item.time}</span>
+              {recentUsers.length === 0 && !loading && (
+                <p className="text-sm text-muted-foreground">Hali foydalanuvchilar yo'q</p>
+              )}
+              {recentUsers.map((u) => (
+                <div key={u.id} className="flex items-center justify-between text-sm">
+                  <div>
+                    <span className="font-medium">
+                      {u.firstName && u.lastName
+                        ? `${u.firstName} ${u.lastName}`
+                        : u.email || u.phone || `#${u.id}`}
+                    </span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {roleLabels[u.role] || u.role}
+                    </span>
+                  </div>
+                  <span className="text-muted-foreground text-xs">{formatTimeSince(u.createdAt)}</span>
                 </div>
               ))}
             </div>
@@ -80,28 +145,26 @@ export default function DashboardPage() {
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
-          title="Faol chatlar"
-          value="234"
+          title="Faol seanslar"
+          value={loading ? "..." : String(stats?.activeSessions || 0)}
           icon={MessageSquare}
-          description="Hozirgi faol suhbatlar"
+          description="Hozirgi faol seanslar"
         />
         <StatsCard
           title="Hamjamiyat postlari"
-          value="1,456"
+          value={loading ? "..." : (stats?.communityPosts?.toLocaleString() || "0")}
           icon={Globe}
-          trend={{ value: 22.3, label: "o'tgan haftaga nisbatan" }}
         />
         <StatsCard
           title="Maqolalar"
-          value="312"
+          value={loading ? "..." : String(stats?.articles || 0)}
           icon={FileText}
           description="Nashr etilgan maqolalar"
         />
         <StatsCard
-          title="Bugungi seanslar"
-          value="67"
-          icon={Brain}
-          trend={{ value: 5.4, label: "kechagiga nisbatan" }}
+          title="To'lovlar"
+          value={loading ? "..." : String(stats?.totalPayments || 0)}
+          icon={CreditCard}
         />
       </div>
     </>

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useTheme } from "@/components/theme-provider"
+import { useAuth } from "@/components/auth-provider"
 
 function DateTime() {
   const [now, setNow] = React.useState(new Date())
@@ -36,8 +37,28 @@ function DateTime() {
   return <span className="text-sm text-muted-foreground hidden md:block">{formatted}</span>
 }
 
+function getInitials(user: { firstName?: string | null; lastName?: string | null; email?: string | null } | null) {
+  if (!user) return "AD"
+  if (user.firstName && user.lastName) {
+    return (user.firstName[0] + user.lastName[0]).toUpperCase()
+  }
+  if (user.email) {
+    return user.email.substring(0, 2).toUpperCase()
+  }
+  return "AD"
+}
+
+function getDisplayName(user: { firstName?: string | null; lastName?: string | null; email?: string | null } | null) {
+  if (!user) return "Administrator"
+  if (user.firstName && user.lastName) {
+    return `${user.firstName} ${user.lastName}`
+  }
+  return user.email || "Administrator"
+}
+
 export function AppHeader() {
   const { theme, setTheme } = useTheme()
+  const { user, logout } = useAuth()
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
@@ -60,12 +81,17 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative size-8 rounded-full">
               <Avatar className="size-8">
-                <AvatarFallback>AD</AvatarFallback>
+                <AvatarFallback>{getInitials(user)}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Mening hisobim</DropdownMenuLabel>
+            <DropdownMenuLabel>
+              <div className="flex flex-col">
+                <span>{getDisplayName(user)}</span>
+                <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
+              </div>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <User className="mr-2 size-4" />
@@ -76,7 +102,7 @@ export function AppHeader() {
               Sozlamalar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => logout()}>
               <LogOut className="mr-2 size-4" />
               Chiqish
             </DropdownMenuItem>

@@ -1,8 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text } from 'react-native';
+import { Text, ActivityIndicator, View } from 'react-native';
 import { Colors } from '../constants/colors';
+import { useAuth } from '../contexts/AuthContext';
 
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { PsychologyScreen } from '../screens/psychology/PsychologyScreen';
@@ -19,17 +20,18 @@ import { OTPVerifyScreen } from '../screens/auth/OTPVerifyScreen';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const AuthStack = createNativeStackNavigator();
+const MainStack = createNativeStackNavigator();
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    'Asosiy': '🏠',
-    'Psixologiya': '🧠',
-    'Kontent': '📚',
-    'Hamjamiyat': '🌍',
-    'Profil': '👤',
+    'Asosiy': '\u{1F3E0}',
+    'Psixologiya': '\u{1F9E0}',
+    'Kontent': '\u{1F4DA}',
+    'Hamjamiyat': '\u{1F30D}',
+    'Profil': '\u{1F464}',
   };
-  return <Text style={{ fontSize: focused ? 24 : 20 }}>{icons[label] || '📱'}</Text>;
+  return <Text style={{ fontSize: focused ? 24 : 20 }}>{icons[label] || '\u{1F4F1}'}</Text>;
 }
 
 function MainTabs() {
@@ -62,29 +64,51 @@ function MainTabs() {
   );
 }
 
-export function AppNavigator() {
+function AuthNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-      <Stack.Screen name="OTPVerify" component={OTPVerifyScreen} />
-      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-      <Stack.Screen name="Main" component={MainTabs} />
-      <Stack.Screen
+    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="OTPVerify" component={OTPVerifyScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+    </AuthStack.Navigator>
+  );
+}
+
+function AppMainNavigator() {
+  return (
+    <MainStack.Navigator screenOptions={{ headerShown: false }}>
+      <MainStack.Screen name="Main" component={MainTabs} />
+      <MainStack.Screen
         name="Development"
         component={DevelopmentScreen}
         options={{ headerShown: true, title: 'Rivojlantirish' }}
       />
-      <Stack.Screen
+      <MainStack.Screen
         name="Messages"
         component={MessagesScreen}
         options={{ headerShown: true, title: 'Xabarlar' }}
       />
-      <Stack.Screen
+      <MainStack.Screen
         name="Market"
         component={MarketScreen}
         options={{ headerShown: true, title: 'Market' }}
       />
-    </Stack.Navigator>
+    </MainStack.Navigator>
   );
+}
+
+export function AppNavigator() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.light.background }}>
+        <ActivityIndicator size="large" color={Colors.light.primary} />
+        <Text style={{ marginTop: 16, color: Colors.light.textSecondary }}>Yuklanmoqda...</Text>
+      </View>
+    );
+  }
+
+  return isAuthenticated ? <AppMainNavigator /> : <AuthNavigator />;
 }

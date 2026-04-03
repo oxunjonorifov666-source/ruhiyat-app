@@ -4,10 +4,47 @@
 
 pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **All UI is Uzbek-first.**
 
-1. **Superadmin Web Panel** (`apps/superadmin-web`) — 37 modules, premium dashboard (Next.js + Tailwind + shadcn/ui)
-2. **Administrator Web Panel** (`apps/admin-web`) — 23 modules, center management (Next.js + Tailwind + shadcn/ui)
-3. **Mobile App** (`apps/mobile`) — 12 screens, 5-tab navigation (Expo + React Native, Android-first)
-4. **Backend API** (`apps/api`) — 16 NestJS modules, 100+ endpoints (NestJS + Prisma + PostgreSQL)
+1. **Superadmin Web Panel** (`apps/superadmin-web`) — 37 modules, real auth, protected routes (Next.js + Tailwind + shadcn/ui, port 3100)
+2. **Administrator Web Panel** (`apps/admin-web`) — 23 modules, real auth, protected routes (Next.js + Tailwind + shadcn/ui, port 3200)
+3. **Mobile App** (`apps/mobile`) — 12 screens, real auth with SecureStore, gated navigation (Expo + React Native, Android-first)
+4. **Backend API** (`apps/api`) — 16 NestJS modules, 100+ endpoints, JWT auth, RBAC (NestJS + Prisma + PostgreSQL, port 3000)
+
+## Authentication System (REAL, NOT MOCKED)
+
+### Auth Flow
+- **Login**: POST `/api/auth/login` with `{email, password}` or `{phone, password}`
+- **Register**: POST `/api/auth/register` with `{phone, firstName, lastName, password, role}`
+- **Profile**: GET `/api/auth/me` (Bearer token required)
+- **Refresh**: POST `/api/auth/refresh` with `{refreshToken}` — rotates tokens, revokes old session
+- **Logout**: POST `/api/auth/logout` with `{refreshToken}` — revokes session
+- **OTP**: POST `/api/auth/otp/send` and `/api/auth/otp/verify`
+- **Password Reset**: POST `/api/auth/password/reset-request` and `/api/auth/password/reset`
+
+### Token Management
+- JWT access tokens (15min), refresh tokens (7d)
+- Refresh tokens stored as SHA-256 hashes in `sessions` table
+- Web panels: localStorage + cookies (middleware reads cookies for server-side redirect)
+- Mobile: expo-secure-store for persistent token storage
+
+### Role-Based Access Control
+- **SUPERADMIN**: Full platform access, superadmin-web panel only
+- **ADMINISTRATOR**: Center-scoped access, admin-web panel only
+- **MOBILE_USER**: Personal wellness features, mobile app only
+- Cross-role access is blocked (superadmin can't access admin panel and vice versa)
+
+### Route Protection
+- Web: Next.js middleware checks cookies, redirects to `/login` if no token
+- Web: AuthProvider validates token on mount, role-checks, auto-refresh
+- Mobile: AppNavigator conditionally renders AuthStack vs MainStack based on auth state
+
+### Default Test Credentials (seeded)
+- Superadmin: `superadmin@ruhiyat.uz` / `admin123`
+- Admin: `admin@markaz.uz` / `admin123`
+- Mobile: `+998901234567` / `user123`
+
+## Dashboard Stats (REAL DATA)
+- Superadmin: GET `/api/dashboard/superadmin/stats` — totalUsers, activePsychologists, educationCenters, totalPayments, activeSessions, communityPosts, articles + recentUsers
+- Admin: GET `/api/dashboard/admin/stats` — totalStudents, totalTeachers, totalCourses, totalGroups (center-scoped)
 
 ## Monorepo Structure
 
@@ -20,56 +57,51 @@ apps/
 packages/
   types/            — @ruhiyat/types (shared enums, interfaces)
   ui/               — @ruhiyat/ui (shared UI utilities)
-  config/           — @ruhiyat/config (shared constants)
+  config/           — @ruhiyat/config (shared constants, TOKEN_KEYS)
 ```
 
-## Stack
+## Key Files
 
-- **Monorepo**: pnpm workspaces
-- **API**: NestJS 11 + Prisma + PostgreSQL
-- **Web panels**: Next.js 15 + Tailwind CSS v4 + shadcn/ui (new-york style)
-- **Mobile**: React Native 0.79 + Expo SDK 53 (Android-first, APK/AAB-ready)
-- **Auth**: JWT (access + refresh), bcryptjs, OTP, Passport
-- **Language**: All UI in Uzbek (code in English)
+### Auth Infrastructure
+- `apps/api/src/auth/auth.controller.ts` — Auth endpoints with DTOs
+- `apps/api/src/auth/auth.service.ts` — Auth logic, token generation, OTP
+- `apps/api/src/auth/dto/` — Validated DTOs (LoginDto, RegisterDto, etc.)
+- `apps/api/src/auth/guards/` — JwtAuthGuard, RolesGuard
+- `apps/api/src/auth/strategies/jwt.strategy.ts` — JWT validation
+- `apps/api/src/system/dashboard.controller.ts` — Dashboard stats endpoints
+- `apps/api/src/seed.ts` — Database seeder (creates default users)
 
-## Superadmin Modules (37 pages)
+### Web Panel Auth
+- `apps/superadmin-web/src/lib/auth.ts` — Auth API calls, token storage
+- `apps/superadmin-web/src/components/auth-provider.tsx` — AuthProvider + useAuth hook
+- `apps/superadmin-web/src/middleware.ts` — Route protection middleware
+- `apps/admin-web/src/lib/auth.ts` — Same pattern for admin
+- `apps/admin-web/src/components/auth-provider.tsx` — Admin AuthProvider
+- `apps/admin-web/src/middleware.ts` — Admin route protection
 
-Boshqaruv paneli, Analitika, Hisobotlar, Statistika, Foydalanuvchilar, Psixologlar, Administratorlar, Rollar va ruxsatlar, Kirish nazorati, Chat, Videochat, Bildirishnomalar, E'lonlar, Hamjamiyat, Sharhlar, Moderatsiya markazi, Maqolalar CMS, Bannerlar, Audio kutubxona, Video kutubxona, Afirmatsiyalar, Proyektiv metodikalar, Psixologik testlar, Treninglar, Uchrashuvlar, Seanslar tarixi, To'lovlar, Daromadlar, Tranzaksiyalar, Sozlamalar, Mobil ilova sozlamalari, Xavfsizlik, Audit loglari, Faollik loglari, Integratsiyalar, Texnik monitoring, API kalitlar
-
-## Administrator Modules (23 pages)
-
-Boshqaruv paneli, Hisobotlar, Statistika, O'quvchilar, O'qituvchilar, Psixologlar, Xodimlar, Kurslar, Guruhlar, To'lovlar, Daromadlar, Tranzaksiyalar, Testlar, Natijalar analitikasi, Chat, Bildirishnomalar, Uchrashuvlar, E'lonlar, Markaz sozlamalari, Xodim rollari, Xavfsizlik, Audit loglari, Integratsiyalar
-
-## Mobile Screens (12 screens)
-
-**Auth**: Kirish, Ro'yxatdan o'tish, OTP tasdiqlash, Parolni tiklash
-**Tabs**: Asosiy, Psixologiya, Kontent, Hamjamiyat, Profil
-**Internal**: Rivojlantirish, Xabarlar, Market
+### Mobile Auth
+- `apps/mobile/src/services/api.ts` — API client with auto-refresh
+- `apps/mobile/src/services/auth.ts` — Auth service (login, register, OTP)
+- `apps/mobile/src/contexts/AuthContext.tsx` — Auth state + SecureStore persistence
+- `apps/mobile/src/navigation/AppNavigator.tsx` — Auth-gated navigation
 
 ## Key Commands
 
 - `pnpm --filter @ruhiyat/api run dev` — API (port 3000)
 - `pnpm --filter @ruhiyat/superadmin-web run dev` — Superadmin (port 3100)
 - `pnpm --filter @ruhiyat/admin-web run dev` — Admin (port 3200)
-- `cd apps/api && npx prisma db push` — push schema
+- `cd apps/api && npx ts-node --transpile-only src/seed.ts` — Seed database
+- `cd apps/api && npx prisma db push` — Push schema
 - `cd apps/api && npx prisma studio` — Prisma Studio
 
 ## Database
 
-52 Prisma models at `apps/api/prisma/schema.prisma` covering Auth, Profiles, Education, Assessments, Communication, Community, Content, Meetings, Finance, System, Wellness.
+52 Prisma models at `apps/api/prisma/schema.prisma` (User model now has firstName/lastName columns).
 
-## Environment Variables
+## Stack
 
-- `DATABASE_URL` — PostgreSQL connection string
-- `JWT_SECRET` / `JWT_REFRESH_SECRET` — JWT signing secrets
-- `SESSION_SECRET` — session secret
-
-## Architecture
-
-- Sidebar + header layout pattern for web panels
-- Bottom tab navigation for mobile (5 tabs)
-- shadcn/ui components (button, card, sidebar, sheet, avatar, dropdown-menu, etc.)
-- ThemeProvider for dark/light mode toggle
-- AuthContext for mobile auth state management
-- API client layer (`src/services/api.ts`) in mobile
-- Module placeholder pattern for consistent page structure
+- **Monorepo**: pnpm workspaces
+- **API**: NestJS 11 + Prisma + PostgreSQL (NO Express, NO Drizzle)
+- **Web panels**: Next.js 15 + Tailwind CSS v4 + shadcn/ui (NO Vite)
+- **Mobile**: React Native 0.79 + Expo SDK 53 (Android-first)
+- **Auth**: JWT + bcryptjs + Passport + expo-secure-store

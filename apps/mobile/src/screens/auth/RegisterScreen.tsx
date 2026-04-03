@@ -1,17 +1,46 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { authService } from '../../services/auth';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function RegisterScreen({ navigation }: any) {
-  const [form, setForm] = useState({ firstName: '', lastName: '', phone: '' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', phone: '', password: '', confirmPassword: '' });
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      Alert.alert('Xatolik', 'Ism va familiyani kiriting');
+      return;
+    }
+    if (!form.phone.trim()) {
+      Alert.alert('Xatolik', 'Telefon raqamni kiriting');
+      return;
+    }
+    if (form.password.length < 6) {
+      Alert.alert('Xatolik', 'Parol kamida 6 ta belgidan iborat bo\'lishi kerak');
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      Alert.alert('Xatolik', 'Parollar mos kelmadi');
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const data = await authService.register({
+        phone: form.phone.trim(),
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        password: form.password,
+      });
+      await login(data.accessToken, data.refreshToken, data.user);
+    } catch (err: any) {
+      Alert.alert('Xatolik', err.message || 'Ro\'yxatdan o\'tishda xatolik');
+    } finally {
       setLoading(false);
-      navigation.navigate('OTPVerify', { phone: form.phone });
-    }, 1000);
+    }
   };
 
   return (
@@ -30,7 +59,15 @@ export function RegisterScreen({ navigation }: any) {
         </View>
         <View>
           <Text style={styles.label}>Telefon raqam</Text>
-          <TextInput style={styles.input} value={form.phone} onChangeText={v => setForm({ ...form, phone: v })} placeholder="+998 90 123 45 67" keyboardType="phone-pad" placeholderTextColor={Colors.light.textSecondary} />
+          <TextInput style={styles.input} value={form.phone} onChangeText={v => setForm({ ...form, phone: v })} placeholder="+998901234567" keyboardType="phone-pad" placeholderTextColor={Colors.light.textSecondary} />
+        </View>
+        <View>
+          <Text style={styles.label}>Parol</Text>
+          <TextInput style={styles.input} value={form.password} onChangeText={v => setForm({ ...form, password: v })} placeholder="Kamida 6 ta belgi" secureTextEntry placeholderTextColor={Colors.light.textSecondary} />
+        </View>
+        <View>
+          <Text style={styles.label}>Parolni tasdiqlash</Text>
+          <TextInput style={styles.input} value={form.confirmPassword} onChangeText={v => setForm({ ...form, confirmPassword: v })} placeholder="Parolni qayta kiriting" secureTextEntry placeholderTextColor={Colors.light.textSecondary} />
         </View>
 
         <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleRegister} disabled={loading}>

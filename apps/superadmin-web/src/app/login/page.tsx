@@ -1,20 +1,42 @@
 "use client"
 
 import * as React from "react"
-import { Brain, Eye, EyeOff } from "lucide-react"
+import { Brain, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { loginApi, storeTokens } from "@/lib/auth"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
+  const [error, setError] = React.useState("")
+  const [email, setEmail] = React.useState("")
+  const [password, setPassword] = React.useState("")
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => setLoading(false), 1500)
+    setError("")
+
+    try {
+      const data = await loginApi(email, password)
+
+      if (data.user.role !== "SUPERADMIN") {
+        setError("Faqat superadmin kirishi mumkin")
+        setLoading(false)
+        return
+      }
+
+      storeTokens(data.accessToken, data.refreshToken)
+      router.push("/dashboard")
+    } catch (err: any) {
+      setError(err.message || "Kirish xatoligi yuz berdi")
+      setLoading(false)
+    }
   }
 
   return (
@@ -29,13 +51,22 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertCircle className="size-4 shrink-0" />
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Elektron pochta</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="admin@ruhiyat.uz"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
             <div className="space-y-2">
@@ -45,7 +76,10 @@ export default function LoginPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Parolni kiriting"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={loading}
                 />
                 <Button
                   type="button"

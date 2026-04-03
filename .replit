@@ -30,6 +30,10 @@ args = "API Server"
 task = "workflow.run"
 args = "Superadmin Web"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin Web"
+
 [[workflows.workflow]]
 name = "API Server"
 author = "agent"
@@ -50,6 +54,18 @@ author = "agent"
 task = "shell.exec"
 args = "pnpm --filter @ruhiyat/superadmin-web run dev"
 waitForPort = 3100
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Admin Web"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @ruhiyat/admin-web run dev"
+waitForPort = 3200
 
 [workflows.workflow.metadata]
 outputType = "console"

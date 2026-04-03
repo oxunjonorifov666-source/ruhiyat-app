@@ -1,9 +1,38 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { Users, GraduationCap, Brain, CreditCard, BookOpen, TrendingUp, Calendar, UsersRound } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
 import { StatsCard } from "@/components/stats-card"
+import { useAuth } from "@/components/auth-provider"
+
+interface AdminStats {
+  totalStudents: number
+  totalTeachers: number
+  totalCourses: number
+  totalGroups: number
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
 export default function DashboardPage() {
+  const { accessToken } = useAuth()
+  const [stats, setStats] = useState<AdminStats | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!accessToken) return
+
+    fetch(`${API_URL}/dashboard/admin/stats`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(res => res.json())
+      .then(data => setStats(data.stats))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [accessToken])
+
   return (
     <>
       <PageHeader
@@ -14,27 +43,24 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Jami o'quvchilar"
-          value="1,284"
+          value={loading ? "..." : String(stats?.totalStudents || 0)}
           icon={Users}
-          trend={{ value: 8.5, label: "o'tgan oyga nisbatan" }}
         />
         <StatsCard
           title="O'qituvchilar"
-          value="32"
+          value={loading ? "..." : String(stats?.totalTeachers || 0)}
           icon={GraduationCap}
           description="Faol o'qituvchilar soni"
         />
         <StatsCard
-          title="Psixologlar"
-          value="8"
-          icon={Brain}
-          description="Markaz psixologlari"
+          title="Kurslar"
+          value={loading ? "..." : String(stats?.totalCourses || 0)}
+          icon={BookOpen}
         />
         <StatsCard
-          title="Oylik daromad"
-          value="8,450,000 so'm"
-          icon={CreditCard}
-          trend={{ value: 12.3, label: "o'tgan oyga nisbatan" }}
+          title="Guruhlar"
+          value={loading ? "..." : String(stats?.totalGroups || 0)}
+          icon={UsersRound}
         />
       </div>
 
@@ -81,27 +107,26 @@ export default function DashboardPage() {
       <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Faol kurslar"
-          value="24"
+          value={loading ? "..." : String(stats?.totalCourses || 0)}
           icon={BookOpen}
           description="Hozirgi o'quv davri"
         />
         <StatsCard
           title="Guruhlar"
-          value="18"
+          value={loading ? "..." : String(stats?.totalGroups || 0)}
           icon={UsersRound}
           description="Faol guruhlar soni"
         />
         <StatsCard
           title="Bugungi uchrashuvlar"
-          value="5"
+          value="0"
           icon={Calendar}
           description="Rejalashtirilgan"
         />
         <StatsCard
-          title="Yangi to'lovlar"
-          value="12"
-          icon={CreditCard}
-          trend={{ value: 3.2, label: "kechagiga nisbatan" }}
+          title="O'qituvchilar"
+          value={loading ? "..." : String(stats?.totalTeachers || 0)}
+          icon={Brain}
         />
       </div>
     </>

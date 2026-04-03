@@ -1,54 +1,63 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { LoginDto, RegisterDto, SendOtpDto, VerifyOtpDto, RequestPasswordResetDto, ResetPasswordDto, RefreshTokenDto, LogoutDto } from './dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() body: any) {
-    return this.authService.register(body);
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() body: any) {
-    return this.authService.login(body);
+  async login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body() body: { refreshToken: string }) {
-    return this.authService.refreshTokens(body.refreshToken);
+  async refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refreshTokens(dto.refreshToken);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Body() body: { refreshToken: string }) {
-    return this.authService.logout(body.refreshToken);
+  async logout(@Body() dto: LogoutDto) {
+    return this.authService.logout(dto.refreshToken);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMe(@CurrentUser() currentUser: { userId: number; role: string }) {
+    return this.authService.getProfile(currentUser.userId);
   }
 
   @Post('otp/send')
   @HttpCode(HttpStatus.OK)
-  async sendOtp(@Body() body: { phone?: string; email?: string; purpose: string }) {
-    return this.authService.sendOtp(body);
+  async sendOtp(@Body() dto: SendOtpDto) {
+    return this.authService.sendOtp(dto);
   }
 
   @Post('otp/verify')
   @HttpCode(HttpStatus.OK)
-  async verifyOtp(@Body() body: { phone?: string; email?: string; code: string; purpose: string }) {
-    return this.authService.verifyOtp(body);
+  async verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyOtp(dto);
   }
 
   @Post('password/reset-request')
   @HttpCode(HttpStatus.OK)
-  async requestPasswordReset(@Body() body: { email: string }) {
-    return this.authService.requestPasswordReset(body.email);
+  async requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
+    return this.authService.requestPasswordReset(dto.email);
   }
 
   @Post('password/reset')
   @HttpCode(HttpStatus.OK)
-  async resetPassword(@Body() body: { token: string; newPassword: string }) {
-    return this.authService.resetPassword(body.token, body.newPassword);
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 }
