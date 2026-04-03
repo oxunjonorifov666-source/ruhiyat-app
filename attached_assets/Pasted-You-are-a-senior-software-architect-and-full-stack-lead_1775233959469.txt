@@ -1,0 +1,242 @@
+You are a senior software architect and full-stack lead engineer. Build a production-oriented monorepo project called “Ruhiyat” with clean architecture, scalable structure, strong security foundations, and clear separation of concerns.
+
+PROJECT OVERVIEW:
+“Ruhiyat” is a digital mental wellness ecosystem with 3 major products:
+1) Superadmin web panel
+2) Administrator web panel
+3) Mobile app for end users (Android-first, Play Market ready, APK/AAB compatible)
+
+IMPORTANT PRODUCT LOGIC:
+- Superadmin panel is for managing the mobile ecosystem and overall platform
+- Administrator panel is for education center owners / managers
+- Mobile app is for users
+- Web panels run in browser
+- Mobile app must be built as a real React Native mobile app, not a fake mobile-responsive web page
+- Mobile app architecture must be ready for Android APK/AAB release and future Play Market publishing
+
+USE THIS TECH STACK:
+- Monorepo
+- Frontend web: Next.js + TypeScript + Tailwind CSS + shadcn/ui
+- Mobile: React Native + Expo + TypeScript
+- Backend API: NestJS + TypeScript
+- Database: PostgreSQL
+- ORM: Prisma
+- Authentication: JWT access token + refresh token
+- Password hashing: bcrypt
+- Validation: class-validator / zod where appropriate
+- API style: REST
+- State management: use clean maintainable approach
+- File storage abstraction ready
+- Environment variables for all secrets
+- Strict TypeScript everywhere
+
+ARCHITECTURE REQUIREMENTS:
+- Create a clean monorepo structure:
+  /apps/superadmin-web
+  /apps/admin-web
+  /apps/mobile
+  /apps/api
+  /packages/ui
+  /packages/types
+  /packages/config
+- Make the project modular, scalable, and future-proof
+- Avoid hardcoding secrets
+- Keep all business logic in backend
+- Keep frontend and mobile as API consumers
+- Use role-based access control
+- Use clean domain-based module structure
+
+ROLES:
+1) Superadmin
+2) Administrator
+3) Mobile User
+
+AUTHENTICATION STRATEGY:
+- Superadmin: email + password + optional/ready 2FA structure
+- Administrator: invite-only account creation, email/phone + password
+- Mobile user: phone + OTP, with optional PIN/biometric-ready structure for future
+- Separate auth flows by role
+- Include password reset flow
+- Include OTP verification flow
+- Include active sessions model
+- Include audit logging model
+
+SUPERADMIN PANEL MODULES:
+- Dashboard
+- Analytics
+- Reports
+- Users
+- Psychologists
+- Administrators
+- Roles and permissions
+- Chat
+- Videochat
+- Community
+- Reviews
+- Announcements
+- Articles CMS
+- Banners
+- Notifications
+- Audio library
+- Video library
+- Affirmations
+- Projective methods
+- Psychological tests
+- Trainings
+- Meetings
+- Session history
+- Activity logs
+- Moderation center
+  - Complaints
+  - Reports
+  - Blocking
+  - Content control
+- Payments
+- Revenue
+- Transactions
+- Statistics
+- Settings
+- Mobile app settings
+- Security
+- Audit logs
+- Integrations
+- Technical monitoring
+- API keys
+- Access control
+
+ADMINISTRATOR PANEL MODULES:
+- Dashboard
+- Students
+- Teachers
+- Psychologists
+- Staff
+- Courses
+- Groups
+- Payments
+- Reports
+- Statistics
+- Revenue
+- Transactions
+- Tests
+- Result analytics
+- Chat
+- Notifications
+- Meetings
+- Announcements
+- Center settings
+- Staff roles
+- Security
+- Audit logs
+- Integrations
+
+MOBILE APP MAIN NAVIGATION:
+- Home
+- Psychology
+- Development
+- Content
+- Community
+- Messages
+- Market
+- Profile
+
+MOBILE APP FUNCTIONAL EXPECTATIONS:
+- Home: mood tracking, quick actions, upcoming meetings, progress, recommendations
+- Psychology: psychologists, AI psychologist, chat, videochat, meetings, session history
+- Development: diary, habits, sleep, breathing, tests, results, progress
+- Content: articles, audio, video, affirmations, projective methods, trainings, saved items
+- Community: posts, comments, complaint/report submission
+- Messages: notifications, announcements, reminders
+- Market: services, premium, payments, payment history
+- Profile: profile, settings, security, privacy, activity history, logout
+
+HEADER / FOOTER EXPECTATIONS:
+Superadmin web and Administrator web should support:
+- logo
+- real-time date/time
+- optional weather widget
+- refresh button
+- dark/light mode
+- current user identity
+- professional footer with system info and versioning
+Keep footer minimal but configurable.
+
+DATABASE DESIGN REQUIREMENTS:
+Design a normalized PostgreSQL schema with Prisma for:
+- users
+- roles
+- permissions
+- sessions
+- otp_verifications
+- passwords / auth credentials
+- administrators
+- superadmins
+- mobile users
+- education centers
+- psychologists
+- teachers
+- staff
+- students
+- courses
+- groups
+- enrollments
+- tests
+- questions
+- answers
+- test results
+- meetings
+- chats
+- messages
+- notifications
+- announcements
+- community posts
+- comments
+- complaints
+- moderation actions
+- articles
+- banners
+- audio content
+- video content
+- affirmations
+- projective methods
+- trainings
+- payments
+- transactions
+- revenue records
+- audit logs
+- system settings
+- mobile app settings
+- api keys
+- integration settings
+
+SECURITY FOUNDATIONS:
+- bcrypt hashing
+- JWT access/refresh tokens
+- role-based guards
+- route protection
+- server-side validation
+- secure password reset
+- OTP expiration
+- rate limiting ready
+- audit log hooks
+- no plain text passwords
+- no secrets in code
+- environment-based config
+- prepared for production hardening
+
+DELIVERABLE FOR THIS STEP:
+Do NOT build all UI yet.
+First:
+1) design the full monorepo structure
+2) define all main modules
+3) define the auth strategy
+4) define the database schema plan
+5) generate Prisma schema
+6) generate backend module skeleton
+7) generate shared types
+8) explain the architecture clearly inside project documentation
+9) keep all code organized and production-oriented
+
+Before writing implementation-heavy code, first show the architecture plan clearly.
+Do not rush into full feature implementation.
+Before coding full features, first show the architecture plan clearly in a structured format.
+Do NOT start building full UI or full implementation until architecture is confirmed.
