@@ -1,0 +1,22 @@
+{
+  "name": "@ruhiyat/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo run:android",
+    "build:apk": "eas build -p android --profile preview",
+    "build:aab": "eas build -p android --profile production"
+  },
+  "dependencies": {
+    "@ruhiyat/types": "workspace:*",
+    "@ruhiyat/config": "workspace:*",
+    "expo": "~53.0.0",
+    "react": "19.1.0",
+    "react-native": "0.79.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "typescript": "^5.8.3"
+  }
+}
