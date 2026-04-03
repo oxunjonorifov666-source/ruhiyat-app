@@ -1,0 +1,264 @@
+IMPORTANT BUSINESS REQUIREMENT:
+The entire product must be Uzbek-first in the user interface.
+This is a mandatory requirement, not optional.
+
+LANGUAGE REQUIREMENT:
+- The product must be Uzbek-first
+- All user-facing UI text must be in Uzbek
+- All menu labels, buttons, forms, placeholders, validation messages, notifications, dashboard labels, navigation items, and page titles must be written in Uzbek
+- Code structure, variable names, and technical implementation can remain in English for maintainability
+- Do not produce English-first UI
+- Superadmin panel UI must be Uzbek
+- Administrator panel UI must be Uzbek
+- Mobile app UI must be Uzbek
+- If multilingual support is added later, Uzbek must remain the default language
+
+Now implement the Ruhiyat system on top of the confirmed foundations.
+
+IMPORTANT:
+- Use the existing confirmed stack exactly
+- Do not replace the foundations
+- Do not switch frameworks
+- Keep the monorepo structure exactly as confirmed
+- Keep backend, web, and mobile clearly separated
+- Build carefully and incrementally
+- Keep code clean, modular, typed, and production-oriented
+- Do not collapse everything into one file
+- Use reusable components
+- Follow best folder structure
+- Use API-driven architecture
+- Use realistic mock data only where needed, but structure everything for real database integration
+- Prefer maintainable UI over flashy but broken UI
+
+CONFIRMED STACK:
+- apps/api → NestJS + Prisma + PostgreSQL
+- apps/superadmin-web → Next.js + TypeScript + Tailwind + shadcn/ui
+- apps/admin-web → Next.js + TypeScript + Tailwind + shadcn/ui
+- apps/mobile → Expo + React Native + TypeScript, Android-first, APK/AAB-ready
+
+IMPLEMENT BACKEND:
+1) Complete and refine NestJS REST API domain modules
+2) Keep Prisma integration with PostgreSQL
+3) Complete Auth module:
+   - superadmin login
+   - administrator login
+   - mobile user register/login with phone + OTP flow
+   - refresh token flow
+   - password reset flow
+   - session management
+4) Complete RBAC:
+   - role guards
+   - permission checks
+5) Complete audit logging
+6) Notifications module
+7) Content modules
+8) Payments module
+9) Meetings module
+10) Community module
+11) Moderation module
+12) Mobile app settings module
+13) Security module
+14) Integrations module
+15) Technical monitoring-ready structure
+
+IMPLEMENT SUPERADMIN WEB PANEL:
+Create a premium professional dashboard UI with Uzbek interface:
+- sidebar navigation using the approved Superadmin modules (Uzbek labels)
+- responsive desktop-first admin experience
+- top header with:
+  - logo
+  - real-time date/time
+  - refresh
+  - dark/light toggle
+  - user menu
+- dashboard cards, charts, analytics widgets
+- placeholder pages for each approved module
+- structure pages cleanly and consistently
+- use shadcn/ui patterns
+- modern premium design
+- ALL UI TEXT MUST BE IN UZBEK
+
+SUPERADMIN MODULES:
+- Boshqaruv paneli
+- Analitika
+- Hisobotlar
+- Foydalanuvchilar
+- Psixologlar
+- Administratorlar
+- Rollar va ruxsatlar
+- Chat
+- Videochat
+- Hamjamiyat
+- Sharhlar
+- E’lonlar
+- Maqolalar CMS
+- Bannerlar
+- Bildirishnomalar
+- Audio kutubxona
+- Video kutubxona
+- Afirmatsiyalar
+- Proyektiv metodikalar
+- Psixologik testlar
+- Treninglar
+- Uchrashuvlar
+- Seanslar tarixi
+- Faollik loglari
+- Moderatsiya markazi
+- To‘lovlar
+- Daromadlar
+- Tranzaksiyalar
+- Statistika
+- Sozlamalar
+- Mobil ilova sozlamalari
+- Xavfsizlik
+- Audit loglari
+- Integratsiyalar
+- Texnik monitoring
+- API kalitlar
+- Kirish nazorati
+
+IMPLEMENT ADMINISTRATOR WEB PANEL:
+Create a professional management panel with Uzbek UI:
+- dashboard
+- o‘quvchilar
+- o‘qituvchilar
+- psixologlar
+- xodimlar
+- kurslar
+- guruhlar
+- to‘lovlar
+- hisobotlar
+- statistika
+- daromadlar
+- tranzaksiyalar
+- testlar
+- natijalar analitikasi
+- chat
+- bildirishnomalar
+- uchrashuvlar
+- e’lonlar
+- markaz sozlamalari
+- xodim rollari
+- xavfsizlik
+- audit loglari
+- integratsiyalar
+
+All UI labels must be in Uzbek.
+
+IMPLEMENT MOBILE APP:
+Build the real mobile app screens using React Native + Expo.
+
+IMPORTANT:
+- Android-first
+- APK/AAB-ready
+- Do not convert to web
+- Mobile UX must be clean and intuitive
+- All UI text must be Uzbek
+
+BOTTOM NAVIGATION:
+- Asosiy
+- Psixologiya
+- Kontent
+- Hamjamiyat
+- Profil
+
+INTERNAL SECTIONS:
+- Rivojlantirish
+- Xabarlar
+- Market
+
+MOBILE SCREENS:
+
+1) Auth:
+- Kirish
+- Ro‘yxatdan o‘tish
+- OTP tasdiqlash
+- Parolni tiklash
+
+2) Asosiy:
+- Kayfiyat belgilash
+- Tezkor tugmalar
+- Tavsiyalar
+- Uchrashuvlar
+- Progress
+
+3) Psixologiya:
+- Psixologlar
+- Psixolog AI (placeholder)
+- Chat
+- Videochat
+- Uchrashuvlar
+- Seanslar tarixi
+
+4) Rivojlantirish:
+- Kundalik
+- Odatlar
+- Uyqu
+- Nafas mashqlari
+- Testlar
+- Natijalar
+
+5) Kontent:
+- Maqolalar
+- Audio
+- Video
+- Afirmatsiyalar
+- Metodikalar
+- Treninglar
+
+6) Hamjamiyat:
+- Postlar
+- Kommentlar
+- Shikoyatlar
+
+7) Xabarlar:
+- Bildirishnomalar
+- E’lonlar
+
+8) Market:
+- Xizmatlar
+- Premium
+- To‘lovlar
+
+9) Profil:
+- Profil
+- Sozlamalar
+- Xavfsizlik
+- Faollik tarixi
+- Chiqish
+
+UI/UX REQUIREMENTS:
+- Clean modern design
+- Card-based layout
+- Excellent spacing
+- Uzbek typography-friendly UI
+- Dark/light mode support
+- Loading/empty/error states
+- Simple and intuitive navigation
+
+TECHNICAL REQUIREMENTS:
+- API client layer
+- Secure auth storage
+- Protected routes/screens
+- Typed DTOs
+- Validation rules
+
+DELIVERABLE:
+- Working monorepo
+- Functional backend
+- Superadmin panel ready
+- Administrator panel ready
+- Mobile app ready
+- Android-ready structure
+- Clean documentation
+
+EXECUTION RULE:
+First show implementation plan:
+1) API
+2) Superadmin
+3) Administrator
+4) Mobile
+
+Then build step-by-step.
+Do not rush.
+Do not break structure.

@@ -2,121 +2,74 @@
 
 ## Overview
 
-pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform with four products:
-1. **Superadmin Web Panel** (`apps/superadmin-web`) — platform-wide management (Next.js + TypeScript + Tailwind CSS + shadcn/ui) [planned]
-2. **Administrator Web Panel** (`apps/admin-web`) — education center management (Next.js + TypeScript + Tailwind CSS + shadcn/ui) [planned]
-3. **Mobile App** (`apps/mobile`) — end-user wellness app (React Native + Expo, Android-first) [planned]
-4. **Backend API** (`apps/api`) — NestJS + Prisma + PostgreSQL backend serving all clients
+pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **All UI is Uzbek-first.**
+
+1. **Superadmin Web Panel** (`apps/superadmin-web`) — 37 modules, premium dashboard (Next.js + Tailwind + shadcn/ui)
+2. **Administrator Web Panel** (`apps/admin-web`) — 23 modules, center management (Next.js + Tailwind + shadcn/ui)
+3. **Mobile App** (`apps/mobile`) — 12 screens, 5-tab navigation (Expo + React Native, Android-first)
+4. **Backend API** (`apps/api`) — 16 NestJS modules, 100+ endpoints (NestJS + Prisma + PostgreSQL)
 
 ## Monorepo Structure
 
 ```
 apps/
-  api/              — @ruhiyat/api (NestJS backend, port 3000)
-  superadmin-web/   — @ruhiyat/superadmin-web (Next.js) [placeholder]
-  admin-web/        — @ruhiyat/admin-web (Next.js) [placeholder]
-  mobile/           — @ruhiyat/mobile (Expo/React Native) [placeholder]
+  api/              — @ruhiyat/api (NestJS, port 3000)
+  superadmin-web/   — @ruhiyat/superadmin-web (Next.js, port 3100)
+  admin-web/        — @ruhiyat/admin-web (Next.js, port 3200)
+  mobile/           — @ruhiyat/mobile (Expo/React Native)
 packages/
   types/            — @ruhiyat/types (shared enums, interfaces)
-  ui/               — @ruhiyat/ui (shared UI utilities, cn())
+  ui/               — @ruhiyat/ui (shared UI utilities)
   config/           — @ruhiyat/config (shared constants)
-artifacts/
-  api-server/       — Legacy Replit artifact (duplicate of apps/api, managed by Replit)
-  mockup-sandbox/   — Canvas component preview server
 ```
 
 ## Stack
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.8
-- **API framework**: NestJS 11
-- **Database**: PostgreSQL + Prisma ORM
-- **Authentication**: JWT (access + refresh tokens), bcryptjs, OTP, Passport
-- **Validation**: class-validator, class-transformer
-- **Web panels**: Next.js 15 + Tailwind CSS + shadcn/ui
-- **Mobile**: React Native + Expo (Android-first, APK/AAB-ready)
-- **Build**: NestJS CLI (API), Next.js (web), Expo (mobile)
+- **Monorepo**: pnpm workspaces
+- **API**: NestJS 11 + Prisma + PostgreSQL
+- **Web panels**: Next.js 15 + Tailwind CSS v4 + shadcn/ui (new-york style)
+- **Mobile**: React Native 0.79 + Expo SDK 53 (Android-first, APK/AAB-ready)
+- **Auth**: JWT (access + refresh), bcryptjs, OTP, Passport
+- **Language**: All UI in Uzbek (code in English)
 
-## Database Schema
+## Superadmin Modules (37 pages)
 
-Prisma schema at `apps/api/prisma/schema.prisma` with 52 models organized by domain:
-- **Auth & Identity**: User, Role, Permission, Session, OtpVerification
-- **Profiles**: Superadmin, Administrator, MobileUser, Psychologist, Teacher, Staff, Student, EducationCenter
-- **Education**: Course, Group, Enrollment
-- **Assessments**: Test, Question, Answer, TestResult
-- **Communication**: Chat, ChatParticipant, Message, Notification, Announcement
-- **Community**: CommunityPost, Comment, Complaint, ModerationAction
-- **Content**: Article, Banner, AudioContent, VideoContent, Affirmation, ProjectiveMethod, Training
-- **Meetings**: Meeting, MeetingParticipant
-- **Finance**: Payment, Transaction, RevenueRecord
-- **System**: AuditLog, SystemSetting, MobileAppSetting, ApiKey, IntegrationSetting
-- **Wellness**: MoodEntry, DiaryEntry, Habit, HabitLog, SleepRecord, BreathingSession, SavedItem
+Boshqaruv paneli, Analitika, Hisobotlar, Statistika, Foydalanuvchilar, Psixologlar, Administratorlar, Rollar va ruxsatlar, Kirish nazorati, Chat, Videochat, Bildirishnomalar, E'lonlar, Hamjamiyat, Sharhlar, Moderatsiya markazi, Maqolalar CMS, Bannerlar, Audio kutubxona, Video kutubxona, Afirmatsiyalar, Proyektiv metodikalar, Psixologik testlar, Treninglar, Uchrashuvlar, Seanslar tarixi, To'lovlar, Daromadlar, Tranzaksiyalar, Sozlamalar, Mobil ilova sozlamalari, Xavfsizlik, Audit loglari, Faollik loglari, Integratsiyalar, Texnik monitoring, API kalitlar
 
-## NestJS Modules (16 modules, 100+ endpoints)
+## Administrator Modules (23 pages)
 
-Domain-based modules in `apps/api/src/`:
-- `auth/` — JWT auth, OTP, password reset, guards, decorators
-- `users/` — user CRUD & sessions
-- `roles/` — roles & permissions (RBAC)
-- `psychologists/` — psychologist profiles
-- `education-centers/` — center CRUD + sub-resources (staff, students, teachers, courses)
-- `courses/` — courses, groups, enrollments
-- `assessments/` — tests, questions, answers, results
-- `communication/` — chats, messages, notifications, announcements
-- `community/` — posts, comments, complaints, moderation
-- `content/` — articles, banners, audio, video, affirmations, projective methods, trainings
-- `meetings/` — meeting scheduling & participation
-- `finance/` — payments, transactions, revenue
-- `system/` — settings, audit logs, API keys, integrations
-- `wellness/` — mood, diary, habits, sleep, breathing, saved items
-- `health/` — health check endpoint
-- `prisma/` — global Prisma database service
+Boshqaruv paneli, Hisobotlar, Statistika, O'quvchilar, O'qituvchilar, Psixologlar, Xodimlar, Kurslar, Guruhlar, To'lovlar, Daromadlar, Tranzaksiyalar, Testlar, Natijalar analitikasi, Chat, Bildirishnomalar, Uchrashuvlar, E'lonlar, Markaz sozlamalari, Xodim rollari, Xavfsizlik, Audit loglari, Integratsiyalar
 
-## Auth Guards & Decorators
+## Mobile Screens (12 screens)
 
-- `JwtAuthGuard` — JWT bearer token authentication
-- `RolesGuard` — role-based access control
-- `@Roles('SUPERADMIN', 'ADMINISTRATOR')` — role requirement decorator
-- `@CurrentUser()` — extract current user from request
-
-## Roles
-
-- **SUPERADMIN**: full platform access (email + password + optional 2FA)
-- **ADMINISTRATOR**: center-scoped access (invite-only, email/phone + password)
-- **MOBILE_USER**: personal wellness features (phone + OTP, optional PIN/biometric)
-
-## Shared Packages
-
-- `@ruhiyat/types` — UserRole, ComplaintStatus, PaymentStatus, MeetingStatus, AuthTokens, ApiResponse, PaginatedResponse
-- `@ruhiyat/ui` — `cn()` utility (clsx + tailwind-merge)
-- `@ruhiyat/config` — API_BASE_URL, TOKEN_KEYS, ROLES, PAGINATION_DEFAULTS
+**Auth**: Kirish, Ro'yxatdan o'tish, OTP tasdiqlash, Parolni tiklash
+**Tabs**: Asosiy, Psixologiya, Kontent, Hamjamiyat, Profil
+**Internal**: Rivojlantirish, Xabarlar, Market
 
 ## Key Commands
 
-- `pnpm install` — install all dependencies
-- `pnpm --filter @ruhiyat/api run dev` — run NestJS API in watch mode
-- `pnpm --filter @ruhiyat/api run build` — build NestJS API
-- `cd apps/api && npx prisma generate` — generate Prisma client
-- `cd apps/api && npx prisma db push` — push schema to database
-- `cd apps/api && npx prisma studio` — open Prisma Studio
+- `pnpm --filter @ruhiyat/api run dev` — API (port 3000)
+- `pnpm --filter @ruhiyat/superadmin-web run dev` — Superadmin (port 3100)
+- `pnpm --filter @ruhiyat/admin-web run dev` — Admin (port 3200)
+- `cd apps/api && npx prisma db push` — push schema
+- `cd apps/api && npx prisma studio` — Prisma Studio
 
-## API Base URL
+## Database
 
-All endpoints prefixed with `/api/` (e.g., `/api/auth/login`, `/api/users`, `/api/healthz`)
+52 Prisma models at `apps/api/prisma/schema.prisma` covering Auth, Profiles, Education, Assessments, Communication, Community, Content, Meetings, Finance, System, Wellness.
 
 ## Environment Variables
 
 - `DATABASE_URL` — PostgreSQL connection string
-- `JWT_SECRET` — JWT signing secret (defaults to dev value)
-- `JWT_REFRESH_SECRET` — JWT refresh token secret (defaults to dev value)
+- `JWT_SECRET` / `JWT_REFRESH_SECRET` — JWT signing secrets
 - `SESSION_SECRET` — session secret
-- `PORT` — API server port (defaults to 3000)
 
-## Security
+## Architecture
 
-- Refresh tokens stored as SHA-256 hashes in database
-- JWT secrets fail-fast in production if missing
-- Rate limiting via @nestjs/throttler
-- Input validation via class-validator with whitelist mode
+- Sidebar + header layout pattern for web panels
+- Bottom tab navigation for mobile (5 tabs)
+- shadcn/ui components (button, card, sidebar, sheet, avatar, dropdown-menu, etc.)
+- ThemeProvider for dark/light mode toggle
+- AuthContext for mobile auth state management
+- API client layer (`src/services/api.ts`) in mobile
+- Module placeholder pattern for consistent page structure
