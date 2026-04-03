@@ -1,12 +1,5 @@
-export * from "./users";
-export * from "./sessions";
-export * from "./profiles";
-export * from "./education";
-export * from "./assessments";
-export * from "./communication";
-export * from "./community";
-export * from "./content";
-export * from "./meetings";
-export * from "./finance";
-export * from "./system";
-export * from "./wellness";
+// Database schema is managed via Prisma ORM
+// See artifacts/api-server/prisma/schema.prisma for the full schema definition
+// Prisma Client is generated and used directly in NestJS modules
+
+export {}

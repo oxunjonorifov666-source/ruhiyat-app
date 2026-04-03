@@ -1,0 +1,996 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// AUTH & IDENTITY
+// ============================================================================
+
+enum UserRole {
+  SUPERADMIN
+  ADMINISTRATOR
+  MOBILE_USER
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String?   @unique
+  phone        String?   @unique
+  passwordHash String?   @map("password_hash")
+  role         UserRole
+  isActive     Boolean   @default(true) @map("is_active")
+  isVerified   Boolean   @default(false) @map("is_verified")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  superadmin         Superadmin?
+  administrator      Administrator?
+  mobileUser         MobileUser?
+  sessions           Session[]
+  otpVerifications   OtpVerification[]
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+  payments           Payment[]
+  transactions       Transaction[]
+  communityPosts     CommunityPost[]
+  comments           Comment[]
+  complaints         Complaint[]          @relation("reporter")
+  resolvedComplaints Complaint[]          @relation("resolver")
+  moderationActions  ModerationAction[]
+  chatParticipants   ChatParticipant[]
+  sentMessages       Message[]
+  meetingHost        Meeting[]            @relation("host")
+  meetingParticipant MeetingParticipant[]
+  moodEntries        MoodEntry[]
+  diaryEntries       DiaryEntry[]
+  habits             Habit[]
+  habitLogs          HabitLog[]
+  sleepRecords       SleepRecord[]
+  breathingSessions  BreathingSession[]
+  savedItems         SavedItem[]
+  testResults        TestResult[]
+  psychologist       Psychologist?
+
+  @@map("users")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  permissions Permission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id        Int      @id @default(autoincrement())
+  roleId    Int      @map("role_id")
+  resource  String
+  action    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, resource, action])
+  @@map("permissions")
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  refreshToken String   @map("refresh_token")
+  deviceInfo   String?  @map("device_info")
+  ipAddress    String?  @map("ip_address")
+  isRevoked    Boolean  @default(false) @map("is_revoked")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model OtpVerification {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  phone     String?
+  email     String?
+  code      String
+  purpose   String
+  isUsed    Boolean  @default(false) @map("is_used")
+  attempts  Int      @default(0)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("otp_verifications")
+}
+
+// ============================================================================
+// PROFILES & ORGANIZATIONS
+// ============================================================================
+
+model Superadmin {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @unique @map("user_id")
+  firstName        String   @map("first_name")
+  lastName         String   @map("last_name")
+  twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
+  twoFactorSecret  String?  @map("two_factor_secret")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("superadmins")
+}
+
+model EducationCenter {
+  id          Int      @id @default(autoincrement())
+  name        String
+  address     String?
+  phone       String?
+  email       String?
+  description String?
+  logoUrl     String?  @map("logo_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  administrators Administrator[]
+  psychologists  Psychologist[]
+  teachers       Teacher[]
+  staff          Staff[]
+  students       Student[]
+  courses        Course[]
+  groups         Group[]
+
+  @@map("education_centers")
+}
+
+model Administrator {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  centerId  Int      @map("center_id")
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  position  String?
+  invitedBy Int?     @map("invited_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  center EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  @@map("administrators")
+}
+
+model MobileUser {
+  id               Int       @id @default(autoincrement())
+  userId           Int       @unique @map("user_id")
+  firstName        String?   @map("first_name")
+  lastName         String?   @map("last_name")
+  avatarUrl        String?   @map("avatar_url")
+  dateOfBirth      DateTime? @map("date_of_birth") @db.Date
+  gender           String?
+  bio              String?
+  pinHash          String?   @map("pin_hash")
+  biometricEnabled Boolean   @default(false) @map("biometric_enabled")
+  isPremium        Boolean   @default(false) @map("is_premium")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mobile_users")
+}
+
+model Psychologist {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique @map("user_id")
+  centerId        Int?     @map("center_id")
+  firstName       String   @map("first_name")
+  lastName        String   @map("last_name")
+  specialization  String?
+  bio             String?
+  avatarUrl       String?  @map("avatar_url")
+  licenseNumber   String?  @map("license_number")
+  experienceYears Int?     @map("experience_years")
+  isVerified      Boolean  @default(false) @map("is_verified")
+  isAvailable     Boolean  @default(true) @map("is_available")
+  hourlyRate      Int?     @map("hourly_rate")
+  rating          Float?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  center EducationCenter? @relation(fields: [centerId], references: [id])
+
+  @@map("psychologists")
+}
+
+model Teacher {
+  id        Int      @id @default(autoincrement())
+  centerId  Int      @map("center_id")
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  subject   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  center EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  @@map("teachers")
+}
+
+model Staff {
+  id        Int      @id @default(autoincrement())
+  centerId  Int      @map("center_id")
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  position  String?
+  phone     String?
+  email     String?
+  roleId    Int?     @map("role_id")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  center EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  @@map("staff")
+}
+
+model Student {
+  id          Int       @id @default(autoincrement())
+  centerId    Int       @map("center_id")
+  firstName   String    @map("first_name")
+  lastName    String    @map("last_name")
+  phone       String?
+  email       String?
+  dateOfBirth DateTime? @map("date_of_birth") @db.Date
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  center      EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
+
+  @@map("students")
+}
+
+// ============================================================================
+// EDUCATION
+// ============================================================================
+
+model Course {
+  id          Int      @id @default(autoincrement())
+  centerId    Int      @map("center_id")
+  title       String
+  description String?
+  category    String?
+  duration    Int?
+  price       Int?
+  imageUrl    String?  @map("image_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdBy   Int?     @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  center      EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  groups      Group[]
+  enrollments Enrollment[]
+
+  @@map("courses")
+}
+
+model Group {
+  id          Int      @id @default(autoincrement())
+  centerId    Int      @map("center_id")
+  courseId    Int?     @map("course_id")
+  name        String
+  description String?
+  maxStudents Int?     @map("max_students")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  center      EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  course      Course?         @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  enrollments Enrollment[]
+
+  @@map("groups")
+}
+
+model Enrollment {
+  id          Int       @id @default(autoincrement())
+  studentId   Int       @map("student_id")
+  courseId    Int?      @map("course_id")
+  groupId     Int?      @map("group_id")
+  status      String    @default("active")
+  enrolledAt  DateTime  @default(now()) @map("enrolled_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course  Course? @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@map("enrollments")
+}
+
+// ============================================================================
+// ASSESSMENTS
+// ============================================================================
+
+model Test {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  category    String?
+  type        String   @default("psychological")
+  duration    Int?
+  imageUrl    String?  @map("image_url")
+  isPublished Boolean  @default(false) @map("is_published")
+  createdBy   Int?     @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  questions   Question[]
+  testResults TestResult[]
+
+  @@map("tests")
+}
+
+model Question {
+  id         Int      @id @default(autoincrement())
+  testId     Int      @map("test_id")
+  text       String
+  type       String   @default("single_choice")
+  orderIndex Int      @default(0) @map("order_index")
+  imageUrl   String?  @map("image_url")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  test    Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  answers Answer[]
+
+  @@map("questions")
+}
+
+model Answer {
+  id         Int      @id @default(autoincrement())
+  questionId Int      @map("question_id")
+  text       String
+  isCorrect  Boolean  @default(false) @map("is_correct")
+  score      Int      @default(0)
+  orderIndex Int      @default(0) @map("order_index")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("answers")
+}
+
+model TestResult {
+  id             Int       @id @default(autoincrement())
+  testId         Int       @map("test_id")
+  userId         Int       @map("user_id")
+  score          Int?
+  maxScore       Int?      @map("max_score")
+  responses      Json?
+  interpretation String?
+  completedAt    DateTime? @map("completed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("test_results")
+}
+
+// ============================================================================
+// COMMUNICATION
+// ============================================================================
+
+enum ChatType {
+  DIRECT
+  GROUP
+  SUPPORT
+}
+
+model Chat {
+  id        Int      @id @default(autoincrement())
+  type      ChatType @default(DIRECT)
+  title     String?
+  createdBy Int?     @map("created_by")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  participants ChatParticipant[]
+  messages     Message[]
+
+  @@map("chats")
+}
+
+model ChatParticipant {
+  id       Int       @id @default(autoincrement())
+  chatId   Int       @map("chat_id")
+  userId   Int       @map("user_id")
+  joinedAt DateTime  @default(now()) @map("joined_at")
+  leftAt   DateTime? @map("left_at")
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+  @@map("chat_participants")
+}
+
+model Message {
+  id            Int      @id @default(autoincrement())
+  chatId        Int      @map("chat_id")
+  senderId      Int      @map("sender_id")
+  content       String?
+  type          String   @default("text")
+  attachmentUrl String?  @map("attachment_url")
+  isRead        Boolean  @default(false) @map("is_read")
+  isDeleted     Boolean  @default(false) @map("is_deleted")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  title     String
+  body      String?
+  type      String   @default("general")
+  isRead    Boolean  @default(false) @map("is_read")
+  metadata  String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Announcement {
+  id             Int       @id @default(autoincrement())
+  title          String
+  content        String
+  type           String    @default("general")
+  targetAudience String    @default("all") @map("target_audience")
+  centerId       Int?      @map("center_id")
+  isPublished    Boolean   @default(false) @map("is_published")
+  publishedAt    DateTime? @map("published_at")
+  expiresAt      DateTime? @map("expires_at")
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@map("announcements")
+}
+
+// ============================================================================
+// COMMUNITY
+// ============================================================================
+
+model CommunityPost {
+  id            Int      @id @default(autoincrement())
+  authorId      Int      @map("author_id")
+  title         String?
+  content       String
+  imageUrl      String?  @map("image_url")
+  likesCount    Int      @default(0) @map("likes_count")
+  commentsCount Int      @default(0) @map("comments_count")
+  isPublished   Boolean  @default(true) @map("is_published")
+  isFlagged     Boolean  @default(false) @map("is_flagged")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@map("community_posts")
+}
+
+model Comment {
+  id         Int      @id @default(autoincrement())
+  postId     Int      @map("post_id")
+  authorId   Int      @map("author_id")
+  content    String
+  parentId   Int?     @map("parent_id")
+  likesCount Int      @default(0) @map("likes_count")
+  isFlagged  Boolean  @default(false) @map("is_flagged")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  post     CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent   Comment?      @relation("CommentThread", fields: [parentId], references: [id])
+  children Comment[]     @relation("CommentThread")
+
+  @@map("comments")
+}
+
+enum ComplaintStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+model Complaint {
+  id          Int             @id @default(autoincrement())
+  reporterId  Int             @map("reporter_id")
+  targetType  String          @map("target_type")
+  targetId    Int             @map("target_id")
+  reason      String
+  description String?
+  status      ComplaintStatus @default(PENDING)
+  resolvedBy  Int?            @map("resolved_by")
+  resolvedAt  DateTime?       @map("resolved_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  reporter User  @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolver User? @relation("resolver", fields: [resolvedBy], references: [id])
+
+  moderationActions ModerationAction[]
+
+  @@map("complaints")
+}
+
+model ModerationAction {
+  id          Int      @id @default(autoincrement())
+  moderatorId Int      @map("moderator_id")
+  targetType  String   @map("target_type")
+  targetId    Int      @map("target_id")
+  action      String
+  reason      String?
+  complaintId Int?     @map("complaint_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  moderator User       @relation(fields: [moderatorId], references: [id])
+  complaint Complaint? @relation(fields: [complaintId], references: [id])
+
+  @@map("moderation_actions")
+}
+
+// ============================================================================
+// CONTENT
+// ============================================================================
+
+model Article {
+  id            Int       @id @default(autoincrement())
+  title         String
+  slug          String    @unique
+  content       String
+  excerpt       String?
+  coverImageUrl String?   @map("cover_image_url")
+  category      String?
+  tags          String[]
+  authorId      Int?      @map("author_id")
+  isPublished   Boolean   @default(false) @map("is_published")
+  publishedAt   DateTime? @map("published_at")
+  viewCount     Int       @default(0) @map("view_count")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("articles")
+}
+
+model Banner {
+  id         Int       @id @default(autoincrement())
+  title      String
+  imageUrl   String    @map("image_url")
+  linkUrl    String?   @map("link_url")
+  position   String    @default("home")
+  orderIndex Int       @default(0) @map("order_index")
+  isActive   Boolean   @default(true) @map("is_active")
+  startsAt   DateTime? @map("starts_at")
+  endsAt     DateTime? @map("ends_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@map("banners")
+}
+
+model AudioContent {
+  id            Int      @id @default(autoincrement())
+  title         String
+  description   String?
+  fileUrl       String   @map("file_url")
+  coverImageUrl String?  @map("cover_image_url")
+  duration      Int?
+  category      String?
+  tags          String[]
+  isPublished   Boolean  @default(false) @map("is_published")
+  playCount     Int      @default(0) @map("play_count")
+  createdBy     Int?     @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("audio_content")
+}
+
+model VideoContent {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String?
+  fileUrl      String   @map("file_url")
+  thumbnailUrl String?  @map("thumbnail_url")
+  duration     Int?
+  category     String?
+  tags         String[]
+  isPublished  Boolean  @default(false) @map("is_published")
+  viewCount    Int      @default(0) @map("view_count")
+  createdBy    Int?     @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("video_content")
+}
+
+model Affirmation {
+  id         Int      @id @default(autoincrement())
+  content    String
+  category   String?
+  imageUrl   String?  @map("image_url")
+  isActive   Boolean  @default(true) @map("is_active")
+  orderIndex Int      @default(0) @map("order_index")
+  createdBy  Int?     @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("affirmations")
+}
+
+model ProjectiveMethod {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String?
+  instructions String?
+  imageUrl     String?  @map("image_url")
+  category     String?
+  isPublished  Boolean  @default(false) @map("is_published")
+  createdBy    Int?     @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("projective_methods")
+}
+
+model Training {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  content     String?
+  category    String?
+  duration    Int?
+  imageUrl    String?  @map("image_url")
+  videoUrl    String?  @map("video_url")
+  difficulty  String   @default("beginner")
+  isPublished Boolean  @default(false) @map("is_published")
+  createdBy   Int?     @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("trainings")
+}
+
+// ============================================================================
+// MEETINGS
+// ============================================================================
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MeetingType {
+  CONSULTATION
+  THERAPY
+  GROUP_SESSION
+  TRAINING
+  OTHER
+}
+
+model Meeting {
+  id          Int           @id @default(autoincrement())
+  title       String
+  description String?
+  type        MeetingType   @default(CONSULTATION)
+  status      MeetingStatus @default(SCHEDULED)
+  hostId      Int           @map("host_id")
+  scheduledAt DateTime      @map("scheduled_at")
+  duration    Int
+  meetingUrl  String?       @map("meeting_url")
+  notes       String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  host         User                 @relation("host", fields: [hostId], references: [id])
+  participants MeetingParticipant[]
+
+  @@map("meetings")
+}
+
+model MeetingParticipant {
+  id        Int       @id @default(autoincrement())
+  meetingId Int       @map("meeting_id")
+  userId    Int       @map("user_id")
+  status    String    @default("invited")
+  joinedAt  DateTime? @map("joined_at")
+  leftAt    DateTime? @map("left_at")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, userId])
+  @@map("meeting_participants")
+}
+
+// ============================================================================
+// FINANCE
+// ============================================================================
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+model Payment {
+  id                Int           @id @default(autoincrement())
+  userId            Int           @map("user_id")
+  amount            Int
+  currency          String        @default("UZS")
+  status            PaymentStatus @default(PENDING)
+  provider          String?
+  providerPaymentId String?       @map("provider_payment_id")
+  description       String?
+  metadata          String?
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("payments")
+}
+
+model Transaction {
+  id          Int      @id @default(autoincrement())
+  paymentId   Int?     @map("payment_id")
+  userId      Int      @map("user_id")
+  type        String
+  amount      Int
+  currency    String   @default("UZS")
+  description String?
+  referenceId String?  @map("reference_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  payment Payment? @relation(fields: [paymentId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+
+  @@map("transactions")
+}
+
+model RevenueRecord {
+  id          Int      @id @default(autoincrement())
+  centerId    Int?     @map("center_id")
+  source      String
+  amount      Int
+  currency    String   @default("UZS")
+  period      String?
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("revenue_records")
+}
+
+// ============================================================================
+// SYSTEM
+// ============================================================================
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  action     String
+  resource   String
+  resourceId Int?     @map("resource_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String?
+  description String?
+  category    String   @default("general")
+  isPublic    Boolean  @default(false) @map("is_public")
+  updatedBy   Int?     @map("updated_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model MobileAppSetting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String?
+  platform    String   @default("all")
+  description String?
+  updatedBy   Int?     @map("updated_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("mobile_app_settings")
+}
+
+model ApiKey {
+  id          Int       @id @default(autoincrement())
+  name        String
+  keyHash     String    @map("key_hash")
+  keyPrefix   String    @map("key_prefix")
+  permissions String[]
+  isActive    Boolean   @default(true) @map("is_active")
+  lastUsedAt  DateTime? @map("last_used_at")
+  expiresAt   DateTime? @map("expires_at")
+  createdBy   Int?      @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("api_keys")
+}
+
+model IntegrationSetting {
+  id        Int      @id @default(autoincrement())
+  name      String
+  provider  String
+  config    Json?
+  isActive  Boolean  @default(false) @map("is_active")
+  createdBy Int?     @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("integration_settings")
+}
+
+// ============================================================================
+// WELLNESS
+// ============================================================================
+
+model MoodEntry {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  mood      Int
+  note      String?
+  factors   String[]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mood_entries")
+}
+
+model DiaryEntry {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  title     String?
+  content   String
+  mood      Int?
+  tags      String[]
+  isPrivate Boolean  @default(true) @map("is_private")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("diary_entries")
+}
+
+model Habit {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  name        String
+  description String?
+  frequency   String   @default("daily")
+  targetCount Int      @default(1) @map("target_count")
+  color       String?
+  icon        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs HabitLog[]
+
+  @@map("habits")
+}
+
+model HabitLog {
+  id          Int      @id @default(autoincrement())
+  habitId     Int      @map("habit_id")
+  userId      Int      @map("user_id")
+  completedAt DateTime @default(now()) @map("completed_at")
+  note        String?
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("habit_logs")
+}
+
+model SleepRecord {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @map("user_id")
+  sleepStart DateTime  @map("sleep_start")
+  sleepEnd   DateTime? @map("sleep_end")
+  quality    Int?
+  notes      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sleep_records")
+}
+
+model BreathingSession {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  technique   String
+  duration    Int
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("breathing_sessions")
+}
+
+model SavedItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  itemType  String   @map("item_type")
+  itemId    Int      @map("item_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemType, itemId])
+  @@map("saved_items")
+}
