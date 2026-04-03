@@ -1471,7 +1471,7 @@ Object.defineProperty(exports, "findSourceMapURL", {
         return findSourceMapURL;
     }
 });
-const basePath = ("TURBOPACK compile-time value", "") || '';
+const basePath = ("TURBOPACK compile-time value", "/admin") || '';
 const pathname = "" + basePath + "/__nextjs_source-map";
 const findSourceMapURL = ("TURBOPACK compile-time truthy", 1) ? function findSourceMapURL(filename) {
     if (filename === '') {
@@ -3667,7 +3667,7 @@ Object.defineProperty(exports, "addBasePath", {
 });
 const _addpathprefix = __turbopack_context__.r("[project]/node_modules/.pnpm/next@15.5.14_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/shared/lib/router/utils/add-path-prefix.js [app-client] (ecmascript)");
 const _normalizetrailingslash = __turbopack_context__.r("[project]/node_modules/.pnpm/next@15.5.14_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/client/normalize-trailing-slash.js [app-client] (ecmascript)");
-const basePath = ("TURBOPACK compile-time value", "") || '';
+const basePath = ("TURBOPACK compile-time value", "/admin") || '';
 function addBasePath(path, required) {
     return (0, _normalizetrailingslash.normalizePathTrailingSlash)(("TURBOPACK compile-time falsy", 0) ? "TURBOPACK unreachable" : (0, _addpathprefix.addPathPrefix)(path, basePath));
 }
@@ -4743,7 +4743,7 @@ Object.defineProperty(exports, "hasBasePath", {
     }
 });
 const _pathhasprefix = __turbopack_context__.r("[project]/node_modules/.pnpm/next@15.5.14_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/shared/lib/router/utils/path-has-prefix.js [app-client] (ecmascript)");
-const basePath = ("TURBOPACK compile-time value", "") || '';
+const basePath = ("TURBOPACK compile-time value", "/admin") || '';
 function hasBasePath(path) {
     return (0, _pathhasprefix.pathHasPrefix)(path, basePath);
 }
@@ -4770,7 +4770,7 @@ Object.defineProperty(exports, "removeBasePath", {
     }
 });
 const _hasbasepath = __turbopack_context__.r("[project]/node_modules/.pnpm/next@15.5.14_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/client/has-base-path.js [app-client] (ecmascript)");
-const basePath = ("TURBOPACK compile-time value", "") || '';
+const basePath = ("TURBOPACK compile-time value", "/admin") || '';
 function removeBasePath(path) {
     if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
     ;

@@ -1,0 +1,21 @@
+kind = "web"
+previewPath = "/superadmin/"
+title = "Superadmin Web"
+version = "1.0.0"
+id = "artifacts/superadmin-web"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/superadmin/" ]
+localPort = 18343
+
+[services.development]
+run = "pnpm --filter @ruhiyat/superadmin-web run dev"
+
+[services.env]
+PORT = "18343"

@@ -4,8 +4,8 @@
 
 pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **All UI is Uzbek-first.**
 
-1. **Superadmin Web Panel** (`apps/superadmin-web`) — 37 modules, real auth, protected routes (Next.js + Tailwind + shadcn/ui, port 3100)
-2. **Administrator Web Panel** (`apps/admin-web`) — 23 modules, real auth, protected routes (Next.js + Tailwind + shadcn/ui, port 3200)
+1. **Superadmin Web Panel** (`apps/superadmin-web`) — 37 modules, real auth, protected routes (Next.js + Tailwind + shadcn/ui, artifact preview at `/superadmin/`)
+2. **Administrator Web Panel** (`apps/admin-web`) — 23 modules, real auth, protected routes (Next.js + Tailwind + shadcn/ui, artifact preview at `/admin/`)
 3. **Mobile App** (`apps/mobile`) — 12 screens, real auth with SecureStore, gated navigation (Expo + React Native, Android-first)
 4. **Backend API** (`apps/api`) — 16 NestJS modules, 100+ endpoints, JWT auth, RBAC (NestJS + Prisma + PostgreSQL, port 3000)
 
@@ -66,13 +66,17 @@ pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **
 ```
 apps/
   api/              — @ruhiyat/api (NestJS, port 3000)
-  superadmin-web/   — @ruhiyat/superadmin-web (Next.js, port 3100)
-  admin-web/        — @ruhiyat/admin-web (Next.js, port 3200)
+  superadmin-web/   — @ruhiyat/superadmin-web (Next.js, artifact: /superadmin/, basePath: /superadmin)
+  admin-web/        — @ruhiyat/admin-web (Next.js, artifact: /admin/, basePath: /admin)
   mobile/           — @ruhiyat/mobile (Expo/React Native)
 packages/
   types/            — @ruhiyat/types (shared enums, interfaces)
   ui/               — @ruhiyat/ui (shared UI utilities)
   config/           — @ruhiyat/config (shared constants, TOKEN_KEYS)
+artifacts/
+  superadmin-web/   — Artifact registration (routes to apps/superadmin-web)
+  admin-web/        — Artifact registration (routes to apps/admin-web)
+  api-server/       — Legacy artifact API server
 ```
 
 ## Real Data Integration
@@ -128,8 +132,8 @@ All placeholder pages have been replaced with real API-connected data:
 ## Key Commands
 
 - `pnpm --filter @ruhiyat/api run dev` — API (port 3000)
-- `pnpm --filter @ruhiyat/superadmin-web run dev` — Superadmin (port 3100)
-- `pnpm --filter @ruhiyat/admin-web run dev` — Admin (port 3200)
+- `pnpm --filter @ruhiyat/superadmin-web run dev` — Superadmin (artifact port 18343, preview: /superadmin/)
+- `pnpm --filter @ruhiyat/admin-web run dev` — Admin (artifact port 24276, preview: /admin/)
 - `cd apps/api && npx ts-node --transpile-only src/seed.ts` — Seed database
 - `cd apps/api && npx prisma db push` — Push schema
 - `cd apps/api && npx prisma studio` — Prisma Studio

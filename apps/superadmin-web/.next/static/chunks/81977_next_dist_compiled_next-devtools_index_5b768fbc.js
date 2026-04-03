@@ -12906,7 +12906,7 @@ for(var __webpack_i__ in (()=>{
         return r[2] !== i || r[3] !== o || r[4] !== a ? (n = function() {
             if (null != o && null != a && null != i) {
                 var e = new URLSearchParams;
-                e.append("file", o), e.append("line1", String(a)), e.append("column1", String(i)), self.fetch("".concat(("TURBOPACK compile-time value", "") || "", "/__nextjs_launch-editor?").concat(e.toString())).then(eP, function(e) {
+                e.append("file", o), e.append("line1", String(a)), e.append("column1", String(i)), self.fetch("".concat(("TURBOPACK compile-time value", "/superadmin") || "", "/__nextjs_launch-editor?").concat(e.toString())).then(eP, function(e) {
                     console.error('Failed to open file "'.concat(o, " (").concat(a, ":").concat(i, ')" in your editor. Cause:'), e);
                 });
             }
@@ -14465,7 +14465,7 @@ for(var __webpack_i__ in (()=>{
                                 4
                             ]), [
                                 4,
-                                fetch("".concat(("TURBOPACK compile-time value", "") || "", "/__nextjs_error_feedback?").concat(new URLSearchParams({
+                                fetch("".concat(("TURBOPACK compile-time value", "/superadmin") || "", "/__nextjs_error_feedback?").concat(new URLSearchParams({
                                     errorCode: r,
                                     wasHelpful: e.toString()
                                 })))
@@ -26760,7 +26760,7 @@ for(var __webpack_i__ in (()=>{
                 file: e.filePath,
                 isAppRelativePath: "1"
             });
-            fetch("".concat(("TURBOPACK compile-time value", "") || "", "/__nextjs_launch-editor?").concat(t.toString())).catch(console.warn);
+            fetch("".concat(("TURBOPACK compile-time value", "/superadmin") || "", "/__nextjs_launch-editor?").concat(t.toString())).catch(console.warn);
         }, []), x = (0, w.useCallback)(function(e) {
             switch(e){
                 case "not-found":
@@ -27723,7 +27723,7 @@ for(var __webpack_i__ in (()=>{
                     filePath: u
                 }.filePath,
                 isAppRelativePath: "1"
-            }), fetch("".concat(("TURBOPACK compile-time value", "") || "", "/__nextjs_launch-editor?").concat(e.toString()));
+            }), fetch("".concat(("TURBOPACK compile-time value", "/superadmin") || "", "/__nextjs_launch-editor?").concat(e.toString()));
         }, i[4] = u, i[5] = n) : n = i[5], i[6] !== d ? (r = (0, A.jsx)("span", {
             className: "segment-explorer-file-label-text",
             children: d

@@ -5,7 +5,7 @@ type AppRoutes = "/" | "/access-control" | "/activity-logs" | "/administrators" 
 type PageRoutes = never
 type LayoutRoutes = "/"
 type RedirectRoutes = never
-type RewriteRoutes = never
+type RewriteRoutes = "/api/[[...path]]"
 type Routes = AppRoutes | PageRoutes | LayoutRoutes | RedirectRoutes | RewriteRoutes
 
 
@@ -18,6 +18,7 @@ interface ParamMap {
   "/analytics": {}
   "/announcements": {}
   "/api-keys": {}
+  "/api/[[...path]]": { "path"?: string[]; }
   "/articles": {}
   "/audio": {}
   "/audit-logs": {}

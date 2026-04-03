@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p ${PORT:-3200}",
+    "dev": "next dev --turbopack -p ${PORT:-24276}",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"

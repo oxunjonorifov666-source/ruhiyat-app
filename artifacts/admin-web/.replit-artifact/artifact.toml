@@ -1,0 +1,21 @@
+kind = "web"
+previewPath = "/admin/"
+title = "Admin Web"
+version = "1.0.0"
+id = "artifacts/admin-web"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/admin/" ]
+localPort = 24276
+
+[services.development]
+run = "pnpm --filter @ruhiyat/admin-web run dev"
+
+[services.env]
+PORT = "24276"

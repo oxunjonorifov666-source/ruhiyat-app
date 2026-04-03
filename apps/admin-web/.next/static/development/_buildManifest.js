@@ -1,6 +1,10 @@
 self.__BUILD_MANIFEST = {
   "__rewrites": {
-    "afterFiles": [],
+    "afterFiles": [
+      {
+        "source": "/admin/api/:path*"
+      }
+    ],
     "beforeFiles": [],
     "fallback": []
   },

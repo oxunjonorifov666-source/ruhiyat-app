@@ -1,6 +1,6 @@
 import { getStoredTokens, storeTokens, clearTokens } from './auth';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/superadmin/api';
 
 interface RequestOptions {
   method?: string;
@@ -28,7 +28,9 @@ async function refreshAccessToken(): Promise<string | null> {
 
 export async function apiClient<T = any>(path: string, options: RequestOptions = {}): Promise<T> {
   const tokens = getStoredTokens();
-  const url = new URL(`${API_URL}${path}`);
+  const url = API_URL.startsWith('http')
+    ? new URL(`${API_URL}${path}`)
+    : new URL(`${API_URL}${path}`, window.location.origin);
 
   if (options.params) {
     Object.entries(options.params).forEach(([key, value]) => {
@@ -59,7 +61,7 @@ export async function apiClient<T = any>(path: string, options: RequestOptions =
       });
     } else {
       clearTokens();
-      window.location.href = '/login';
+      window.location.href = '/superadmin/login';
       throw new Error('Sessiya tugadi');
     }
   }
