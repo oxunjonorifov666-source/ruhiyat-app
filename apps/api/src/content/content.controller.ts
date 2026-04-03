@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { ContentService } from './content.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller()
 export class ContentController {
@@ -17,25 +19,31 @@ export class ContentController {
   @Get('articles/:id')
   findArticle(@Param('id', ParseIntPipe) id: number) { return this.service.findArticle(id); }
   @Post('articles')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   createArticle(@Body() data: any) { return this.service.createArticle(data); }
   @Patch('articles/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   updateArticle(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateArticle(id, data); }
   @Delete('articles/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN')
   removeArticle(@Param('id', ParseIntPipe) id: number) { return this.service.removeArticle(id); }
 
   @Get('banners')
   findAllBanners() { return this.service.findAllBanners(); }
   @Post('banners')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   createBanner(@Body() data: any) { return this.service.createBanner(data); }
   @Patch('banners/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   updateBanner(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateBanner(id, data); }
   @Delete('banners/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN')
   removeBanner(@Param('id', ParseIntPipe) id: number) { return this.service.removeBanner(id); }
 
   @Get('audio')
@@ -49,13 +57,16 @@ export class ContentController {
   @Get('audio/:id')
   findAudio(@Param('id', ParseIntPipe) id: number) { return this.service.findAudio(id); }
   @Post('audio')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   createAudio(@Body() data: any) { return this.service.createAudio(data); }
   @Patch('audio/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   updateAudio(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateAudio(id, data); }
   @Delete('audio/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN')
   removeAudio(@Param('id', ParseIntPipe) id: number) { return this.service.removeAudio(id); }
 
   @Get('videos')
@@ -69,25 +80,31 @@ export class ContentController {
   @Get('videos/:id')
   findVideo(@Param('id', ParseIntPipe) id: number) { return this.service.findVideo(id); }
   @Post('videos')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   createVideo(@Body() data: any) { return this.service.createVideo(data); }
   @Patch('videos/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   updateVideo(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateVideo(id, data); }
   @Delete('videos/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN')
   removeVideo(@Param('id', ParseIntPipe) id: number) { return this.service.removeVideo(id); }
 
   @Get('affirmations')
   findAllAffirmations() { return this.service.findAllAffirmations(); }
   @Post('affirmations')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   createAffirmation(@Body() data: any) { return this.service.createAffirmation(data); }
   @Patch('affirmations/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   updateAffirmation(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateAffirmation(id, data); }
   @Delete('affirmations/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN')
   removeAffirmation(@Param('id', ParseIntPipe) id: number) { return this.service.removeAffirmation(id); }
 
   @Get('projective-methods')
@@ -95,13 +112,16 @@ export class ContentController {
   @Get('projective-methods/:id')
   findProjectiveMethod(@Param('id', ParseIntPipe) id: number) { return this.service.findProjectiveMethod(id); }
   @Post('projective-methods')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN')
   createProjectiveMethod(@Body() data: any) { return this.service.createProjectiveMethod(data); }
   @Patch('projective-methods/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN')
   updateProjectiveMethod(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateProjectiveMethod(id, data); }
   @Delete('projective-methods/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN')
   removeProjectiveMethod(@Param('id', ParseIntPipe) id: number) { return this.service.removeProjectiveMethod(id); }
 
   @Get('trainings')
@@ -109,12 +129,15 @@ export class ContentController {
   @Get('trainings/:id')
   findTraining(@Param('id', ParseIntPipe) id: number) { return this.service.findTraining(id); }
   @Post('trainings')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   createTraining(@Body() data: any) { return this.service.createTraining(data); }
   @Patch('trainings/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   updateTraining(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateTraining(id, data); }
   @Delete('trainings/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN')
   removeTraining(@Param('id', ParseIntPipe) id: number) { return this.service.removeTraining(id); }
 }

@@ -9,15 +9,15 @@ pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **
 3. **Mobile App** (`apps/mobile`) — 12 screens, real auth with SecureStore, gated navigation (Expo + React Native, Android-first)
 4. **Backend API** (`apps/api`) — 16 NestJS modules, 100+ endpoints, JWT auth, RBAC (NestJS + Prisma + PostgreSQL, port 3000)
 
-## Authentication System (REAL, NOT MOCKED)
+## Authentication & Security
 
 ### Auth Flow
 - **Login**: POST `/api/auth/login` with `{email, password}` or `{phone, password}`
-- **Register**: POST `/api/auth/register` with `{phone, firstName, lastName, password, role}`
+- **Register**: POST `/api/auth/register` — password must be 8+ chars with uppercase, lowercase, digit
 - **Profile**: GET `/api/auth/me` (Bearer token required)
 - **Refresh**: POST `/api/auth/refresh` with `{refreshToken}` — rotates tokens, revokes old session
 - **Logout**: POST `/api/auth/logout` with `{refreshToken}` — revokes session
-- **OTP**: POST `/api/auth/otp/send` and `/api/auth/otp/verify`
+- **OTP**: POST `/api/auth/otp/send` and `/api/auth/otp/verify` — purpose restricted to enum
 - **Password Reset**: POST `/api/auth/password/reset-request` and `/api/auth/password/reset`
 
 ### Token Management
@@ -26,11 +26,23 @@ pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **
 - Web panels: localStorage + cookies (middleware reads cookies for server-side redirect)
 - Mobile: expo-secure-store for persistent token storage
 
+### Security Hardening (Applied)
+- **Helmet**: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc.
+- **CORS**: Configurable via `CORS_ORIGINS` env var, blocks all in production by default
+- **Rate Limiting**: Global 100 req/min, auth endpoints stricter (login 10/min, OTP send 3/min)
+- **RBAC**: All write endpoints enforce role-based access (SUPERADMIN/ADMINISTRATOR)
+- **Exception Filter**: Stack traces hidden in production
+- **Audit Logging**: All write operations logged to `audit_logs` table with user, IP, action
+- **Password Validation**: 8+ chars, uppercase, lowercase, digit
+- **OTP Enum**: Purpose restricted to `login/registration/verification/password_reset`
+- **No Hardcoded Secrets**: JWT secrets checked in production, psychologist password randomized
+
 ### Role-Based Access Control
 - **SUPERADMIN**: Full platform access, superadmin-web panel only
 - **ADMINISTRATOR**: Center-scoped access, admin-web panel only
 - **MOBILE_USER**: Personal wellness features, mobile app only
 - Cross-role access is blocked (superadmin can't access admin panel and vice versa)
+- Content/finance/moderation write endpoints restricted to admin roles
 
 ### Route Protection
 - Web: Next.js middleware checks cookies, redirects to `/login` if no token
@@ -41,6 +53,9 @@ pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **
 - Superadmin: `superadmin@ruhiyat.uz` / `admin123`
 - Admin: `admin@markaz.uz` / `admin123`
 - Mobile: `+998901234567` / `user123`
+
+### Security Audit Report
+- Full report at `docs/SECURITY_AUDIT.md`
 
 ## Dashboard Stats (REAL DATA)
 - Superadmin: GET `/api/dashboard/superadmin/stats` — totalUsers, activePsychologists, educationCenters, totalPayments, activeSessions, communityPosts, articles + recentUsers
@@ -130,3 +145,4 @@ All placeholder pages have been replaced with real API-connected data:
 - **Web panels**: Next.js 15 + Tailwind CSS v4 + shadcn/ui (NO Vite)
 - **Mobile**: React Native 0.79 + Expo SDK 53 (Android-first)
 - **Auth**: JWT + bcryptjs + Passport + expo-secure-store
+- **Security**: Helmet + @nestjs/throttler + Global exception filter + Audit logging interceptor

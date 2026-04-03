@@ -1,0 +1,91 @@
+Now perform a full professional security hardening and internal audit for the Ruhiyat system.
+
+IMPORTANT:
+- Do not rebuild the system
+- Do not change the stack
+- Do not break working features
+- Improve and secure the existing system
+- Keep Uzbek UI intact
+- Focus on backend, auth, API, and data protection
+
+GOAL:
+Make the system production-ready, secure, and robust.
+
+SECURITY TASKS:
+
+1) AUTH SECURITY
+- Verify JWT access and refresh token flow
+- Ensure refresh tokens are stored and handled securely
+- Ensure logout invalidates sessions properly
+- Ensure no token leakage in responses
+- Ensure OTP flow is secure (no code exposure, expiration enforced)
+
+2) PASSWORD SECURITY
+- Ensure bcrypt hashing is used correctly
+- Ensure no plain text passwords anywhere
+- Enforce password validation rules
+
+3) ROLE-BASED ACCESS CONTROL (RBAC)
+- Verify strict role separation:
+  - Superadmin
+  - Administrator
+  - Mobile user
+- Ensure no cross-role access
+- Ensure all sensitive endpoints are protected
+
+4) API SECURITY
+- Validate all inputs (DTO validation)
+- Sanitize inputs
+- Prevent injection vulnerabilities
+- Add proper error handling (no sensitive info leakage)
+- Add rate limiting where needed
+- Add CORS policy properly
+
+5) DATA PROTECTION
+- Ensure users only access their own data
+- Ensure administrators only access their own center data
+- Prevent IDOR (Insecure Direct Object Reference)
+
+6) SESSION & TOKEN MANAGEMENT
+- Ensure session invalidation works
+- Ensure token refresh flow is safe
+- Ensure expired tokens are handled properly
+
+7) MOBILE SECURITY
+- Verify secure token storage (SecureStore)
+- Ensure no sensitive data stored insecurely
+- Ensure API calls are protected
+
+8) AUDIT LOGGING
+- Ensure important actions are logged:
+  - login
+  - logout
+  - create/update/delete operations
+- Ensure logs are structured and useful
+
+9) CONFIG & ENV SECURITY
+- Ensure secrets are not hardcoded
+- Ensure environment variables are used properly
+
+AUDIT REPORT:
+
+Create a structured audit report including:
+- auth security status
+- RBAC status
+- API security status
+- data protection status
+- mobile security status
+- known vulnerabilities
+- risk level (low / medium / high)
+- recommendations before production
+
+DELIVERABLE:
+1) security improvements applied in code
+2) audit report in project docs
+3) list of remaining risks
+4) checklist before deployment
+
+EXECUTION RULE:
+First show audit plan.
+Then apply fixes step by step.
+Do not break working features.

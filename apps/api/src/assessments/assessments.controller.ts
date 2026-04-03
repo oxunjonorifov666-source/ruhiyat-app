@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { AssessmentsService } from './assessments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller()
 export class AssessmentsController {
@@ -13,15 +15,18 @@ export class AssessmentsController {
   findTest(@Param('id', ParseIntPipe) id: number) { return this.service.findTest(id); }
 
   @Post('tests')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   createTest(@Body() data: any) { return this.service.createTest(data); }
 
   @Patch('tests/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   updateTest(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateTest(id, data); }
 
   @Delete('tests/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN')
   removeTest(@Param('id', ParseIntPipe) id: number) { return this.service.removeTest(id); }
 
   @Get('tests/:id/questions')

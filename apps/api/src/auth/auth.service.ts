@@ -268,11 +268,14 @@ export class AuthService {
   private async generateTokens(userId: number, role: string) {
     const payload = { sub: userId, role };
 
-    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'ruhiyat-refresh-dev-secret-NOT-FOR-PRODUCTION';
+    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+    if (!refreshSecret && process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_REFRESH_SECRET environment variable is required in production');
+    }
 
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign(payload, {
-      secret: refreshSecret,
+      secret: refreshSecret || 'ruhiyat-refresh-dev-secret-NOT-FOR-PRODUCTION',
       expiresIn: '7d',
     });
 

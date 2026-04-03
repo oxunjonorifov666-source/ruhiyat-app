@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { CommunityService } from './community.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller()
 export class CommunityController {
@@ -31,7 +33,8 @@ export class CommunityController {
   updatePost(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updatePost(id, data); }
 
   @Delete('community/posts/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   removePost(@Param('id', ParseIntPipe) id: number) { return this.service.removePost(id); }
 
   @Get('community/posts/:id/comments')
@@ -46,7 +49,8 @@ export class CommunityController {
   createComplaint(@Body() data: any) { return this.service.createComplaint(data); }
 
   @Get('complaints')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   findAllComplaints(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -60,11 +64,13 @@ export class CommunityController {
   }
 
   @Patch('complaints/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   updateComplaint(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateComplaint(id, data); }
 
   @Get('moderation/actions')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   findAllModerationActions(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -76,6 +82,7 @@ export class CommunityController {
   }
 
   @Post('moderation/actions')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMINISTRATOR')
   createModerationAction(@Body() data: any) { return this.service.createModerationAction(data); }
 }

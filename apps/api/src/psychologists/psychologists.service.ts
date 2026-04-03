@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { randomBytes } from 'crypto';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -56,8 +58,8 @@ export class PsychologistsService {
         include: { user: { select: { email: true, phone: true } } },
       });
     }
-    const bcrypt = require('bcryptjs');
-    const hashedPassword = await bcrypt.hash('psixolog123', 10);
+    const tempPassword = randomBytes(12).toString('base64url');
+    const hashedPassword = await bcrypt.hash(tempPassword, 12);
     return this.prisma.psychologist.create({
       data: {
         firstName: data.firstName,
