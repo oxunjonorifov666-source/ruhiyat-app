@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { SectionCard } from '../../components/SectionCard';
+import { apiClient } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const moods = [
-  { emoji: '😊', label: "A'lo" },
-  { emoji: '🙂', label: 'Yaxshi' },
-  { emoji: '😐', label: "O'rtacha" },
-  { emoji: '😔', label: 'Yomon' },
-  { emoji: '😢', label: "Juda yomon" },
+  { emoji: '😊', label: "A'lo", value: 5 },
+  { emoji: '🙂', label: 'Yaxshi', value: 4 },
+  { emoji: '😐', label: "O'rtacha", value: 3 },
+  { emoji: '😔', label: 'Yomon', value: 2 },
+  { emoji: '😢', label: "Juda yomon", value: 1 },
 ];
 
 const quickActions = [
@@ -20,13 +22,58 @@ const quickActions = [
   { emoji: '💬', label: 'Chat' },
 ];
 
+interface Article {
+  id: number;
+  title: string;
+  category: string | null;
+}
+
+interface Announcement {
+  id: number;
+  title: string;
+  content: string;
+}
+
 export function HomeScreen({ navigation }: any) {
+  const { user } = useAuth();
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [moodSaving, setMoodSaving] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const [articlesRes, announcementsRes] = await Promise.all([
+        apiClient.get<{ data: Article[] }>('/articles', { page: 1, limit: 3 }).catch(() => ({ data: [] })),
+        apiClient.get<{ data: Announcement[] }>('/announcements', { page: 1, limit: 2 }).catch(() => ({ data: [] })),
+      ]);
+      setArticles(articlesRes.data || []);
+      setAnnouncements(announcementsRes.data || []);
+    } catch {}
+    finally { setLoading(false); }
+  }
+
+  async function handleMoodSelect(index: number) {
+    setSelectedMood(index);
+    setMoodSaving(true);
+    try {
+      await apiClient.post('/mood', { value: moods[index].value, note: moods[index].label });
+    } catch {}
+    finally { setMoodSaving(false); }
+  }
+
+  const displayName = user?.firstName || 'Foydalanuvchi';
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.greeting}>
-        <Text style={styles.greetingText}>Assalomu alaykum! 👋</Text>
+        <Text style={styles.greetingText}>Assalomu alaykum, {displayName}! 👋</Text>
         <Text style={styles.greetingSubtext}>Bugun o'zingizni qanday his qilyapsiz?</Text>
       </View>
 
@@ -35,7 +82,8 @@ export function HomeScreen({ navigation }: any) {
           <TouchableOpacity
             key={i}
             style={[styles.moodButton, selectedMood === i && styles.moodSelected]}
-            onPress={() => setSelectedMood(i)}
+            onPress={() => handleMoodSelect(i)}
+            disabled={moodSaving}
           >
             <Text style={styles.moodEmoji}>{mood.emoji}</Text>
             <Text style={styles.moodLabel}>{mood.label}</Text>
@@ -53,13 +101,28 @@ export function HomeScreen({ navigation }: any) {
         ))}
       </View>
 
-      <Text style={styles.sectionTitle}>Tavsiyalar</Text>
-      <SectionCard title="Stressni boshqarish" subtitle="5 daqiqalik nafas mashqi" icon="🧘" onPress={() => {}} />
-      <SectionCard title="Yaxshi uyqu uchun" subtitle="Uxlashdan oldingi odatlar" icon="🌙" onPress={() => {}} />
-      <SectionCard title="Bugungi afirmatsiya" subtitle="Har bir kun — yangi imkoniyat" icon="✨" onPress={() => {}} />
+      {announcements.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>E'lonlar</Text>
+          {announcements.map((a) => (
+            <SectionCard key={a.id} title={a.title} subtitle={a.content.slice(0, 60)} icon="📢" onPress={() => {}} />
+          ))}
+        </>
+      )}
 
-      <Text style={styles.sectionTitle}>Yaqinlashayotgan uchrashuvlar</Text>
-      <SectionCard title="Dr. Karimova bilan seans" subtitle="Bugun, 15:00" icon="📅" onPress={() => {}} />
+      <Text style={styles.sectionTitle}>Tavsiyalar</Text>
+      {loading ? (
+        <ActivityIndicator size="small" color={Colors.light.primary} />
+      ) : articles.length > 0 ? (
+        articles.map((a) => (
+          <SectionCard key={a.id} title={a.title} subtitle={a.category || 'Maqola'} icon="📰" onPress={() => {}} />
+        ))
+      ) : (
+        <>
+          <SectionCard title="Stressni boshqarish" subtitle="5 daqiqalik nafas mashqi" icon="🧘" onPress={() => {}} />
+          <SectionCard title="Yaxshi uyqu uchun" subtitle="Uxlashdan oldingi odatlar" icon="🌙" onPress={() => {}} />
+        </>
+      )}
     </ScrollView>
   );
 }

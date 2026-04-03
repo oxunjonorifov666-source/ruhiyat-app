@@ -79,8 +79,16 @@ class ApiClient {
     }
   }
 
-  get<T>(path: string): Promise<T> {
-    return this.request<T>('GET', path);
+  get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+    let url = path;
+    if (params) {
+      const qs = Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== '')
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join('&');
+      if (qs) url += `?${qs}`;
+    }
+    return this.request<T>('GET', url);
   }
 
   post<T>(path: string, body: unknown): Promise<T> {

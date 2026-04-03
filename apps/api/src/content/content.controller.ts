@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { ContentService } from './content.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -7,7 +7,13 @@ export class ContentController {
   constructor(private readonly service: ContentService) {}
 
   @Get('articles')
-  findAllArticles() { return this.service.findAllArticles(); }
+  findAllArticles(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.service.findAllArticles({ page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
+  }
   @Get('articles/:id')
   findArticle(@Param('id', ParseIntPipe) id: number) { return this.service.findArticle(id); }
   @Post('articles')
@@ -33,7 +39,13 @@ export class ContentController {
   removeBanner(@Param('id', ParseIntPipe) id: number) { return this.service.removeBanner(id); }
 
   @Get('audio')
-  findAllAudio() { return this.service.findAllAudio(); }
+  findAllAudio(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.service.findAllAudio({ page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
+  }
   @Get('audio/:id')
   findAudio(@Param('id', ParseIntPipe) id: number) { return this.service.findAudio(id); }
   @Post('audio')
@@ -47,7 +59,13 @@ export class ContentController {
   removeAudio(@Param('id', ParseIntPipe) id: number) { return this.service.removeAudio(id); }
 
   @Get('videos')
-  findAllVideos() { return this.service.findAllVideos(); }
+  findAllVideos(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.service.findAllVideos({ page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
+  }
   @Get('videos/:id')
   findVideo(@Param('id', ParseIntPipe) id: number) { return this.service.findVideo(id); }
   @Post('videos')

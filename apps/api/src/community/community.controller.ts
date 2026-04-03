@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { CommunityService } from './community.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -7,7 +7,17 @@ export class CommunityController {
   constructor(private readonly service: CommunityService) {}
 
   @Get('community/posts')
-  findAllPosts() { return this.service.findAllPosts(); }
+  findAllPosts(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.service.findAllPosts({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+    });
+  }
 
   @Post('community/posts')
   @UseGuards(JwtAuthGuard)
@@ -37,7 +47,17 @@ export class CommunityController {
 
   @Get('complaints')
   @UseGuards(JwtAuthGuard)
-  findAllComplaints() { return this.service.findAllComplaints(); }
+  findAllComplaints(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.service.findAllComplaints({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      status,
+    });
+  }
 
   @Patch('complaints/:id')
   @UseGuards(JwtAuthGuard)
@@ -45,7 +65,15 @@ export class CommunityController {
 
   @Get('moderation/actions')
   @UseGuards(JwtAuthGuard)
-  findAllModerationActions() { return this.service.findAllModerationActions(); }
+  findAllModerationActions(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.findAllModerationActions({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
 
   @Post('moderation/actions')
   @UseGuards(JwtAuthGuard)

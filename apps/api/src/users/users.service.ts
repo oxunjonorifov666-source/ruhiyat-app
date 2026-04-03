@@ -5,32 +5,73 @@ import { PrismaService } from '../prisma/prisma.service';
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll() {
-    return this.prisma.user.findMany({
-      select: { id: true, email: true, phone: true, role: true, isActive: true, isVerified: true, createdAt: true },
-    });
+  async findAll(query: { page?: number; limit?: number; search?: string; role?: string }) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (query.role) where.role = query.role;
+    if (query.search) {
+      where.OR = [
+        { email: { contains: query.search, mode: 'insensitive' } },
+        { phone: { contains: query.search } },
+        { firstName: { contains: query.search, mode: 'insensitive' } },
+        { lastName: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true, email: true, phone: true, firstName: true, lastName: true,
+          role: true, isActive: true, isVerified: true, lastLoginAt: true, createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { data, total, page, limit };
   }
 
   async findOne(id: number) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, phone: true, role: true, isActive: true, isVerified: true, lastLoginAt: true, createdAt: true, updatedAt: true },
+      select: {
+        id: true, email: true, phone: true, firstName: true, lastName: true,
+        role: true, isActive: true, isVerified: true, lastLoginAt: true,
+        createdAt: true, updatedAt: true,
+      },
     });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
     return user;
   }
 
-  async update(id: number, data: any) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException('User not found');
-    return this.prisma.user.update({ where: { id }, data });
+  async update(id: number, data: { firstName?: string; lastName?: string; isActive?: boolean; role?: string }) {
+    await this.findOne(id);
+    const updateData: any = {};
+    if (data.firstName !== undefined) updateData.firstName = data.firstName;
+    if (data.lastName !== undefined) updateData.lastName = data.lastName;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.role !== undefined) updateData.role = data.role;
+    return this.prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true, email: true, phone: true, firstName: true, lastName: true,
+        role: true, isActive: true, isVerified: true, createdAt: true, updatedAt: true,
+      },
+    });
   }
 
   async remove(id: number) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException('User not found');
+    await this.findOne(id);
     await this.prisma.user.delete({ where: { id } });
-    return { message: 'User deleted' };
+    return { message: "Foydalanuvchi o'chirildi" };
   }
 
   async getSessions(id: number) {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -8,7 +8,19 @@ export class CoursesController {
   constructor(private readonly service: CoursesService) {}
 
   @Get('courses')
-  findAllCourses() { return this.service.findAllCourses(); }
+  findAllCourses(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('centerId') centerId?: string,
+  ) {
+    return this.service.findAllCourses({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+      centerId: centerId ? parseInt(centerId) : undefined,
+    });
+  }
 
   @Get('courses/:id')
   findCourse(@Param('id', ParseIntPipe) id: number) { return this.service.findCourse(id); }
@@ -23,13 +35,33 @@ export class CoursesController {
   removeCourse(@Param('id', ParseIntPipe) id: number) { return this.service.removeCourse(id); }
 
   @Get('groups')
-  findAllGroups() { return this.service.findAllGroups(); }
+  findAllGroups(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('centerId') centerId?: string,
+  ) {
+    return this.service.findAllGroups({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+      centerId: centerId ? parseInt(centerId) : undefined,
+    });
+  }
 
   @Post('groups')
   createGroup(@Body() data: any) { return this.service.createGroup(data); }
 
   @Get('enrollments')
-  findAllEnrollments() { return this.service.findAllEnrollments(); }
+  findAllEnrollments(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.findAllEnrollments({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
 
   @Post('enrollments')
   createEnrollment(@Body() data: any) { return this.service.createEnrollment(data); }

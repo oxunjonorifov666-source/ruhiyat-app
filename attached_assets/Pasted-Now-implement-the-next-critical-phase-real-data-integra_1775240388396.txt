@@ -1,0 +1,143 @@
+Now implement the next critical phase: real data integration and core module functionality across backend, Superadmin web, Administrator web, and mobile.
+
+IMPORTANT:
+- Do not rebuild the project
+- Do not change the confirmed stack
+- Do not break the existing auth system
+- Keep the current monorepo and structure exactly as they are
+- Keep all user-facing UI in Uzbek
+- Build carefully on top of the current working auth and API integration
+- Replace placeholder content in the most important modules first
+- Use real backend-connected data wherever practical
+
+GOAL:
+Turn the authenticated scaffold into a genuinely usable product by connecting the main dashboards and first-priority modules to real backend data and real CRUD flows.
+
+PHASE A — PRIORITY BACKEND MODULE COMPLETION
+Complete and refine the most important modules first:
+1) Users
+2) Psychologists
+3) Education centers / center-related data
+4) Courses
+5) Groups / enrollments
+6) Notifications
+7) Announcements
+8) Meetings
+9) Community posts / comments / complaints
+10) Content modules (articles, banners, audio, video)
+11) Dashboard stats endpoints for Superadmin and Administrator
+12) Mobile profile/dashboard-related endpoints
+
+For each, improve:
+- CRUD quality
+- validation
+- pagination where needed
+- filtering/search where useful
+- role-safe access rules
+- clean response shapes
+
+PHASE B — SUPERADMIN REAL DATA INTEGRATION
+Connect these areas to real API data:
+1) Boshqaruv paneli
+   - real statistics
+   - charts/cards from backend
+2) Foydalanuvchilar
+3) Psixologlar
+4) Administratorlar
+5) Rollar va ruxsatlar
+6) Bildirishnomalar
+7) E’lonlar
+8) Uchrashuvlar
+9) Moderatsiya markazi
+10) To‘lovlar / Daromadlar / Tranzaksiyalar (basic connected structure)
+
+Requirements:
+- Uzbek UI
+- tables/lists/cards connected to backend
+- loading/empty/error states
+- clean admin UX
+- keep premium structure
+
+PHASE C — ADMINISTRATOR REAL DATA INTEGRATION
+Connect these areas to real API data:
+1) Dashboard
+2) O‘quvchilar
+3) O‘qituvchilar
+4) Psixologlar
+5) Xodimlar
+6) Kurslar
+7) Guruhlar
+8) To‘lovlar
+9) Hisobotlar / Statistika (basic connected state)
+10) Testlar / Natijalar analitikasi (basic connected state)
+11) Bildirishnomalar
+12) Uchrashuvlar
+13) E’lonlar
+
+Requirements:
+- must be scoped to the administrator’s education center
+- no cross-center data leakage
+- Uzbek UI
+- loading/empty/error states
+- consistent panel UX
+
+PHASE D — MOBILE APP REAL DATA INTEGRATION
+Connect these first:
+1) Profil
+   - authenticated profile info
+2) Asosiy
+   - basic dashboard data
+   - recommendations placeholder can remain if needed, but structure for real API
+3) Psixologlar ro‘yxati
+4) Bildirishnomalar / Xabarlar
+5) E’lonlar
+6) Uchrashuvlar
+7) Hamjamiyat feed
+8) Post detail / comments
+9) Basic saved content or content feed
+10) Mood/profile-related initial data if backend endpoints already exist
+
+Requirements:
+- keep Android-first Expo structure
+- keep secure token handling intact
+- keep Uzbek UI
+- keep mobile UX clean and intuitive
+
+PHASE E — INITIAL CREATE/EDIT FLOWS
+Implement the first truly usable create/edit flows in web panels:
+Superadmin:
+- create/edit psychologist
+- create/edit administrator
+- create/edit announcement
+- create/edit banner or article
+Administrator:
+- create/edit student
+- create/edit course
+- create/edit group
+- create/edit announcement
+- schedule meeting
+
+PHASE F — QUALITY RULES
+- keep typed API contracts
+- keep reusable fetch/query logic
+- do not scatter API code everywhere
+- keep forms validated
+- keep route protections intact
+- do not weaken role checks
+- keep all visible UI text in Uzbek
+
+DELIVERABLE FOR THIS STEP:
+1) Key dashboards connected to real backend data
+2) First-priority module pages connected to real data
+3) Initial create/edit flows working
+4) Administrator data properly center-scoped
+5) Mobile profile/home/messages/community partially real and usable
+6) Clear summary of:
+   - what is now truly connected to real data
+   - what remains placeholder
+
+EXECUTION RULE:
+First show the implementation plan for this real-data integration phase.
+Then implement step by step carefully.
+Do not rush.
+Do not break working auth.

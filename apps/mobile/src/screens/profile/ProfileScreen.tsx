@@ -1,19 +1,20 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiClient } from '../../services/api';
 
 const menuItems = [
-  { icon: '\u{1F464}', label: 'Profil ma\'lumotlari', screen: 'ProfileDetails' },
-  { icon: '\u{2699}\u{FE0F}', label: 'Sozlamalar', screen: 'Settings' },
-  { icon: '\u{1F512}', label: 'Xavfsizlik', screen: 'Security' },
-  { icon: '\u{1F4CA}', label: 'Faollik tarixi', screen: 'ActivityHistory' },
-  { icon: '\u{1F514}', label: 'Bildirishnomalar', screen: 'Notifications' },
-  { icon: '\\u{1F4E2}', label: 'E\'lonlar', screen: 'Announcements' },
-  { icon: '\u{1F6CD}\u{FE0F}', label: 'Xizmatlar', screen: 'Services' },
-  { icon: '\u{2B50}', label: 'Premium', screen: 'Premium' },
-  { icon: '\\u{1F4B3}', label: 'To\'lovlar', screen: 'Payments' },
-  { icon: '\u{2753}', label: 'Yordam', screen: 'Help' },
+  { icon: '👤', label: "Profil ma'lumotlari", screen: 'ProfileDetails' },
+  { icon: '⚙️', label: 'Sozlamalar', screen: 'Settings' },
+  { icon: '🔒', label: 'Xavfsizlik', screen: 'Security' },
+  { icon: '📊', label: 'Faollik tarixi', screen: 'ActivityHistory' },
+  { icon: '🔔', label: 'Bildirishnomalar', screen: 'Notifications' },
+  { icon: '📢', label: "E'lonlar", screen: 'Announcements' },
+  { icon: '🛍️', label: 'Xizmatlar', screen: 'Services' },
+  { icon: '⭐', label: 'Premium', screen: 'Premium' },
+  { icon: '💳', label: "To'lovlar", screen: 'Payments' },
+  { icon: '❓', label: 'Yordam', screen: 'Help' },
 ];
 
 function getInitials(firstName?: string | null, lastName?: string | null) {
@@ -23,8 +24,33 @@ function getInitials(firstName?: string | null, lastName?: string | null) {
   return 'FM';
 }
 
+interface Stats {
+  moodCount: number;
+  sessionsCount: number;
+  testsCount: number;
+}
+
 export function ProfileScreen() {
   const { user, logout } = useAuth();
+  const [stats, setStats] = useState<Stats>({ moodCount: 0, sessionsCount: 0, testsCount: 0 });
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  async function loadStats() {
+    try {
+      const [moodRes, testsRes] = await Promise.all([
+        apiClient.get<{ data: any[] }>('/mood', { page: 1, limit: 1 }).catch(() => ({ data: [], total: 0 })),
+        apiClient.get<{ data: any[]; total: number }>('/test-results', { page: 1, limit: 1 }).catch(() => ({ data: [], total: 0 })),
+      ]);
+      setStats({
+        moodCount: (moodRes as any).total || (moodRes as any).data?.length || 0,
+        sessionsCount: 0,
+        testsCount: (testsRes as any).total || (testsRes as any).data?.length || 0,
+      });
+    } catch {}
+  }
 
   const handleLogout = () => {
     Alert.alert(
@@ -32,11 +58,7 @@ export function ProfileScreen() {
       'Hisobingizdan chiqishni xohlaysizmi?',
       [
         { text: 'Bekor qilish', style: 'cancel' },
-        {
-          text: 'Chiqish',
-          style: 'destructive',
-          onPress: () => logout(),
-        },
+        { text: 'Chiqish', style: 'destructive', onPress: () => logout() },
       ],
     );
   };
@@ -44,7 +66,6 @@ export function ProfileScreen() {
   const displayName = user?.firstName && user?.lastName
     ? `${user.firstName} ${user.lastName}`
     : 'Foydalanuvchi';
-
   const displayPhone = user?.phone || user?.email || '';
 
   return (
@@ -59,15 +80,15 @@ export function ProfileScreen() {
 
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>0</Text>
-          <Text style={styles.statLabel}>Kun</Text>
+          <Text style={styles.statValue}>{stats.moodCount}</Text>
+          <Text style={styles.statLabel}>Kayfiyat</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>0</Text>
+          <Text style={styles.statValue}>{stats.sessionsCount}</Text>
           <Text style={styles.statLabel}>Seanslar</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>0</Text>
+          <Text style={styles.statValue}>{stats.testsCount}</Text>
           <Text style={styles.statLabel}>Testlar</Text>
         </View>
       </View>
@@ -77,13 +98,13 @@ export function ProfileScreen() {
           <TouchableOpacity key={i} style={styles.menuItem}>
             <Text style={styles.menuIcon}>{item.icon}</Text>
             <Text style={styles.menuLabel}>{item.label}</Text>
-            <Text style={styles.menuArrow}>{'\u{203A}'}</Text>
+            <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>{'\u{1F6AA}'} Chiqish</Text>
+        <Text style={styles.logoutText}>🚪 Chiqish</Text>
       </TouchableOpacity>
     </ScrollView>
   );

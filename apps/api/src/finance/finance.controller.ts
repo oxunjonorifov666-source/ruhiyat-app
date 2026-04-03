@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { FinanceService } from './finance.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -8,7 +8,17 @@ export class FinanceController {
   constructor(private readonly service: FinanceService) {}
 
   @Get('payments')
-  findAllPayments() { return this.service.findAllPayments(); }
+  findAllPayments(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.service.findAllPayments({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+    });
+  }
 
   @Post('payments')
   createPayment(@Body() data: any) { return this.service.createPayment(data); }
@@ -17,8 +27,24 @@ export class FinanceController {
   findPayment(@Param('id', ParseIntPipe) id: number) { return this.service.findPayment(id); }
 
   @Get('transactions')
-  findAllTransactions() { return this.service.findAllTransactions(); }
+  findAllTransactions(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.findAllTransactions({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
 
   @Get('revenue')
-  findAllRevenue() { return this.service.findAllRevenue(); }
+  findAllRevenue(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.findAllRevenue({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
 }

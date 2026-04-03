@@ -101,6 +101,7 @@ export class AuthService {
         isActive: true,
         createdAt: true,
         lastLoginAt: true,
+        administrator: { select: { id: true, centerId: true, position: true, center: { select: { id: true, name: true } } } },
       },
     });
 

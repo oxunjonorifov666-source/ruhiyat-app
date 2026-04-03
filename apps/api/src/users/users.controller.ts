@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -11,8 +11,18 @@ export class UsersController {
 
   @Get()
   @Roles('SUPERADMIN', 'ADMINISTRATOR')
-  findAll() {
-    return this.usersService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('role') role?: string,
+  ) {
+    return this.usersService.findAll({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+      role,
+    });
   }
 
   @Get(':id')
@@ -21,6 +31,7 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Roles('SUPERADMIN')
   update(@Param('id', ParseIntPipe) id: number, @Body() data: any) {
     return this.usersService.update(id, data);
   }

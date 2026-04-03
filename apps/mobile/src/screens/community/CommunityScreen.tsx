@@ -1,16 +1,61 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { apiClient } from '../../services/api';
 
-const posts = [
-  { author: 'Aziza M.', time: '2 soat oldin', text: 'Bugun birinchi marta meditatsiya qildim. Juda yoqdi!', likes: 12, comments: 3 },
-  { author: 'Bobur K.', time: '5 soat oldin', text: 'Nafas mashqlari haqiqatan ham stressni kamaytiradi. Hammaga tavsiya qilaman.', likes: 24, comments: 7 },
-  { author: 'Dilnoza S.', time: '1 kun oldin', text: 'Psixolog bilan seans juda foydali bo\'ldi. Rahmat Ruhiyat jamoasi!', likes: 45, comments: 12 },
-];
+interface Post {
+  id: number;
+  title: string | null;
+  content: string;
+  likesCount: number;
+  commentsCount: number;
+  isPublished: boolean;
+  createdAt: string;
+  author: { id: number; firstName: string | null; lastName: string | null; email: string | null };
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins} daq. oldin`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} soat oldin`;
+  const days = Math.floor(hours / 24);
+  return `${days} kun oldin`;
+}
 
 export function CommunityScreen() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchPosts = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await apiClient.get<{ data: Post[] }>('/community/posts', { page: 1, limit: 20 });
+      setPosts(res.data || []);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+  const onRefresh = () => { setRefreshing(true); fetchPosts(); };
+
+  const getAuthorName = (author: Post['author']) =>
+    author.firstName ? `${author.firstName} ${author.lastName || ''}`.trim() : author.email || 'Anonim';
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Hamjamiyat</Text>
         <TouchableOpacity style={styles.newPost}>
@@ -18,31 +63,43 @@ export function CommunityScreen() {
         </TouchableOpacity>
       </View>
 
-      {posts.map((post, i) => (
-        <View key={i} style={styles.postCard}>
-          <View style={styles.postHeader}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{post.author[0]}</Text>
-            </View>
-            <View>
-              <Text style={styles.postAuthor}>{post.author}</Text>
-              <Text style={styles.postTime}>{post.time}</Text>
-            </View>
-          </View>
-          <Text style={styles.postText}>{post.text}</Text>
-          <View style={styles.postActions}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionText}>❤️ {post.likes}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionText}>💬 {post.comments}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionText}>📢 Shikoyat</Text>
-            </TouchableOpacity>
-          </View>
+      {loading ? (
+        <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginTop: 40 }} />
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={fetchPosts}><Text style={styles.retryText}>Qayta urinish</Text></TouchableOpacity>
         </View>
-      ))}
+      ) : posts.length === 0 ? (
+        <Text style={styles.emptyText}>Hozircha postlar yo'q</Text>
+      ) : (
+        posts.map((post) => (
+          <View key={post.id} style={styles.postCard}>
+            <View style={styles.postHeader}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{getAuthorName(post.author)[0]}</Text>
+              </View>
+              <View>
+                <Text style={styles.postAuthor}>{getAuthorName(post.author)}</Text>
+                <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
+              </View>
+            </View>
+            {post.title && <Text style={styles.postTitle}>{post.title}</Text>}
+            <Text style={styles.postText}>{post.content}</Text>
+            <View style={styles.postActions}>
+              <TouchableOpacity style={styles.actionButton}>
+                <Text style={styles.actionText}>❤️ {post.likesCount}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Text style={styles.actionText}>💬 {post.commentsCount}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Text style={styles.actionText}>📢 Shikoyat</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))
+      )}
     </ScrollView>
   );
 }
@@ -60,8 +117,13 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 16, fontWeight: '600', color: Colors.light.primary },
   postAuthor: { fontSize: 15, fontWeight: '600', color: Colors.light.text },
   postTime: { fontSize: 12, color: Colors.light.textSecondary },
+  postTitle: { fontSize: 16, fontWeight: '600', color: Colors.light.text, marginBottom: 4 },
   postText: { fontSize: 15, color: Colors.light.text, lineHeight: 22 },
   postActions: { flexDirection: 'row', marginTop: 12, gap: 16 },
   actionButton: {},
   actionText: { fontSize: 13, color: Colors.light.textSecondary },
+  errorContainer: { alignItems: 'center', marginTop: 40 },
+  errorText: { fontSize: 15, color: Colors.light.error, marginBottom: 12 },
+  retryText: { fontSize: 15, color: Colors.light.primary, fontWeight: '600' },
+  emptyText: { fontSize: 15, color: Colors.light.textSecondary, textAlign: 'center', marginTop: 40 },
 });

@@ -60,6 +60,31 @@ packages/
   config/           — @ruhiyat/config (shared constants, TOKEN_KEYS)
 ```
 
+## Real Data Integration
+
+All placeholder pages have been replaced with real API-connected data:
+
+### Superadmin Web (10 real data pages)
+- Users, Psychologists, Administrators, Announcements, Articles, Notifications, Meetings, Community, Moderation, Payments, Transactions
+- Each page: DataTable with pagination, search, loading/empty/error states
+- Create dialogs: Psychologists, Announcements, Articles
+
+### Admin Web (11 real data pages, center-scoped)
+- Students, Teachers, Courses, Groups, Announcements, Notifications, Meetings, Payments, Psychologists, Staff, Transactions
+- Center-scoped pages use `useAuth()` → `user.administrator.centerId` for `/education-centers/:id/*` endpoints
+- Create dialogs: Students, Teachers, Courses, Groups, Announcements
+
+### Mobile (5 real data screens)
+- HomeScreen: Real articles, announcements, mood tracking via API
+- CommunityScreen: Real community posts with pull-to-refresh
+- PsychologyScreen: Real psychologist listing
+- ContentScreen: Real articles listing
+- ProfileScreen: Real stats from mood/test-results endpoints
+
+### Shared Components
+- `DataTable` component in both web panels: paginated table with search, loading states, header actions
+- `apiClient` in both web panels + mobile: auto auth headers, token refresh, 401 redirect
+
 ## Key Files
 
 ### Auth Infrastructure

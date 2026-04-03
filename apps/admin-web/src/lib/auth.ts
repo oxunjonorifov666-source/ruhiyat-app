@@ -9,6 +9,12 @@ export interface AuthUser {
   firstName: string | null;
   lastName: string | null;
   role: string;
+  administrator?: {
+    id: number;
+    centerId: number;
+    position: string | null;
+    center: { id: number; name: string };
+  } | null;
 }
 
 export interface LoginResponse {
