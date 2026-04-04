@@ -23,6 +23,11 @@ enum VerificationStatus {
   REJECTED
 }
 
+enum SubscriptionPlan {
+  BASIC
+  PREMIUM
+}
+
 model User {
   id           Int       @id @default(autoincrement())
   email        String?   @unique
@@ -149,16 +154,17 @@ model Superadmin {
 }
 
 model EducationCenter {
-  id          Int      @id @default(autoincrement())
-  name        String
-  address     String?
-  phone       String?
-  email       String?
-  description String?
-  logoUrl     String?  @map("logo_url")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id               Int              @id @default(autoincrement())
+  name             String
+  address          String?
+  phone            String?
+  email            String?
+  description      String?
+  logoUrl          String?          @map("logo_url")
+  subscriptionPlan SubscriptionPlan @default(BASIC) @map("subscription_plan")
+  isActive         Boolean          @default(true) @map("is_active")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
 
   administrators Administrator[]
   psychologists  Psychologist[]

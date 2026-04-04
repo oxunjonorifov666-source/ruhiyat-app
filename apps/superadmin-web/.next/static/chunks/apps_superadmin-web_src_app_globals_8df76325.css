@@ -133,6 +133,7 @@
     --color-blue-400: #54a2ff;
     --color-blue-500: #3080ff;
     --color-blue-600: #155dfc;
+    --color-blue-700: #1447e6;
     --color-blue-900: #1c398e;
     --color-violet-100: #ede9fe;
     --color-violet-400: #a685ff;
@@ -215,6 +216,7 @@
       --color-blue-400: color(display-p3 .397443 .62813 .992116);
       --color-blue-500: color(display-p3 .266422 .491219 .988624);
       --color-blue-600: color(display-p3 .174493 .358974 .950247);
+      --color-blue-700: color(display-p3 .1379 .274983 .867624);
       --color-blue-900: color(display-p3 .136395 .219428 .537145);
       --color-violet-100: color(display-p3 .926222 .913546 .990178);
       --color-violet-400: color(display-p3 .631215 .522175 .990008);
@@ -263,6 +265,7 @@
       --color-blue-400: lab(65.0361% -1.42065 -56.9802);
       --color-blue-500: lab(54.1736% 13.3369 -74.6839);
       --color-blue-600: lab(44.0605% 29.0279 -86.0352);
+      --color-blue-700: lab(36.9089% 35.0961 -85.6872);
       --color-blue-900: lab(26.1542% 15.7545 -51.5504);
       --color-violet-100: lab(93.0838% 4.35197 -9.88284);
       --color-violet-400: lab(62.8239% 34.9159 -60.0512);
@@ -1193,6 +1196,10 @@
     width: 60px;
   }
 
+  .w-\[140px\] {
+    width: 140px;
+  }
+
   .w-\[160px\] {
     width: 160px;
   }
@@ -1369,6 +1376,10 @@
 
   .grid-cols-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .grid-rows-\[auto_auto\] {
@@ -1658,6 +1669,10 @@
 
   .bg-accent {
     background-color: var(--accent);
+  }
+
+  .bg-amber-500 {
+    background-color: var(--color-amber-500);
   }
 
   .bg-amber-500\/10 {
@@ -2014,6 +2029,10 @@
     padding-top: calc(var(--spacing) * 3);
   }
 
+  .pt-4 {
+    padding-top: calc(var(--spacing) * 4);
+  }
+
   .pr-2 {
     padding-right: calc(var(--spacing) * 2);
   }
@@ -2168,6 +2187,10 @@
 
   .text-blue-600 {
     color: var(--color-blue-600);
+  }
+
+  .text-blue-700 {
+    color: var(--color-blue-700);
   }
 
   .text-card-foreground {
@@ -2824,6 +2847,10 @@
   @media (hover: hover) {
     .hover\:bg-accent:hover {
       background-color: var(--accent);
+    }
+
+    .hover\:bg-amber-600:hover {
+      background-color: var(--color-amber-600);
     }
 
     .hover\:bg-destructive\/90:hover {

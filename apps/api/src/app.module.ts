@@ -17,6 +17,7 @@ import { MeetingsModule } from './meetings/meetings.module';
 import { FinanceModule } from './finance/finance.module';
 import { SystemModule } from './system/system.module';
 import { WellnessModule } from './wellness/wellness.module';
+import { AdministratorsModule } from './administrators/administrators.module';
 import { HealthModule } from './health/health.module';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -40,6 +41,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     FinanceModule,
     SystemModule,
     WellnessModule,
+    AdministratorsModule,
   ],
   providers: [
     {

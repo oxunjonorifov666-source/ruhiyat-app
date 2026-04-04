@@ -41,7 +41,7 @@ pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **
 - **PermissionsGuard** + `@Permissions()` decorator on all controllers (replaces RolesGuard)
 - Permission format: `"resource.action"` (e.g., `users.read`, `content.write`, `system.settings`)
 - **SUPERADMIN**: Bypasses all permission checks (hardcoded in guard)
-- **ADMIN role**: 22 permissions (users, content, community, communication, meetings, finance, courses, assessments, psychologists[read/write/manage], centers)
+- **ADMIN role**: 25 permissions (users, content, community, communication, meetings, finance, courses, assessments, psychologists[read/write/manage], administrators[read/write/manage], centers)
 - **USER role**: 11 permissions (content.read, community, communication, meetings, assessments, psychologists, wellness, finance.write)
 - Roles and permissions seeded in DB (`roles` + `permissions` tables)
 - `/auth/me` returns `permissions` array (`["*"]` for superadmin, specific list for others)
@@ -144,6 +144,34 @@ artifacts/
 - Create dialog: full form with name, email/phone, specialization, education, license, experience, rate, certifications (tag input), bio
 - Edit dialog: all editable fields including certifications tag input
 - Verify confirmation (AlertDialog), Reject with reason (Dialog), Delete confirmation (AlertDialog)
+
+## Administrators Module (Administratorlar)
+
+### Schema
+- `Administrator` model: id, userId (unique), centerId, firstName, lastName, position, invitedBy
+- Each Administrator links to exactly one `EducationCenter`
+- `EducationCenter` has `subscriptionPlan: SubscriptionPlan` enum (BASIC/PREMIUM, default BASIC)
+
+### Backend (8 endpoints)
+- `GET /api/administrators` — paginated list with search, status (active/inactive), plan (BASIC/PREMIUM), sort
+- `GET /api/administrators/stats` — total, active, inactive, premium counts
+- `GET /api/administrators/:id` — full profile with user/center/counts
+- `POST /api/administrators` — creates User+Center+Administrator in transaction (or links existing userId)
+- `PATCH /api/administrators/:id` — update admin/center profile (no isActive - separate endpoints)
+- `PATCH /api/administrators/:id/activate` — administrators.manage permission, activates center
+- `PATCH /api/administrators/:id/deactivate` — administrators.manage permission, deactivates center
+- `DELETE /api/administrators/:id` — SUPERADMIN only
+- DTOs: QueryAdministratorsDto, CreateAdministratorDto, UpdateAdministratorDto
+
+### Frontend (Superadmin)
+- Stats cards: total centers, active, inactive, premium
+- Filter bar: search + status dropdown + plan dropdown
+- Data table: center avatar, center name (with student/teacher counts), admin name/email, phone, plan badge, status badge, date
+- Row click → Sheet detail panel with center stats (students, teachers, courses), contact info, description
+- Action menu: view, edit, activate/deactivate, delete
+- Create dialog: admin info (name, email/phone, position) + center info (name, phone, email, address, plan, description)
+- Edit dialog: all editable fields
+- Activate/Deactivate confirmation (AlertDialog), Delete confirmation (AlertDialog)
 
 ### Placeholder Pages (UI ready, awaiting backend)
 - Analytics, Reports, Statistics, Roles, Access Control, Chat, Videochat, Reviews, Banners, Audio, Videos, Affirmations, Projective Methods, Tests, Trainings, Sessions History, Activity Logs, Complaints, Reports Moderation, Blocking, Content Control, Finance Statistics, Revenue, Settings, App Settings, Security, Audit Logs, Integrations, Monitoring, API Keys, System Access

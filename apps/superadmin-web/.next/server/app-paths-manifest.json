@@ -1,5 +1,1 @@
-{
-  "/(dashboard)/psychologists/page": "app/(dashboard)/psychologists/page.js",
-  "/(dashboard)/users/page": "app/(dashboard)/users/page.js",
-  "/login/page": "app/login/page.js"
-}
+{}

@@ -1,0 +1,124 @@
+You are a senior full-stack SaaS architect.
+
+We already have:
+- production-ready RBAC system
+- Users module (fully implemented)
+- Psychologists module (fully implemented)
+
+Now implement the next core business module:
+
+====================================
+MODULE: ADMINISTRATORLAR (Centers / Admins)
+====================================
+
+This module represents education/psychology center owners.
+
+====================================
+BUSINESS MODEL
+====================================
+
+Administrator manages:
+- psychologists
+- users
+- sessions
+- payments
+
+Each Administrator must have:
+
+- userId (linked to User)
+- centerName
+- centerDescription
+- address
+- phone
+- logo
+- subscription plan (basic/premium)
+- isActive
+- createdAt
+
+====================================
+BACKEND REQUIREMENTS
+====================================
+
+1. Create Administrator entity/model
+2. Link to User
+
+3. Endpoints:
+- GET /administrators
+- GET /administrators/:id
+- POST /administrators
+- PATCH /administrators/:id
+- DELETE /administrators/:id
+
+4. Stats:
+- total centers
+- active centers
+- inactive centers
+- premium centers
+
+5. Filters:
+- status
+- plan
+- created date
+
+6. RBAC:
+- administrators.read
+- administrators.write
+- administrators.manage
+
+7. Security:
+- only SUPERADMIN can delete
+- prevent invalid state transitions
+
+8. Audit log
+
+====================================
+FRONTEND REQUIREMENTS
+====================================
+
+Build full admin panel page:
+
+1. Stats cards
+2. Table:
+- logo
+- center name
+- admin name
+- phone
+- plan
+- status
+- created date
+
+3. Filters:
+- plan
+- status
+
+4. Actions:
+- view
+- edit
+- activate/deactivate
+- delete
+
+5. Detail drawer:
+- full center profile
+
+6. Create/Edit modal:
+- full form
+
+====================================
+DESIGN
+====================================
+
+Must match Users & Psychologists quality:
+- clean
+- premium
+- structured
+- scalable
+
+====================================
+OUTPUT
+====================================
+
+Implement fully and return:
+- files changed
+- endpoints created
+- what's fully working
+- what's placeholder
