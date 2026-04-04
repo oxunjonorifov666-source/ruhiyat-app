@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { TOKEN_KEYS } from '@ruhiyat/config'
 
+function noCacheHeaders(response: NextResponse) {
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  response.headers.set('Pragma', 'no-cache')
+  response.headers.set('Expires', '0')
+  return response
+}
+
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
@@ -12,7 +19,7 @@ export function middleware(request: NextRequest) {
     pathname === '/favicon.ico'
 
   if (isPublicRoute) {
-    return NextResponse.next()
+    return noCacheHeaders(NextResponse.next())
   }
 
   const token = request.cookies.get(TOKEN_KEYS.ACCESS_TOKEN)?.value
@@ -21,10 +28,11 @@ export function middleware(request: NextRequest) {
   if (!token) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    return NextResponse.redirect(url)
+    const redirect = NextResponse.redirect(url)
+    return noCacheHeaders(redirect)
   }
 
-  return NextResponse.next()
+  return noCacheHeaders(NextResponse.next())
 }
 
 export const config = {
