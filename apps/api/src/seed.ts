@@ -23,6 +23,7 @@ const ADMIN_PERMISSIONS = [
   { resource: 'assessments', action: 'write' },
   { resource: 'psychologists', action: 'read' },
   { resource: 'psychologists', action: 'write' },
+  { resource: 'psychologists', action: 'manage' },
   { resource: 'centers', action: 'read' },
   { resource: 'centers', action: 'write' },
 ];

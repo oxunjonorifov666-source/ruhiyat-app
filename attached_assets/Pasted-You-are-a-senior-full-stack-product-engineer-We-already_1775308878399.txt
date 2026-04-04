@@ -1,0 +1,126 @@
+You are a senior full-stack product engineer.
+
+We already have:
+- full RBAC system
+- fully implemented Users module (CRUD, filters, audit logs)
+- production-ready backend and frontend
+
+Now build the next core module:
+
+====================================
+MODULE: PSIXOLOGLAR (Psychologists)
+====================================
+
+This module must be production-grade, similar or better than Users module.
+
+====================================
+BUSINESS LOGIC
+====================================
+
+Psychologist is a specialized user.
+
+Each psychologist must have:
+
+- userId (linked to User)
+- specialization
+- experienceYears
+- education
+- certifications
+- rating
+- bio/description
+- availability (online/offline schedule)
+- verification status (pending/approved/rejected)
+
+====================================
+BACKEND REQUIREMENTS
+====================================
+
+1. Create Psychologist entity/model
+2. Link to User
+3. Create endpoints:
+
+- GET /psychologists
+- GET /psychologists/:id
+- POST /psychologists
+- PATCH /psychologists/:id
+- DELETE /psychologists/:id
+- PATCH /psychologists/:id/verify
+- PATCH /psychologists/:id/reject
+
+4. Add filters:
+- specialization
+- rating
+- experience
+- status
+
+5. Add stats endpoint:
+- total psychologists
+- verified
+- pending
+- rejected
+
+6. Apply RBAC:
+- psychologists.read
+- psychologists.write
+- psychologists.manage
+
+7. Add audit logging
+
+====================================
+FRONTEND REQUIREMENTS
+====================================
+
+Upgrade the Psychologists page:
+
+1. Stats cards:
+- total
+- verified
+- pending
+- rejected
+
+2. Table:
+- avatar
+- name
+- specialization
+- experience
+- rating
+- status
+- actions
+
+3. Filters:
+- specialization
+- rating
+- status
+
+4. Actions:
+- view
+- edit
+- verify
+- reject
+- delete
+
+5. Create/Edit modal:
+- full professional form
+
+6. Detail drawer:
+- full profile
+
+====================================
+SECURITY
+====================================
+
+- Only SUPERADMIN can verify/reject
+- Prevent invalid states
+- Validate all inputs
+
+====================================
+OUTPUT
+====================================
+
+Implement fully.
+
+Return:
+- files changed
+- endpoints created
+- what is fully working
+- what is placeholder

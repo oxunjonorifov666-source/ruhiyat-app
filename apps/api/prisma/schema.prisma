@@ -17,6 +17,12 @@ enum UserRole {
   MOBILE_USER
 }
 
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id           Int       @id @default(autoincrement())
   email        String?   @unique
@@ -203,22 +209,27 @@ model MobileUser {
 }
 
 model Psychologist {
-  id              Int      @id @default(autoincrement())
-  userId          Int      @unique @map("user_id")
-  centerId        Int?     @map("center_id")
-  firstName       String   @map("first_name")
-  lastName        String   @map("last_name")
-  specialization  String?
-  bio             String?
-  avatarUrl       String?  @map("avatar_url")
-  licenseNumber   String?  @map("license_number")
-  experienceYears Int?     @map("experience_years")
-  isVerified      Boolean  @default(false) @map("is_verified")
-  isAvailable     Boolean  @default(true) @map("is_available")
-  hourlyRate      Int?     @map("hourly_rate")
-  rating          Float?
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                 Int                    @id @default(autoincrement())
+  userId             Int                    @unique @map("user_id")
+  centerId           Int?                   @map("center_id")
+  firstName          String                 @map("first_name")
+  lastName           String                 @map("last_name")
+  specialization     String?
+  bio                String?
+  avatarUrl          String?                @map("avatar_url")
+  licenseNumber      String?                @map("license_number")
+  education          String?
+  certifications     String[]               @default([])
+  experienceYears    Int?                   @map("experience_years")
+  verificationStatus VerificationStatus     @default(PENDING) @map("verification_status")
+  isVerified         Boolean                @default(false) @map("is_verified")
+  isAvailable        Boolean                @default(true) @map("is_available")
+  rejectionReason    String?                @map("rejection_reason")
+  hourlyRate         Int?                   @map("hourly_rate")
+  rating             Float?
+  totalSessions      Int                    @default(0) @map("total_sessions")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
 
   user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   center EducationCenter? @relation(fields: [centerId], references: [id])

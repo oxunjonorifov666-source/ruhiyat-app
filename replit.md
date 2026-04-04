@@ -41,7 +41,7 @@ pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **
 - **PermissionsGuard** + `@Permissions()` decorator on all controllers (replaces RolesGuard)
 - Permission format: `"resource.action"` (e.g., `users.read`, `content.write`, `system.settings`)
 - **SUPERADMIN**: Bypasses all permission checks (hardcoded in guard)
-- **ADMIN role**: 21 permissions (users, content, community, communication, meetings, finance, courses, assessments, psychologists, centers)
+- **ADMIN role**: 22 permissions (users, content, community, communication, meetings, finance, courses, assessments, psychologists[read/write/manage], centers)
 - **USER role**: 11 permissions (content.read, community, communication, meetings, assessments, psychologists, wellness, finance.write)
 - Roles and permissions seeded in DB (`roles` + `permissions` tables)
 - `/auth/me` returns `permissions` array (`["*"]` for superadmin, specific list for others)
@@ -115,7 +115,35 @@ artifacts/
 - `DataTable` — paginated table with search, loading/empty/error states
 
 ### Fully Connected Pages (real API data)
-- Dashboard, Users (full CRUD + block/unblock/role change), Psychologists, Administrators, Announcements, Articles, Notifications, Meetings, Community, Moderation, Payments, Transactions
+- Dashboard, Users (full CRUD + block/unblock/role change), Psychologists (full CRUD + verify/reject + stats), Administrators, Announcements, Articles, Notifications, Meetings, Community, Moderation, Payments, Transactions
+
+## Psychologists Module (Psixologlar)
+
+### Schema
+- `Psychologist` model with `VerificationStatus` enum (PENDING/APPROVED/REJECTED)
+- Fields: firstName, lastName, specialization, bio, education, certifications[], licenseNumber, experienceYears, verificationStatus, isVerified, isAvailable, rejectionReason, hourlyRate, rating, totalSessions
+- Relations: User (1:1), EducationCenter (optional)
+
+### Backend (8 endpoints)
+- `GET /api/psychologists` — paginated list with search, status filter, specialization filter, min rating, min experience, sort
+- `GET /api/psychologists/stats` — total, approved, pending, rejected counts
+- `GET /api/psychologists/:id` — full profile with user/center relations
+- `POST /api/psychologists` — creates User+Psychologist in a transaction (or links existing userId)
+- `PATCH /api/psychologists/:id` — update profile fields
+- `PATCH /api/psychologists/:id/verify` — SUPERADMIN only, sets APPROVED
+- `PATCH /api/psychologists/:id/reject` — SUPERADMIN only, sets REJECTED with optional reason
+- `DELETE /api/psychologists/:id` — requires psychologists.manage permission
+- DTOs: QueryPsychologistsDto, CreatePsychologistDto, UpdatePsychologistDto, RejectPsychologistDto
+
+### Frontend (Superadmin)
+- Stats cards: total, approved, pending, rejected
+- Filter bar: search + verification status dropdown
+- Data table: avatar, name, specialization, experience, rating (stars), status badge, availability badge, date
+- Row click → Sheet detail panel with 2x2 stat grid, contact info, certifications badges, bio, rejection reason
+- Action menu: view, edit, verify, reject, delete
+- Create dialog: full form with name, email/phone, specialization, education, license, experience, rate, certifications (tag input), bio
+- Edit dialog: all editable fields including certifications tag input
+- Verify confirmation (AlertDialog), Reject with reason (Dialog), Delete confirmation (AlertDialog)
 
 ### Placeholder Pages (UI ready, awaiting backend)
 - Analytics, Reports, Statistics, Roles, Access Control, Chat, Videochat, Reviews, Banners, Audio, Videos, Affirmations, Projective Methods, Tests, Trainings, Sessions History, Activity Logs, Complaints, Reports Moderation, Blocking, Content Control, Finance Statistics, Revenue, Settings, App Settings, Security, Audit Logs, Integrations, Monitoring, API Keys, System Access
