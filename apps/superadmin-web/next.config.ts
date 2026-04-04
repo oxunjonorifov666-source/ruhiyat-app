@@ -1,7 +1,11 @@
 import type { NextConfig } from 'next';
 
+const isReplit = !!process.env.REPLIT_DEV_DOMAIN;
+const apiBaseUrl =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
 const nextConfig: NextConfig = {
-  basePath: '/superadmin',
+  basePath: isReplit ? '/superadmin' : '',
   skipTrailingSlashRedirect: true,
   reactStrictMode: true,
   transpilePackages: ['@ruhiyat/ui', '@ruhiyat/types', '@ruhiyat/config'],
@@ -22,7 +26,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3000/api/:path*',
+        destination: `${apiBaseUrl}/api/:path*`,
       },
     ];
   },
