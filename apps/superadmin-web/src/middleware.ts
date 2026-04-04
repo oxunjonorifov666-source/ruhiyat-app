@@ -2,30 +2,16 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { TOKEN_KEYS } from '@ruhiyat/config'
 
-function redirectTo(request: NextRequest, path: string) {
-  const url = request.nextUrl.clone()
-  url.pathname = path
-  return NextResponse.redirect(url)
-}
-
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const pathname = request.nextUrl.pathname
 
-  if (
-    pathname === '/_next' || pathname.startsWith('/_next/') ||
-    pathname === '/api' || pathname.startsWith('/api/') ||
+  const isPublicRoute =
+    pathname.includes('/login') ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
     pathname === '/favicon.ico'
-  ) {
-    return NextResponse.next()
-  }
 
-  const isLoginPage = pathname === '/login' || pathname === '/login/'
-
-  if (isLoginPage) {
-    const token = request.cookies.get(TOKEN_KEYS.ACCESS_TOKEN)?.value
-    if (token) {
-      return redirectTo(request, '/dashboard')
-    }
+  if (isPublicRoute) {
     return NextResponse.next()
   }
 
@@ -33,7 +19,9 @@ export function middleware(request: NextRequest) {
     || request.cookies.get(TOKEN_KEYS.REFRESH_TOKEN)?.value
 
   if (!token) {
-    return redirectTo(request, '/login')
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
   }
 
   return NextResponse.next()
