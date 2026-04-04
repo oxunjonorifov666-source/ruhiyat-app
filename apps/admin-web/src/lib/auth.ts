@@ -1,6 +1,7 @@
 import { TOKEN_KEYS } from '@ruhiyat/config';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '/admin/api';
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/admin/api';
+const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl.replace(/\/+$/, '')}/api`;
 
 export interface AuthUser {
   id: number;

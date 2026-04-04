@@ -1,0 +1,68 @@
+We are debugging a real production issue between Vercel frontend and Replit backend.
+
+Current facts:
+1) Superadmin frontend is deployed on Vercel and /login page renders correctly.
+2) The old 404 issue is fixed.
+3) The old blank white page issue is fixed.
+4) Login submit still shows "Failed to fetch".
+5) Backend is published on Replit at:
+https://asset-linker-okhunjonorifov.replit.app
+6) Vercel env NEXT_PUBLIC_API_URL already points to that .replit.app URL.
+7) CORS was supposedly fixed and the app was republished.
+8) But the browser still cannot complete the login request.
+
+I need you to do a FACT-BASED end-to-end diagnosis, not guesses.
+
+Please inspect and verify all of these:
+
+A. Frontend request details
+- Find the exact login request code in the superadmin frontend.
+- Show the exact final URL being requested at runtime.
+- Confirm whether it is calling:
+  /api/auth/login
+  or
+  /auth/login
+  or something else.
+- Confirm whether fetch/axios uses credentials.
+- Confirm whether the request is same-origin via Next rewrite or direct cross-origin.
+
+B. Next.js rewrite behavior
+- Check apps/superadmin-web/next.config.ts
+- Tell me whether /api/* requests are being rewritten on Vercel.
+- Verify whether the rewrite destination is correct for production.
+- Confirm whether the login request should go through Vercel rewrite or directly to the Replit backend.
+
+C. Backend route existence
+- In apps/api, find the real auth controller route.
+- Confirm the exact backend login endpoint path.
+- Example: /api/auth/login or /auth/login
+- Verify that the endpoint actually exists in the published app.
+
+D. Production connectivity test
+- From the running Replit environment, test the published production API endpoint directly.
+- Test the exact login endpoint with curl or an OPTIONS/POST check.
+- Show the actual response status and headers.
+- Verify CORS headers for the real current Vercel domain:
+  https://ruhiyat-nzmf9e2c1-oxunjonorifov666-5962s-projects.vercel.app
+
+E. Root cause
+I want the exact root cause, chosen from one of these or another verified cause:
+- wrong frontend request URL
+- wrong Next rewrite
+- wrong backend route path
+- backend route not deployed
+- CORS still misconfigured
+- credentials/cookie issue
+- network/DNS issue
+- something else
+
+F. Fix
+- Apply the minimal safe fix
+- Do not change unrelated files
+- Do not break monorepo structure
+- After fixing, tell me exactly what changed and why
+
+Important:
+Do not give me generic advice.
+Verify with actual code paths and actual curl/tests.
+Return the exact files changed and the exact root cause.

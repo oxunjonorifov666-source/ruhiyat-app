@@ -27,7 +27,8 @@ interface RecentUser {
   createdAt: string
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl.replace(/\/+$/, '')}/api`
 
 function formatTimeSince(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
