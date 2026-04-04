@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { MeetingsService } from './meetings.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 
 @Controller('meetings')
 @UseGuards(JwtAuthGuard)
@@ -26,18 +26,18 @@ export class MeetingsController {
   findOne(@Param('id', ParseIntPipe) id: number) { return this.service.findOne(id); }
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @UseGuards(PermissionsGuard)
+  @Permissions('meetings.write')
   create(@Body() data: any) { return this.service.create(data); }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @UseGuards(PermissionsGuard)
+  @Permissions('meetings.write')
   update(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.update(id, data); }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN')
+  @UseGuards(PermissionsGuard)
+  @Permissions('meetings.delete')
   remove(@Param('id', ParseIntPipe) id: number) { return this.service.remove(id); }
 
   @Post(':id/join')

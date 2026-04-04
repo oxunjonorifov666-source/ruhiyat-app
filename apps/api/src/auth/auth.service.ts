@@ -254,6 +254,28 @@ export class AuthService {
     return { message: 'Parol muvaffaqiyatli tiklandi' };
   }
 
+  async getUserPermissions(userId: number): Promise<string[]> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return [];
+
+    if (user.role === 'SUPERADMIN') {
+      return ['*'];
+    }
+
+    const roleMap: Record<string, string> = {
+      'ADMINISTRATOR': 'ADMIN',
+      'MOBILE_USER': 'USER',
+    };
+    const roleName = roleMap[user.role] || user.role;
+    const role = await this.prisma.role.findUnique({
+      where: { name: roleName },
+      include: { permissions: true },
+    });
+
+    if (!role) return [];
+    return role.permissions.map(p => `${p.resource}.${p.action}`);
+  }
+
   private sanitizeUser(user: any) {
     return {
       id: user.id,

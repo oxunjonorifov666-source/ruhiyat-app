@@ -30,19 +30,25 @@ pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **
 - **Helmet**: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc.
 - **CORS**: Configurable via `CORS_ORIGINS` env var, blocks all in production by default
 - **Rate Limiting**: Global 100 req/min, auth endpoints stricter (login 10/min, OTP send 3/min)
-- **RBAC**: All write endpoints enforce role-based access (SUPERADMIN/ADMINISTRATOR)
+- **RBAC**: Permission-based access control via PermissionsGuard on all controllers
 - **Exception Filter**: Stack traces hidden in production
 - **Audit Logging**: All write operations logged to `audit_logs` table with user, IP, action
 - **Password Validation**: 8+ chars, uppercase, lowercase, digit
 - **OTP Enum**: Purpose restricted to `login/registration/verification/password_reset`
 - **No Hardcoded Secrets**: JWT secrets checked in production, psychologist password randomized
 
-### Role-Based Access Control
-- **SUPERADMIN**: Full platform access, superadmin-web panel only
-- **ADMINISTRATOR**: Center-scoped access, admin-web panel only
-- **MOBILE_USER**: Personal wellness features, mobile app only
+### Permission-Based Access Control (RBAC)
+- **PermissionsGuard** + `@Permissions()` decorator on all controllers (replaces RolesGuard)
+- Permission format: `"resource.action"` (e.g., `users.read`, `content.write`, `system.settings`)
+- **SUPERADMIN**: Bypasses all permission checks (hardcoded in guard)
+- **ADMIN role**: 21 permissions (users, content, community, communication, meetings, finance, courses, assessments, psychologists, centers)
+- **USER role**: 11 permissions (content.read, community, communication, meetings, assessments, psychologists, wellness, finance.write)
+- Roles and permissions seeded in DB (`roles` + `permissions` tables)
+- `/auth/me` returns `permissions` array (`["*"]` for superadmin, specific list for others)
+- Frontend sidebar filters navigation items based on user permissions
 - Cross-role access is blocked (superadmin can't access admin panel and vice versa)
-- Content/finance/moderation write endpoints restricted to admin roles
+- **Privilege escalation blocked**: Only SUPERADMIN can change `role`/`isActive` fields
+- **Delete protection**: Cannot delete SUPERADMIN accounts, cannot self-delete
 
 ### Route Protection
 - Web: Next.js middleware checks cookies, redirects to `/login` if no token
@@ -52,6 +58,7 @@ pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **
 - Mobile: AppNavigator conditionally renders AuthStack vs MainStack based on auth state
 
 ### Default Test Credentials (seeded)
+- Superadmin: `admin@ruhiyat.uz` / `123456` (primary)
 - Superadmin: `superadmin@ruhiyat.uz` / `admin123`
 - Admin: `admin@markaz.uz` / `admin123`
 - Mobile: `+998901234567` / `user123`
@@ -112,7 +119,8 @@ All placeholder pages have been replaced with real API-connected data:
 - `apps/api/src/auth/auth.controller.ts` — Auth endpoints with DTOs
 - `apps/api/src/auth/auth.service.ts` — Auth logic, token generation, OTP
 - `apps/api/src/auth/dto/` — Validated DTOs (LoginDto, RegisterDto, etc.)
-- `apps/api/src/auth/guards/` — JwtAuthGuard, RolesGuard
+- `apps/api/src/auth/guards/` — JwtAuthGuard, PermissionsGuard (primary), RolesGuard (legacy)
+- `apps/api/src/auth/decorators/permissions.decorator.ts` — @Permissions decorator
 - `apps/api/src/auth/strategies/jwt.strategy.ts` — JWT validation
 - `apps/api/src/system/dashboard.controller.ts` — Dashboard stats endpoints
 - `apps/api/src/seed.ts` — Database seeder (creates default users)

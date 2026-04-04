@@ -386,6 +386,7 @@ async function loginApi(email, password) {
     return res.json();
 }
 async function fetchMe(accessToken) {
+    var _data_user, _data_user1, _data_user2, _data_user3, _data_user4, _data_user5, _data_user6;
     const res = await fetch("".concat(API_URL, "/auth/me"), {
         headers: {
             Authorization: "Bearer ".concat(accessToken)
@@ -394,7 +395,17 @@ async function fetchMe(accessToken) {
     if (!res.ok) {
         throw new Error('Sessiya yaroqsiz');
     }
-    return res.json();
+    const data = await res.json();
+    var _data_id, _data_email, _ref, _data_phone, _ref1, _data_firstName, _ref2, _data_lastName, _ref3, _data_role, _data_permissions, _ref4;
+    return {
+        id: (_data_id = data.id) !== null && _data_id !== void 0 ? _data_id : (_data_user = data.user) === null || _data_user === void 0 ? void 0 : _data_user.id,
+        email: (_ref = (_data_email = data.email) !== null && _data_email !== void 0 ? _data_email : (_data_user1 = data.user) === null || _data_user1 === void 0 ? void 0 : _data_user1.email) !== null && _ref !== void 0 ? _ref : null,
+        phone: (_ref1 = (_data_phone = data.phone) !== null && _data_phone !== void 0 ? _data_phone : (_data_user2 = data.user) === null || _data_user2 === void 0 ? void 0 : _data_user2.phone) !== null && _ref1 !== void 0 ? _ref1 : null,
+        firstName: (_ref2 = (_data_firstName = data.firstName) !== null && _data_firstName !== void 0 ? _data_firstName : (_data_user3 = data.user) === null || _data_user3 === void 0 ? void 0 : _data_user3.firstName) !== null && _ref2 !== void 0 ? _ref2 : null,
+        lastName: (_ref3 = (_data_lastName = data.lastName) !== null && _data_lastName !== void 0 ? _data_lastName : (_data_user4 = data.user) === null || _data_user4 === void 0 ? void 0 : _data_user4.lastName) !== null && _ref3 !== void 0 ? _ref3 : null,
+        role: (_data_role = data.role) !== null && _data_role !== void 0 ? _data_role : (_data_user5 = data.user) === null || _data_user5 === void 0 ? void 0 : _data_user5.role,
+        permissions: (_ref4 = (_data_permissions = data.permissions) !== null && _data_permissions !== void 0 ? _data_permissions : (_data_user6 = data.user) === null || _data_user6 === void 0 ? void 0 : _data_user6.permissions) !== null && _ref4 !== void 0 ? _ref4 : []
+    };
 }
 async function refreshTokenApi(refreshToken) {
     const res = await fetch("".concat(API_URL, "/auth/refresh"), {

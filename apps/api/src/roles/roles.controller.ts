@@ -1,12 +1,12 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 
 @Controller('roles')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPERADMIN')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Permissions('system.settings')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 

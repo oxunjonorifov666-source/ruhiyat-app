@@ -331,7 +331,16 @@ async function fetchMe(accessToken) {
     if (!res.ok) {
         throw new Error('Sessiya yaroqsiz');
     }
-    return res.json();
+    const data = await res.json();
+    return {
+        id: data.id ?? data.user?.id,
+        email: data.email ?? data.user?.email ?? null,
+        phone: data.phone ?? data.user?.phone ?? null,
+        firstName: data.firstName ?? data.user?.firstName ?? null,
+        lastName: data.lastName ?? data.user?.lastName ?? null,
+        role: data.role ?? data.user?.role,
+        permissions: data.permissions ?? data.user?.permissions ?? []
+    };
 }
 async function refreshTokenApi(refreshToken) {
     const res = await fetch(`${API_URL}/auth/refresh`, {

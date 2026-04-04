@@ -303,7 +303,8 @@ __turbopack_context__.s([
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$packages$2f$config$2f$src$2f$index$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/packages/config/src/index.ts [app-ssr] (ecmascript)");
 ;
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '/admin/api';
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/admin/api';
+const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl.replace(/\/+$/, '')}/api`;
 async function loginApi(identifier, password) {
     const isEmail = identifier.includes('@');
     const body = isEmail ? {

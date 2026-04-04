@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 
 @Controller()
 @UseGuards(JwtAuthGuard)
@@ -28,18 +28,18 @@ export class CoursesController {
   findCourse(@Param('id', ParseIntPipe) id: number) { return this.service.findCourse(id); }
 
   @Post('courses')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @UseGuards(PermissionsGuard)
+  @Permissions('courses.write')
   createCourse(@Body() data: any) { return this.service.createCourse(data); }
 
   @Patch('courses/:id')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @UseGuards(PermissionsGuard)
+  @Permissions('courses.write')
   updateCourse(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateCourse(id, data); }
 
   @Delete('courses/:id')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN')
+  @UseGuards(PermissionsGuard)
+  @Permissions('courses.delete')
   removeCourse(@Param('id', ParseIntPipe) id: number) { return this.service.removeCourse(id); }
 
   @Get('groups')
@@ -58,8 +58,8 @@ export class CoursesController {
   }
 
   @Post('groups')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @UseGuards(PermissionsGuard)
+  @Permissions('courses.write')
   createGroup(@Body() data: any) { return this.service.createGroup(data); }
 
   @Get('enrollments')
@@ -74,7 +74,7 @@ export class CoursesController {
   }
 
   @Post('enrollments')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @UseGuards(PermissionsGuard)
+  @Permissions('courses.write')
   createEnrollment(@Body() data: any) { return this.service.createEnrollment(data); }
 }

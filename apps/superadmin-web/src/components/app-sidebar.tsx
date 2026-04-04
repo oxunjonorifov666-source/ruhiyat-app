@@ -16,9 +16,20 @@ import {
 } from "@/components/ui/sidebar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { superadminNavGroups } from "@/lib/navigation"
+import { useAuth } from "@/components/auth-provider"
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { hasPermission } = useAuth()
+
+  const filteredGroups = superadminNavGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        !item.permission || hasPermission(item.permission)
+      ),
+    }))
+    .filter((group) => group.items.length > 0)
 
   return (
     <Sidebar collapsible="icon">
@@ -41,7 +52,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <ScrollArea className="h-[calc(100vh-5rem)]">
-          {superadminNavGroups.map((group) => (
+          {filteredGroups.map((group) => (
             <SidebarGroup key={group.label}>
               <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
               <SidebarMenu>

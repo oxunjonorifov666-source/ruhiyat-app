@@ -1,13 +1,13 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards, ForbiddenException } from '@nestjs/common';
 import { EducationCentersService } from './education-centers.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('education-centers')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class EducationCentersController {
   constructor(
     private readonly service: EducationCentersService,
@@ -25,6 +25,7 @@ export class EducationCentersController {
   }
 
   @Get()
+  @Permissions('centers.read')
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -38,14 +39,15 @@ export class EducationCentersController {
   }
 
   @Get(':id')
+  @Permissions('centers.read')
   findOne(@Param('id', ParseIntPipe) id: number) { return this.service.findOne(id); }
 
   @Post()
-  @Roles('SUPERADMIN')
+  @Permissions('centers.write')
   create(@Body() data: any) { return this.service.create(data); }
 
   @Patch(':id')
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @Permissions('centers.write')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: any,
@@ -56,10 +58,11 @@ export class EducationCentersController {
   }
 
   @Delete(':id')
-  @Roles('SUPERADMIN')
+  @Permissions('centers.delete')
   remove(@Param('id', ParseIntPipe) id: number) { return this.service.remove(id); }
 
   @Get(':id/staff')
+  @Permissions('centers.read')
   async getStaff(
     @Param('id', ParseIntPipe) id: number,
     @Query('page') page?: string,
@@ -72,6 +75,7 @@ export class EducationCentersController {
   }
 
   @Get(':id/students')
+  @Permissions('centers.read')
   async getStudents(
     @Param('id', ParseIntPipe) id: number,
     @Query('page') page?: string,
@@ -84,6 +88,7 @@ export class EducationCentersController {
   }
 
   @Get(':id/teachers')
+  @Permissions('centers.read')
   async getTeachers(
     @Param('id', ParseIntPipe) id: number,
     @Query('page') page?: string,
@@ -96,6 +101,7 @@ export class EducationCentersController {
   }
 
   @Get(':id/courses')
+  @Permissions('centers.read')
   async getCourses(
     @Param('id', ParseIntPipe) id: number,
     @Query('page') page?: string,
@@ -108,6 +114,7 @@ export class EducationCentersController {
   }
 
   @Get(':id/groups')
+  @Permissions('centers.read')
   async getGroups(
     @Param('id', ParseIntPipe) id: number,
     @Query('page') page?: string,
@@ -120,7 +127,7 @@ export class EducationCentersController {
   }
 
   @Post(':id/students')
-  @Roles('ADMINISTRATOR', 'SUPERADMIN')
+  @Permissions('centers.write')
   async createStudent(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: any,
@@ -131,7 +138,7 @@ export class EducationCentersController {
   }
 
   @Post(':id/teachers')
-  @Roles('ADMINISTRATOR', 'SUPERADMIN')
+  @Permissions('centers.write')
   async createTeacher(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: any,
@@ -142,7 +149,7 @@ export class EducationCentersController {
   }
 
   @Post(':id/courses')
-  @Roles('ADMINISTRATOR', 'SUPERADMIN')
+  @Permissions('centers.write')
   async createCourse(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: any,
@@ -153,7 +160,7 @@ export class EducationCentersController {
   }
 
   @Post(':id/groups')
-  @Roles('ADMINISTRATOR', 'SUPERADMIN')
+  @Permissions('centers.write')
   async createGroup(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: any,

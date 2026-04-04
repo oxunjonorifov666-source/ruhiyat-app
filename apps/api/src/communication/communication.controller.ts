@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { CommunicationService } from './communication.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 
 @Controller()
 @UseGuards(JwtAuthGuard)
@@ -38,8 +38,8 @@ export class CommunicationController {
   }
 
   @Post('notifications')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @UseGuards(PermissionsGuard)
+  @Permissions('communication.write')
   createNotification(@Body() data: any) { return this.service.createNotification(data); }
 
   @Patch('notifications/:id/read')
@@ -61,17 +61,17 @@ export class CommunicationController {
   }
 
   @Post('announcements')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @UseGuards(PermissionsGuard)
+  @Permissions('communication.write')
   createAnnouncement(@Body() data: any) { return this.service.createAnnouncement(data); }
 
   @Patch('announcements/:id')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @UseGuards(PermissionsGuard)
+  @Permissions('communication.write')
   updateAnnouncement(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateAnnouncement(id, data); }
 
   @Delete('announcements/:id')
-  @UseGuards(RolesGuard)
-  @Roles('SUPERADMIN')
+  @UseGuards(PermissionsGuard)
+  @Permissions('communication.delete')
   removeAnnouncement(@Param('id', ParseIntPipe) id: number) { return this.service.removeAnnouncement(id); }
 }

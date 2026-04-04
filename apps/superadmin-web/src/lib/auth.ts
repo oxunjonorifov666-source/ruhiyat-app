@@ -10,6 +10,7 @@ export interface AuthUser {
   firstName: string | null;
   lastName: string | null;
   role: string;
+  permissions: string[];
 }
 
 export interface LoginResponse {
@@ -33,7 +34,7 @@ export async function loginApi(email: string, password: string): Promise<LoginRe
   return res.json();
 }
 
-export async function fetchMe(accessToken: string): Promise<{ user: AuthUser }> {
+export async function fetchMe(accessToken: string): Promise<AuthUser> {
   const res = await fetch(`${API_URL}/auth/me`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -42,7 +43,16 @@ export async function fetchMe(accessToken: string): Promise<{ user: AuthUser }> 
     throw new Error('Sessiya yaroqsiz');
   }
 
-  return res.json();
+  const data = await res.json();
+  return {
+    id: data.id ?? data.user?.id,
+    email: data.email ?? data.user?.email ?? null,
+    phone: data.phone ?? data.user?.phone ?? null,
+    firstName: data.firstName ?? data.user?.firstName ?? null,
+    lastName: data.lastName ?? data.user?.lastName ?? null,
+    role: data.role ?? data.user?.role,
+    permissions: data.permissions ?? data.user?.permissions ?? [],
+  };
 }
 
 export async function refreshTokenApi(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {

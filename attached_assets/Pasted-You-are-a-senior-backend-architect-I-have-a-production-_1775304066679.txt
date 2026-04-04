@@ -1,0 +1,138 @@
+You are a senior backend architect.
+
+I have a production NestJS + Prisma + PostgreSQL system.
+I need to upgrade it to a PROFESSIONAL enterprise-level RBAC (Role-Based Access Control) system with strong security.
+
+IMPORTANT:
+- Do NOT break existing auth
+- Extend current system cleanly
+- Follow best practices (scalable architecture)
+
+====================================
+GOAL
+====================================
+
+Implement a complete RBAC + security system:
+
+1) Roles
+2) Permissions
+3) Role-Permission mapping
+4) Route-level protection
+5) Audit logging
+
+====================================
+DATABASE (Prisma)
+====================================
+
+Add these models:
+
+- Role
+- Permission
+- RolePermission (many-to-many)
+- UserRole (if needed)
+
+Each Permission should be like:
+- users.read
+- users.write
+- users.block
+- content.manage
+- finance.read
+- system.settings
+
+====================================
+BACKEND (NestJS)
+====================================
+
+1. Create:
+- roles.module
+- permissions.module
+
+2. Create Guards:
+- JwtAuthGuard (already exists)
+- RolesGuard
+- PermissionsGuard
+
+3. Create decorators:
+- @Roles(...)
+- @Permissions(...)
+
+4. Protect routes like:
+
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Permissions('users.read')
+
+5. Superadmin must bypass all checks
+
+====================================
+SEED
+====================================
+
+Update seed.ts:
+
+Create default roles:
+- SUPERADMIN
+- ADMIN
+- USER
+
+Assign permissions:
+
+SUPERADMIN → ALL
+ADMIN → limited (users, content)
+USER → minimal
+
+Create default user:
+email: admin@ruhiyat.uz
+password: 123456
+role: SUPERADMIN
+
+====================================
+SECURITY
+====================================
+
+Improve security:
+
+- Use bcrypt with saltRounds = 12
+- Add rate limiting (login protection)
+- Add Helmet
+- Add CORS properly (already exists, don't break)
+- Add request validation (class-validator)
+
+====================================
+AUDIT LOG
+====================================
+
+Create AuditLog table:
+
+- userId
+- action
+- entity
+- timestamp
+
+Log:
+- login
+- user changes
+- role changes
+
+====================================
+FRONTEND (Next.js)
+====================================
+
+- Hide sidebar menus based on permissions
+- Example:
+  if no "users.read" → hide Users menu
+
+====================================
+OUTPUT
+====================================
+
+- Update Prisma schema
+- Create modules, guards, decorators
+- Update seed
+- Show example protected controller
+- Do NOT remove existing code
+
+====================================
+IMPORTANT
+====================================
+
+Make everything production-ready, clean, and scalable.

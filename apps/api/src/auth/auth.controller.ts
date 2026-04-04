@@ -39,7 +39,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @SkipThrottle()
   async getMe(@CurrentUser() currentUser: { userId: number; role: string }) {
-    return this.authService.getProfile(currentUser.userId);
+    const profile = await this.authService.getProfile(currentUser.userId);
+    const permissions = await this.authService.getUserPermissions(currentUser.userId);
+    return { ...profile, permissions };
   }
 
   @Post('otp/send')

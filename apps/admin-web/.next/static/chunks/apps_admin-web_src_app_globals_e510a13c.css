@@ -200,6 +200,8 @@
     color: inherit;
     -webkit-text-decoration: inherit;
     -webkit-text-decoration: inherit;
+    -webkit-text-decoration: inherit;
+    -webkit-text-decoration: inherit;
     text-decoration: inherit;
   }
 
@@ -1426,11 +1428,7 @@
     background-color: var(--card);
   }
 
-  .bg-destructive {
-    background-color: var(--destructive);
-  }
-
-  .bg-destructive\/10 {
+  .bg-destructive, .bg-destructive\/10 {
     background-color: var(--destructive);
   }
 
@@ -1444,11 +1442,7 @@
     background-color: var(--foreground);
   }
 
-  .bg-muted {
-    background-color: var(--muted);
-  }
-
-  .bg-muted\/40 {
+  .bg-muted, .bg-muted\/40 {
     background-color: var(--muted);
   }
 
@@ -1472,11 +1466,7 @@
     background-color: var(--popover);
   }
 
-  .bg-primary {
-    background-color: var(--primary);
-  }
-
-  .bg-primary\/10 {
+  .bg-primary, .bg-primary\/10 {
     background-color: var(--primary);
   }
 
@@ -1723,11 +1713,7 @@
     color: var(--destructive);
   }
 
-  .text-foreground {
-    color: var(--foreground);
-  }
-
-  .text-foreground\/60 {
+  .text-foreground, .text-foreground\/60 {
     color: var(--foreground);
   }
 
@@ -1741,11 +1727,7 @@
     color: var(--color-green-600);
   }
 
-  .text-muted-foreground {
-    color: var(--muted-foreground);
-  }
-
-  .text-muted-foreground\/50 {
+  .text-muted-foreground, .text-muted-foreground\/50 {
     color: var(--muted-foreground);
   }
 
@@ -1779,11 +1761,7 @@
     color: var(--secondary-foreground);
   }
 
-  .text-sidebar-foreground {
-    color: var(--sidebar-foreground);
-  }
-
-  .text-sidebar-foreground\/70 {
+  .text-sidebar-foreground, .text-sidebar-foreground\/70 {
     color: var(--sidebar-foreground);
   }
 
@@ -2174,19 +2152,11 @@
     top: calc(var(--spacing) * 1);
   }
 
-  .selection\:bg-primary ::selection {
+  .selection\:bg-primary ::selection, .selection\:bg-primary::selection {
     background-color: var(--primary);
   }
 
-  .selection\:bg-primary::selection {
-    background-color: var(--primary);
-  }
-
-  .selection\:text-primary-foreground ::selection {
-    color: var(--primary-foreground);
-  }
-
-  .selection\:text-primary-foreground::selection {
+  .selection\:text-primary-foreground ::selection, .selection\:text-primary-foreground::selection {
     color: var(--primary-foreground);
   }
 
@@ -2337,9 +2307,7 @@
     .hover\:bg-accent:hover {
       background-color: var(--accent);
     }
-  }
 
-  @media (hover: hover) {
     .hover\:bg-destructive\/90:hover {
       background-color: var(--destructive);
     }
@@ -2349,9 +2317,7 @@
         background-color: color-mix(in oklab, var(--destructive) 90%, transparent);
       }
     }
-  }
 
-  @media (hover: hover) {
     .hover\:bg-muted\/50:hover {
       background-color: var(--muted);
     }
@@ -2361,9 +2327,7 @@
         background-color: color-mix(in oklab, var(--muted) 50%, transparent);
       }
     }
-  }
 
-  @media (hover: hover) {
     .hover\:bg-primary\/90:hover {
       background-color: var(--primary);
     }
@@ -2373,9 +2337,7 @@
         background-color: color-mix(in oklab, var(--primary) 90%, transparent);
       }
     }
-  }
 
-  @media (hover: hover) {
     .hover\:bg-secondary\/80:hover {
       background-color: var(--secondary);
     }
@@ -2385,59 +2347,41 @@
         background-color: color-mix(in oklab, var(--secondary) 80%, transparent);
       }
     }
-  }
 
-  @media (hover: hover) {
     .hover\:bg-sidebar-accent:hover {
       background-color: var(--sidebar-accent);
     }
-  }
 
-  @media (hover: hover) {
     .hover\:text-accent-foreground:hover {
       color: var(--accent-foreground);
     }
-  }
 
-  @media (hover: hover) {
     .hover\:text-foreground:hover {
       color: var(--foreground);
     }
-  }
 
-  @media (hover: hover) {
     .hover\:text-sidebar-accent-foreground:hover {
       color: var(--sidebar-accent-foreground);
     }
-  }
 
-  @media (hover: hover) {
     .hover\:underline:hover {
       -webkit-text-decoration-line: underline;
       text-decoration-line: underline;
     }
-  }
 
-  @media (hover: hover) {
     .hover\:opacity-100:hover {
       opacity: 1;
     }
-  }
 
-  @media (hover: hover) {
     .hover\:shadow-\[0_0_0_1px_hsl\(var\(--sidebar-accent\)\)\]:hover {
       --tw-shadow: 0 0 0 1px var(--tw-shadow-color, hsl(var(--sidebar-accent)));
       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
     }
-  }
 
-  @media (hover: hover) {
     .hover\:group-data-\[collapsible\=offcanvas\]\:bg-sidebar:hover:is(:where(.group)[data-collapsible="offcanvas"] *) {
       background-color: var(--sidebar);
     }
-  }
 
-  @media (hover: hover) {
     .hover\:after\:bg-sidebar-border:hover:after {
       content: var(--tw-content);
       background-color: var(--sidebar-border);
@@ -2781,9 +2725,7 @@
     .data-\[state\=open\]\:hover\:bg-sidebar-accent[data-state="open"]:hover {
       background-color: var(--sidebar-accent);
     }
-  }
 
-  @media (hover: hover) {
     .data-\[state\=open\]\:hover\:text-sidebar-accent-foreground[data-state="open"]:hover {
       color: var(--sidebar-accent-foreground);
     }
@@ -2819,33 +2761,23 @@
     .sm\:flex {
       display: flex;
     }
-  }
 
-  @media (min-width: 40rem) {
     .sm\:max-w-lg {
       max-width: var(--container-lg);
     }
-  }
 
-  @media (min-width: 40rem) {
     .sm\:max-w-sm {
       max-width: var(--container-sm);
     }
-  }
 
-  @media (min-width: 40rem) {
     .sm\:flex-row {
       flex-direction: row;
     }
-  }
 
-  @media (min-width: 40rem) {
     .sm\:justify-end {
       justify-content: flex-end;
     }
-  }
 
-  @media (min-width: 40rem) {
     .sm\:text-left {
       text-align: left;
     }
@@ -2855,71 +2787,49 @@
     .md\:block {
       display: block;
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:flex {
       display: flex;
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:grid-cols-2 {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:p-6 {
       padding: calc(var(--spacing) * 6);
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:text-sm {
       font-size: var(--text-sm);
       line-height: var(--tw-leading, var(--text-sm--line-height));
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:opacity-0 {
       opacity: 0;
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:peer-data-\[variant\=inset\]\:m-2:is(:where(.peer)[data-variant="inset"] ~ *) {
       margin: calc(var(--spacing) * 2);
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:peer-data-\[variant\=inset\]\:ml-0:is(:where(.peer)[data-variant="inset"] ~ *) {
       margin-left: calc(var(--spacing) * 0);
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:peer-data-\[variant\=inset\]\:rounded-xl:is(:where(.peer)[data-variant="inset"] ~ *) {
       border-radius: calc(var(--radius)  + 4px);
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:peer-data-\[variant\=inset\]\:shadow-sm:is(:where(.peer)[data-variant="inset"] ~ *) {
       --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgba(0, 0, 0, .1)), 0 1px 2px -1px var(--tw-shadow-color, rgba(0, 0, 0, .1));
       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:peer-data-\[variant\=inset\]\:peer-data-\[state\=collapsed\]\:ml-2:is(:where(.peer)[data-variant="inset"] ~ *):is(:where(.peer)[data-state="collapsed"] ~ *) {
       margin-left: calc(var(--spacing) * 2);
     }
-  }
 
-  @media (min-width: 48rem) {
     .md\:after\:hidden:after {
       content: var(--tw-content);
       display: none;
@@ -2930,9 +2840,7 @@
     .lg\:grid-cols-3 {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-  }
 
-  @media (min-width: 64rem) {
     .lg\:grid-cols-4 {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
@@ -2998,9 +2906,7 @@
         background-color: color-mix(in oklab, var(--accent) 50%, transparent);
       }
     }
-  }
 
-  @media (hover: hover) {
     .dark\:hover\:bg-input\/50:is(.dark *):hover {
       background-color: var(--input);
     }
@@ -3010,9 +2916,7 @@
         background-color: color-mix(in oklab, var(--input) 50%, transparent);
       }
     }
-  }
 
-  @media (hover: hover) {
     .dark\:hover\:text-foreground:is(.dark *):hover {
       color: var(--foreground);
     }
@@ -3252,9 +3156,7 @@
     a.\[a\&\]\:hover\:bg-accent:hover {
       background-color: var(--accent);
     }
-  }
 
-  @media (hover: hover) {
     a.\[a\&\]\:hover\:bg-destructive\/90:hover {
       background-color: var(--destructive);
     }
@@ -3264,9 +3166,7 @@
         background-color: color-mix(in oklab, var(--destructive) 90%, transparent);
       }
     }
-  }
 
-  @media (hover: hover) {
     a.\[a\&\]\:hover\:bg-primary\/90:hover {
       background-color: var(--primary);
     }
@@ -3276,9 +3176,7 @@
         background-color: color-mix(in oklab, var(--primary) 90%, transparent);
       }
     }
-  }
 
-  @media (hover: hover) {
     a.\[a\&\]\:hover\:bg-secondary\/90:hover {
       background-color: var(--secondary);
     }
@@ -3288,15 +3186,11 @@
         background-color: color-mix(in oklab, var(--secondary) 90%, transparent);
       }
     }
-  }
 
-  @media (hover: hover) {
     a.\[a\&\]\:hover\:text-accent-foreground:hover {
       color: var(--accent-foreground);
     }
-  }
 
-  @media (hover: hover) {
     a.\[a\&\]\:hover\:underline:hover {
       -webkit-text-decoration-line: underline;
       text-decoration-line: underline;

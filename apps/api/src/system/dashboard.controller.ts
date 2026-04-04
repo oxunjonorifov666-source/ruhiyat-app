@@ -1,17 +1,17 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('dashboard')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DashboardController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('superadmin/stats')
-  @Roles('SUPERADMIN')
+  @Permissions('system.settings')
   async getSuperadminStats() {
     const [
       totalUsers,
@@ -52,7 +52,7 @@ export class DashboardController {
   }
 
   @Get('admin/stats')
-  @Roles('ADMINISTRATOR')
+  @Permissions('centers.read')
   async getAdminStats(@CurrentUser() currentUser: { userId: number }) {
     const admin = await this.prisma.administrator.findUnique({
       where: { userId: currentUser.userId },

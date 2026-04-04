@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -51,8 +51,11 @@ export class UsersService {
     return user;
   }
 
-  async update(id: number, data: { firstName?: string; lastName?: string; isActive?: boolean; role?: string }) {
+  async update(id: number, data: { firstName?: string; lastName?: string; isActive?: boolean; role?: string }, callerRole?: string) {
     await this.findOne(id);
+    if ((data.role !== undefined || data.isActive !== undefined) && callerRole !== 'SUPERADMIN') {
+      throw new ForbiddenException("Faqat superadmin rol yoki faollik holatini o'zgartira oladi");
+    }
     const updateData: any = {};
     if (data.firstName !== undefined) updateData.firstName = data.firstName;
     if (data.lastName !== undefined) updateData.lastName = data.lastName;
@@ -68,8 +71,14 @@ export class UsersService {
     });
   }
 
-  async remove(id: number) {
-    await this.findOne(id);
+  async remove(id: number, callerId?: number) {
+    const user = await this.findOne(id);
+    if (user.role === 'SUPERADMIN') {
+      throw new ForbiddenException("Superadmin foydalanuvchini o'chirib bo'lmaydi");
+    }
+    if (callerId && callerId === id) {
+      throw new ForbiddenException("O'zingizni o'chira olmaysiz");
+    }
     await this.prisma.user.delete({ where: { id } });
     return { message: "Foydalanuvchi o'chirildi" };
   }

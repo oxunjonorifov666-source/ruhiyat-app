@@ -1,16 +1,17 @@
 import { Controller, Get, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @Permissions('users.read')
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -26,23 +27,32 @@ export class UsersController {
   }
 
   @Get(':id')
+  @Permissions('users.read')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles('SUPERADMIN')
-  update(@Param('id', ParseIntPipe) id: number, @Body() data: any) {
-    return this.usersService.update(id, data);
+  @Permissions('users.write')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: any,
+    @CurrentUser() currentUser: { userId: number; role: string },
+  ) {
+    return this.usersService.update(id, data, currentUser.role);
   }
 
   @Delete(':id')
-  @Roles('SUPERADMIN')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.remove(id);
+  @Permissions('users.delete')
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: { userId: number; role: string },
+  ) {
+    return this.usersService.remove(id, currentUser.userId);
   }
 
   @Get(':id/sessions')
+  @Permissions('users.read')
   getSessions(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.getSessions(id);
   }

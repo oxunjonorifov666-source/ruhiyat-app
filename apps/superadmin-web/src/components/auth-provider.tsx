@@ -17,6 +17,8 @@ interface AuthContextType {
   isLoading: boolean
   isAuthenticated: boolean
   accessToken: string | null
+  permissions: string[]
+  hasPermission: (permission: string) => boolean
   logout: () => Promise<void>
   setAuth: (user: AuthUser, accessToken: string, refreshToken: string) => void
 }
@@ -26,6 +28,8 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   isAuthenticated: false,
   accessToken: null,
+  permissions: [],
+  hasPermission: () => false,
   logout: async () => {},
   setAuth: () => {},
 })
@@ -35,6 +39,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
+
+  const permissions = user?.permissions ?? []
+
+  const hasPermission = useCallback((permission: string) => {
+    if (!user) return false
+    if (user.role === 'SUPERADMIN') return true
+    if (permissions.includes('*')) return true
+    return permissions.includes(permission)
+  }, [user, permissions])
 
   const handleLogout = useCallback(async () => {
     const tokens = getStoredTokens()
@@ -62,25 +75,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const data = await fetchMe(tokens.accessToken)
-        if (data.user.role !== 'SUPERADMIN') {
+        const userData = await fetchMe(tokens.accessToken)
+        if (userData.role !== 'SUPERADMIN') {
           clearTokens()
           setIsLoading(false)
           return
         }
-        setUser(data.user)
+        setUser(userData)
         setAccessToken(tokens.accessToken)
       } catch {
         try {
           const newTokens = await refreshTokenApi(tokens.refreshToken)
           storeTokens(newTokens.accessToken, newTokens.refreshToken)
-          const data = await fetchMe(newTokens.accessToken)
-          if (data.user.role !== 'SUPERADMIN') {
+          const userData = await fetchMe(newTokens.accessToken)
+          if (userData.role !== 'SUPERADMIN') {
             clearTokens()
             setIsLoading(false)
             return
           }
-          setUser(data.user)
+          setUser(userData)
           setAccessToken(newTokens.accessToken)
         } catch {
           clearTokens()
@@ -100,6 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         accessToken,
+        permissions,
+        hasPermission,
         logout: handleLogout,
         setAuth,
       }}

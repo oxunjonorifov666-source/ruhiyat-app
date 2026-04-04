@@ -1,16 +1,16 @@
 import { Controller, Get, Post, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { FinanceService } from './finance.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 
 @Controller()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class FinanceController {
   constructor(private readonly service: FinanceService) {}
 
   @Get('payments')
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @Permissions('finance.read')
   findAllPayments(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -24,15 +24,15 @@ export class FinanceController {
   }
 
   @Post('payments')
-  @Roles('SUPERADMIN', 'ADMINISTRATOR', 'MOBILE_USER')
+  @Permissions('finance.write')
   createPayment(@Body() data: any) { return this.service.createPayment(data); }
 
   @Get('payments/:id')
-  @Roles('SUPERADMIN', 'ADMINISTRATOR', 'MOBILE_USER')
+  @Permissions('finance.read')
   findPayment(@Param('id', ParseIntPipe) id: number) { return this.service.findPayment(id); }
 
   @Get('transactions')
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @Permissions('finance.read')
   findAllTransactions(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -44,7 +44,7 @@ export class FinanceController {
   }
 
   @Get('revenue')
-  @Roles('SUPERADMIN', 'ADMINISTRATOR')
+  @Permissions('finance.read')
   findAllRevenue(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
