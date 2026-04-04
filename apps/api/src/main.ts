@@ -21,11 +21,23 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: allowedOrigins.length > 0
-      ? allowedOrigins
-      : process.env.NODE_ENV === 'production'
-        ? false
-        : true,
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      if (origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
