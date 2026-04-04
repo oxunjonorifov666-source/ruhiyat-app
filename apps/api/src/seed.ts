@@ -9,6 +9,7 @@ async function main() {
   const superadminPassword = await bcrypt.hash('admin123', 12);
   const adminPassword = await bcrypt.hash('admin123', 12);
   const mobilePassword = await bcrypt.hash('user123', 12);
+  const defaultSuperadminPassword = await bcrypt.hash('123456', 12);
 
   const superadmin = await prisma.user.upsert({
     where: { email: 'superadmin@ruhiyat.uz' },
@@ -18,6 +19,20 @@ async function main() {
       firstName: 'Super',
       lastName: 'Admin',
       passwordHash: superadminPassword,
+      role: 'SUPERADMIN',
+      isActive: true,
+      isVerified: true,
+    },
+  });
+
+  const defaultSuperadmin = await prisma.user.upsert({
+    where: { email: 'admin@ruhiyat.uz' },
+    update: { passwordHash: defaultSuperadminPassword },
+    create: {
+      email: 'admin@ruhiyat.uz',
+      firstName: 'Admin',
+      lastName: 'Ruhiyat',
+      passwordHash: defaultSuperadminPassword,
       role: 'SUPERADMIN',
       isActive: true,
       isVerified: true,
@@ -77,6 +92,7 @@ async function main() {
 
   console.log('Seed completed:');
   console.log(`  Superadmin: superadmin@ruhiyat.uz / admin123`);
+  console.log(`  Superadmin: admin@ruhiyat.uz / 123456 (id: ${defaultSuperadmin.id})`);
   console.log(`  Admin: admin@markaz.uz / admin123`);
   console.log(`  Mobile: +998901234567 / user123`);
 }
