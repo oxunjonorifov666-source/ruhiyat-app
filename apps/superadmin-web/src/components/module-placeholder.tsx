@@ -1,56 +1,94 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { type LucideIcon } from "lucide-react"
+"use client"
+
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { type LucideIcon, Construction } from "lucide-react"
+import { PageHeader } from "@/components/page-header"
+
+interface PlaceholderFeature {
+  title: string
+  description: string
+  icon?: LucideIcon
+}
 
 interface ModulePlaceholderProps {
   title: string
   description: string
   icon: LucideIcon
-  features?: string[]
+  features?: string[] | PlaceholderFeature[]
+  status?: "development" | "planned" | "coming-soon"
 }
 
-export function ModulePlaceholder({ title, description, icon: Icon, features }: ModulePlaceholderProps) {
+const statusConfig = {
+  development: { label: "Ishlab chiqilmoqda", variant: "default" as const },
+  planned: { label: "Rejalashtirilgan", variant: "secondary" as const },
+  "coming-soon": { label: "Tez kunda", variant: "outline" as const },
+}
+
+export function ModulePlaceholder({
+  title,
+  description,
+  icon: Icon,
+  features,
+  status = "development",
+}: ModulePlaceholderProps) {
+  const statusInfo = statusConfig[status]
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        <p className="text-muted-foreground mt-1">{description}</p>
-      </div>
+      <PageHeader
+        title={title}
+        description={description}
+        icon={Icon}
+        badge={statusInfo.label}
+        badgeVariant={statusInfo.variant}
+      />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {features?.map((feature, i) => (
-          <Card key={i}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">{feature}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex h-24 items-center justify-center rounded-lg border border-dashed">
-                <span className="text-xs text-muted-foreground">Tez kunda</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {features && features.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {features.map((feature, i) => {
+            const featureTitle = typeof feature === "string" ? feature : feature.title
+            const featureDesc = typeof feature === "string" ? null : feature.description
+            const FeatureIcon = typeof feature === "string" ? null : feature.icon
 
-      {!features?.length && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-                <Icon className="size-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex h-64 items-center justify-center rounded-lg border border-dashed">
+            return (
+              <Card key={i} className="border-dashed">
+                <CardContent className="p-5">
+                  <div className="flex items-start gap-3">
+                    {FeatureIcon && (
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                        <FeatureIcon className="size-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{featureTitle}</p>
+                      {featureDesc && (
+                        <p className="text-xs text-muted-foreground">{featureDesc}</p>
+                      )}
+                      {!featureDesc && (
+                        <p className="text-xs text-muted-foreground">Tez kunda ishga tushiriladi</p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {(!features || features.length === 0) && (
+        <Card className="border-dashed">
+          <CardContent className="p-0">
+            <div className="flex h-72 items-center justify-center">
               <div className="text-center">
-                <Icon className="mx-auto size-12 text-muted-foreground/50 mb-3" />
-                <p className="text-muted-foreground">Modul ishlab chiqilmoqda</p>
-                <p className="text-xs text-muted-foreground mt-1">Bu sahifa tez orada to'ldiriladi</p>
+                <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-muted mb-4">
+                  <Construction className="size-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold">Modul ishlab chiqilmoqda</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                  Bu modul hozirda ishlab chiqilmoqda. Tez orada to'liq funksionallik bilan ishga tushiriladi.
+                </p>
               </div>
             </div>
           </CardContent>

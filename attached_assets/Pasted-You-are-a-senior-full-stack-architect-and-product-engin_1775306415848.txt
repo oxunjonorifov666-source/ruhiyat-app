@@ -1,0 +1,216 @@
+You are a senior full-stack architect and product engineer.
+
+I already have a working production system:
+- NestJS + Prisma + PostgreSQL backend
+- Next.js superadmin web panel
+- RBAC and permissions already implemented
+- Login works
+- Dashboard works
+
+Now I need to transform the Superadmin panel into a COMPLETE professional platform based on my exact menu structure below.
+
+IMPORTANT:
+- Do NOT break existing auth
+- Do NOT break RBAC
+- Do NOT remove current working pages
+- Extend the system cleanly and modularly
+- Use scalable architecture
+- Keep Uzbek UI labels
+- Make the UI clean, premium, modern, and production-ready
+
+====================================
+SUPERADMIN MENU STRUCTURE TO IMPLEMENT
+====================================
+
+ASOSIY:
+- Boshqaruv paneli
+- Analitika
+- Hisobotlar
+- Statistika
+
+FOYDALANUVCHILAR:
+- Foydalanuvchilar
+- Psixologlar
+- Administratorlar
+- Rollar va ruxsatlar
+- Kirish nazorati
+
+MULOQOT:
+- Chat
+- Videochat
+- Hamjamiyat
+- Sharhlar
+- E'lonlar
+
+KONTENT:
+- Maqolalar CMS
+- Bannerlar
+- Bildirishnomalar
+- Audio kutubxona
+- Video kutubxona
+- Affirmatsiyalar
+- Proyektiv metodikalar
+- Psixologik testlar
+- Treninglar
+
+FAOLIYAT:
+- Uchrashuvlar
+- Seanslar tarixi
+- Faollik jurnali
+
+MODERATSIYA MARKAZI:
+- Shikoyatlar
+- Reportlar
+- Bloklash
+- Kontent nazorati
+
+MOLIYA:
+- To'lovlar
+- Daromadlar
+- Tranzaksiyalar
+- Statistika
+
+TIZIM:
+- Sozlamalar
+- Ilova sozlamalari
+- Xavfsizlik
+- Audit loglari
+- Integratsiyalar
+- Texnik monitoring
+- API keylar
+- Access nazorati
+
+====================================
+HEADER REQUIREMENTS
+====================================
+
+Implement header with:
+1. Ruhiyat logo/icon
+2. Real date
+3. Real time
+4. Live weather widget (city + temperature)
+5. Refresh button
+6. Dark/light mode toggle
+7. Current logged in user avatar
+8. Current user full name and role
+
+====================================
+FOOTER REQUIREMENTS
+====================================
+
+Implement footer with:
+1. Full project name and description
+2. Social icons/links
+3. Address and phone number
+4. Map placeholder block
+5. Session info
+6. System version
+7. Copyright
+
+====================================
+WHAT TO BUILD
+====================================
+
+For EACH menu item:
+1. Create proper route/page
+2. Create clean page layout
+3. Add title, subtitle, action buttons
+4. Add placeholder tables/cards/forms/charts where real data will go
+5. Connect pages to permissions
+6. Hide menu items if user lacks permission
+7. Keep code modular and reusable
+
+====================================
+ARCHITECTURE REQUIREMENTS
+====================================
+
+1. Sidebar navigation config must be centralized
+2. Every menu item should support:
+   - label
+   - route
+   - icon
+   - permission
+   - section/group
+3. Create reusable page shell components:
+   - PageHeader
+   - StatsCards
+   - DataTableShell
+   - EmptyState
+   - FilterBar
+4. Create reusable UI patterns for:
+   - list pages
+   - detail pages
+   - create/edit forms
+   - analytics pages
+   - settings pages
+
+====================================
+DESIGN REQUIREMENTS
+====================================
+
+Design must be:
+- premium
+- clean
+- modern
+- enterprise-level
+- not childish
+- spacious
+- visually balanced
+- dashboard-friendly
+
+Use:
+- proper cards
+- consistent spacing
+- subtle borders
+- responsive layout
+- good typography
+- polished sidebar
+- elegant header/footer
+
+====================================
+DATA / BACKEND REQUIREMENTS
+====================================
+
+For now:
+- if full backend module does not exist yet, create safe placeholder pages
+- if backend endpoint already exists, connect it
+- do not fake security
+- do not invent DB schema blindly
+- use existing modules where possible
+- mark clearly which pages are fully connected and which are placeholders
+
+====================================
+IMPLEMENTATION PLAN
+====================================
+
+Do this in phases:
+
+PHASE 1:
+- Refactor sidebar navigation according to exact menu structure
+- Add permission mapping
+- Add header and footer
+- Add route skeleton pages for all menu items
+
+PHASE 2:
+- Improve dashboard with better layout and placeholders for analytics/charts
+- Add reusable page components
+
+PHASE 3:
+- Connect pages to real existing backend endpoints where available
+- Keep placeholders for not-yet-built backend modules
+
+====================================
+OUTPUT FORMAT
+====================================
+
+At the end, give me:
+1. Exact files changed
+2. Which pages are fully functional
+3. Which pages are placeholders
+4. Which backend modules are still missing
+5. What should be built next
+
+IMPORTANT:
+Do not stop after planning only.
+Actually implement PHASE 1 and PHASE 2 in code.
+Then summarize results.

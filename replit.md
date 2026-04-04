@@ -4,7 +4,7 @@
 
 pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **All UI is Uzbek-first.**
 
-1. **Superadmin Web Panel** (`apps/superadmin-web`) — 37 modules, real auth, protected routes (Next.js + Tailwind + shadcn/ui, artifact preview at `/superadmin/`)
+1. **Superadmin Web Panel** (`apps/superadmin-web`) — 44+ pages, 8 nav sections, premium header/footer, real auth, RBAC-filtered sidebar (Next.js + Tailwind + shadcn/ui, artifact preview at `/superadmin/`)
 2. **Administrator Web Panel** (`apps/admin-web`) — 23 modules, real auth, protected routes (Next.js + Tailwind + shadcn/ui, artifact preview at `/admin/`)
 3. **Mobile App** (`apps/mobile`) — 12 screens, real auth with SecureStore, gated navigation (Expo + React Native, Android-first)
 4. **Backend API** (`apps/api`) — 16 NestJS modules, 100+ endpoints, JWT auth, RBAC (NestJS + Prisma + PostgreSQL, port 3000)
@@ -88,14 +88,37 @@ artifacts/
   api-server/       — Legacy artifact API server
 ```
 
-## Real Data Integration
+## Superadmin Panel Structure
 
-All placeholder pages have been replaced with real API-connected data:
+### Navigation (8 sections, 44+ pages)
+- **Asosiy**: Dashboard, Analitika, Hisobotlar, Statistika
+- **Foydalanuvchilar**: Users, Psixologlar, Administratorlar, Rollar va ruxsatlar, Kirish nazorati
+- **Muloqot**: Chat, Videochat, Hamjamiyat, Sharhlar, E'lonlar
+- **Kontent**: Maqolalar CMS, Bannerlar, Bildirishnomalar, Audio, Video, Affirmatsiyalar, Proyektiv metodikalar, Testlar, Treninglar
+- **Faoliyat**: Uchrashuvlar, Seanslar tarixi, Faollik jurnali
+- **Moderatsiya markazi**: Shikoyatlar, Reportlar, Bloklash, Kontent nazorati
+- **Moliya**: To'lovlar, Daromadlar, Tranzaksiyalar, Statistika
+- **Tizim**: Sozlamalar, Ilova sozlamalari, Xavfsizlik, Audit loglari, Integratsiyalar, Texnik monitoring, API kalitlar, Access nazorati
 
-### Superadmin Web (10 real data pages)
-- Users, Psychologists, Administrators, Announcements, Articles, Notifications, Meetings, Community, Moderation, Payments, Transactions
-- Each page: DataTable with pagination, search, loading/empty/error states
-- Create dialogs: Psychologists, Announcements, Articles
+### Header
+- Sidebar toggle, real date (Uzbek), real clock, live Tashkent weather, refresh button, dark/light toggle, user avatar + name + role dropdown
+
+### Footer
+- Project info, social links (Telegram/Instagram/Facebook), address/phone, map placeholder, session info, version (v1.0.0), copyright
+
+### Reusable Components
+- `PageHeader` — title, description, icon, badge, action buttons
+- `StatsCard` / `StatsGrid` — metric cards with icon, trend, colored accent
+- `FilterBar` — search input, dropdown filters, active filter badges
+- `EmptyState` — empty data placeholder with icon, title, action
+- `ModulePlaceholder` — placeholder for modules under development with feature cards
+- `DataTable` — paginated table with search, loading/empty/error states
+
+### Fully Connected Pages (real API data)
+- Dashboard, Users, Psychologists, Administrators, Announcements, Articles, Notifications, Meetings, Community, Moderation, Payments, Transactions
+
+### Placeholder Pages (UI ready, awaiting backend)
+- Analytics, Reports, Statistics, Roles, Access Control, Chat, Videochat, Reviews, Banners, Audio, Videos, Affirmations, Projective Methods, Tests, Trainings, Sessions History, Activity Logs, Complaints, Reports Moderation, Blocking, Content Control, Finance Statistics, Revenue, Settings, App Settings, Security, Audit Logs, Integrations, Monitoring, API Keys, System Access
 
 ### Admin Web (11 real data pages, center-scoped)
 - Students, Teachers, Courses, Groups, Announcements, Notifications, Meetings, Payments, Psychologists, Staff, Transactions

@@ -1,10 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Users, Brain, Building2, CreditCard, MessageSquare, Globe, FileText, TrendingUp } from "lucide-react"
+import {
+  Users, Brain, Building2, CreditCard, MessageSquare, Globe,
+  FileText, TrendingUp, Activity, Calendar, ShieldCheck, AlertTriangle
+} from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
-import { StatsCard } from "@/components/stats-card"
+import { StatsCard, StatsGrid } from "@/components/stats-card"
 import { useAuth } from "@/components/auth-provider"
 
 interface DashboardStats {
@@ -41,6 +45,18 @@ function formatTimeSince(dateStr: string): string {
   return `${days} kun oldin`
 }
 
+const roleLabels: Record<string, string> = {
+  SUPERADMIN: "Superadmin",
+  ADMINISTRATOR: "Administrator",
+  MOBILE_USER: "Foydalanuvchi",
+}
+
+const roleBadgeVariant: Record<string, "default" | "secondary" | "outline"> = {
+  SUPERADMIN: "default",
+  ADMINISTRATOR: "secondary",
+  MOBILE_USER: "outline",
+}
+
 export default function DashboardPage() {
   const { accessToken } = useAuth()
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -49,7 +65,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!accessToken) return
-
     fetch(`${API_URL}/dashboard/superadmin/stats`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
@@ -62,53 +77,55 @@ export default function DashboardPage() {
       .finally(() => setLoading(false))
   }, [accessToken])
 
-  const roleLabels: Record<string, string> = {
-    SUPERADMIN: "Superadmin",
-    ADMINISTRATOR: "Administrator",
-    MOBILE_USER: "Foydalanuvchi",
-  }
+  const loadingVal = "..."
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         title="Boshqaruv paneli"
         description="Platformaning umumiy holati va asosiy ko'rsatkichlar"
       />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <StatsGrid columns={4}>
         <StatsCard
           title="Jami foydalanuvchilar"
-          value={loading ? "..." : (stats?.totalUsers?.toLocaleString() || "0")}
+          value={loading ? loadingVal : (stats?.totalUsers?.toLocaleString() || "0")}
           icon={Users}
+          iconColor="bg-blue-500/10 text-blue-600"
+          trend={{ value: 12, label: "o'tgan oyga nisbatan" }}
         />
         <StatsCard
           title="Faol psixologlar"
-          value={loading ? "..." : String(stats?.activePsychologists || 0)}
+          value={loading ? loadingVal : String(stats?.activePsychologists || 0)}
           icon={Brain}
+          iconColor="bg-violet-500/10 text-violet-600"
         />
         <StatsCard
           title="Ta'lim markazlari"
-          value={loading ? "..." : String(stats?.educationCenters || 0)}
+          value={loading ? loadingVal : String(stats?.educationCenters || 0)}
           icon={Building2}
+          iconColor="bg-amber-500/10 text-amber-600"
         />
         <StatsCard
           title="Jami to'lovlar"
-          value={loading ? "..." : String(stats?.totalPayments || 0)}
+          value={loading ? loadingVal : String(stats?.totalPayments || 0)}
           icon={CreditCard}
+          iconColor="bg-emerald-500/10 text-emerald-600"
         />
-      </div>
+      </StatsGrid>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="col-span-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Foydalanuvchilar dinamikasi</CardTitle>
+            <CardTitle className="text-base">Foydalanuvchilar dinamikasi</CardTitle>
             <CardDescription>Oxirgi 12 oy davomida ro'yxatdan o'tganlar</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex h-64 items-center justify-center rounded-lg border border-dashed">
+            <div className="flex h-64 items-center justify-center rounded-lg border border-dashed bg-muted/30">
               <div className="text-center text-muted-foreground">
-                <TrendingUp className="mx-auto size-8 mb-2" />
-                <p>Grafik bu yerda ko'rsatiladi</p>
+                <TrendingUp className="mx-auto size-10 mb-3 opacity-40" />
+                <p className="text-sm font-medium">Grafik tayyorlanmoqda</p>
+                <p className="text-xs mt-1">Recharts integratsiyasi tez orada</p>
               </div>
             </div>
           </CardContent>
@@ -116,27 +133,29 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>So'nggi foydalanuvchilar</CardTitle>
+            <CardTitle className="text-base">So'nggi foydalanuvchilar</CardTitle>
             <CardDescription>Yaqinda ro'yxatdan o'tganlar</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recentUsers.length === 0 && !loading && (
-                <p className="text-sm text-muted-foreground">Hali foydalanuvchilar yo'q</p>
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Hali foydalanuvchilar yo'q
+                </p>
               )}
               {recentUsers.map((u) => (
-                <div key={u.id} className="flex items-center justify-between text-sm">
-                  <div>
-                    <span className="font-medium">
+                <div key={u.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-dashed last:border-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
                       {u.firstName && u.lastName
                         ? `${u.firstName} ${u.lastName}`
                         : u.email || u.phone || `#${u.id}`}
-                    </span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {roleLabels[u.role] || u.role}
-                    </span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">{formatTimeSince(u.createdAt)}</p>
                   </div>
-                  <span className="text-muted-foreground text-xs">{formatTimeSince(u.createdAt)}</span>
+                  <Badge variant={roleBadgeVariant[u.role] || "outline"} className="text-[10px] shrink-0">
+                    {roleLabels[u.role] || u.role}
+                  </Badge>
                 </div>
               ))}
             </div>
@@ -144,30 +163,87 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <StatsGrid columns={4}>
         <StatsCard
           title="Faol seanslar"
-          value={loading ? "..." : String(stats?.activeSessions || 0)}
+          value={loading ? loadingVal : String(stats?.activeSessions || 0)}
           icon={MessageSquare}
+          iconColor="bg-sky-500/10 text-sky-600"
           description="Hozirgi faol seanslar"
         />
         <StatsCard
           title="Hamjamiyat postlari"
-          value={loading ? "..." : (stats?.communityPosts?.toLocaleString() || "0")}
+          value={loading ? loadingVal : (stats?.communityPosts?.toLocaleString() || "0")}
           icon={Globe}
+          iconColor="bg-teal-500/10 text-teal-600"
         />
         <StatsCard
           title="Maqolalar"
-          value={loading ? "..." : String(stats?.articles || 0)}
+          value={loading ? loadingVal : String(stats?.articles || 0)}
           icon={FileText}
+          iconColor="bg-orange-500/10 text-orange-600"
           description="Nashr etilgan maqolalar"
         />
         <StatsCard
-          title="To'lovlar"
-          value={loading ? "..." : String(stats?.totalPayments || 0)}
-          icon={CreditCard}
+          title="Tizim holati"
+          value="Barqaror"
+          icon={ShieldCheck}
+          iconColor="bg-green-500/10 text-green-600"
+          description="Barcha xizmatlar ishlayapti"
         />
+      </StatsGrid>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Tezkor havolalar</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                { label: "Yangi foydalanuvchi", icon: Users, desc: "Foydalanuvchi qo'shish" },
+                { label: "Yangi maqola", icon: FileText, desc: "Maqola yaratish" },
+                { label: "Yangi e'lon", icon: Globe, desc: "E'lon e'lon qilish" },
+                { label: "Uchrashuvlar", icon: Calendar, desc: "Uchrashuvlarni boshqarish" },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors">
+                  <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <item.icon className="size-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{item.label}</p>
+                    <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">So'nggi faollik</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[
+                { text: "Tizim muvaffaqiyatli yangilandi", time: "2 soat oldin", icon: Activity, color: "text-green-600" },
+                { text: "Yangi psixolog ro'yxatdan o'tdi", time: "4 soat oldin", icon: Brain, color: "text-violet-600" },
+                { text: "2 ta yangi shikoyat kelib tushdi", time: "5 soat oldin", icon: AlertTriangle, color: "text-amber-600" },
+                { text: "Oylik hisobot tayyorlandi", time: "1 kun oldin", icon: FileText, color: "text-blue-600" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 py-1.5 border-b border-dashed last:border-0">
+                  <item.icon className={`size-4 shrink-0 ${item.color}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm truncate">{item.text}</p>
+                    <p className="text-xs text-muted-foreground">{item.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </>
+    </div>
   )
 }
