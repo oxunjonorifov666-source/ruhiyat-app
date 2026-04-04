@@ -19,3 +19,18 @@ run = "pnpm --filter @ruhiyat/superadmin-web run dev"
 
 [services.env]
 PORT = "18343"
+
+[services.production]
+
+[services.production.build]
+args = ["pnpm", "--filter", "@ruhiyat/superadmin-web", "run", "build"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+
+[services.production.run]
+args = ["pnpm", "--filter", "@ruhiyat/superadmin-web", "run", "start", "--", "-p", "18343"]
+
+[services.production.run.env]
+PORT = "18343"
+NODE_ENV = "production"
