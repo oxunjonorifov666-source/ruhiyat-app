@@ -73,7 +73,7 @@ function middleware(request) {
 }
 const config = {
     matcher: [
-        '/((?!_next/static|_next/image|favicon.ico|login).*)'
+        '/((?!_next/static|_next/image|favicon.ico|login|api).*)'
     ]
 };
 }),
