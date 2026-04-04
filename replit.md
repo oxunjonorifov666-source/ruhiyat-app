@@ -115,7 +115,7 @@ artifacts/
 - `DataTable` — paginated table with search, loading/empty/error states
 
 ### Fully Connected Pages (real API data)
-- Dashboard, Users, Psychologists, Administrators, Announcements, Articles, Notifications, Meetings, Community, Moderation, Payments, Transactions
+- Dashboard, Users (full CRUD + block/unblock/role change), Psychologists, Administrators, Announcements, Articles, Notifications, Meetings, Community, Moderation, Payments, Transactions
 
 ### Placeholder Pages (UI ready, awaiting backend)
 - Analytics, Reports, Statistics, Roles, Access Control, Chat, Videochat, Reviews, Banners, Audio, Videos, Affirmations, Projective Methods, Tests, Trainings, Sessions History, Activity Logs, Complaints, Reports Moderation, Blocking, Content Control, Finance Statistics, Revenue, Settings, App Settings, Security, Audit Logs, Integrations, Monitoring, API Keys, System Access

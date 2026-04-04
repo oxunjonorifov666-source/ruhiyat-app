@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.1.15",
     "@ruhiyat/config": "workspace:*",
     "@ruhiyat/types": "workspace:*",
     "@ruhiyat/ui": "workspace:*",

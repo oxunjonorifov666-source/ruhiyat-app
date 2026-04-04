@@ -1,0 +1,163 @@
+You are a senior full-stack product engineer.
+
+We already have:
+- working NestJS + Prisma + PostgreSQL backend
+- working Next.js superadmin panel
+- working auth
+- working RBAC / permissions
+- working sidebar and dashboard foundation
+
+Now implement the NEXT REAL MODULE in a production-ready way:
+
+====================================
+MODULE TO BUILD NOW
+====================================
+
+SUPERADMIN → FOYDALANUVCHILAR
+
+This module must include:
+1. Foydalanuvchilar list page
+2. Search
+3. Filters
+4. Pagination
+5. User details drawer or page
+6. Create user
+7. Edit user
+8. Block / unblock user
+9. Activate / deactivate user
+10. Assign / change role
+11. Audit log recording for all important actions
+
+====================================
+BUSINESS REQUIREMENTS
+====================================
+
+This is a SUPERADMIN module.
+It must be clean, secure, and scalable.
+
+User list page must support:
+- search by full name, email, phone
+- filters by role
+- filters by status (active, inactive, blocked)
+- filters by verification state if available
+- pagination
+- sorting by created date
+
+User item/table columns:
+- avatar
+- full name
+- email
+- phone
+- role
+- status
+- createdAt
+- actions
+
+Actions:
+- view
+- edit
+- block/unblock
+- activate/deactivate
+- change role
+
+====================================
+BACKEND REQUIREMENTS
+====================================
+
+Use existing backend structure where possible.
+
+1. Inspect current users module/controllers/services
+2. Extend existing endpoints instead of duplicating logic
+3. Add any missing endpoints only if necessary
+4. Protect everything with existing RBAC permissions
+
+Required permissions:
+- users.read
+- users.write
+- users.manage
+- users.block
+
+Implement safely:
+- prevent deleting SUPERADMIN
+- prevent self-destructive actions where appropriate
+- validate all DTOs
+- log sensitive actions to AuditLog
+
+If list endpoint is weak, improve it:
+- search
+- filters
+- pagination
+- sort
+
+====================================
+FRONTEND REQUIREMENTS
+====================================
+
+Build this inside the existing Superadmin UI system.
+
+1. Upgrade the current Foydalanuvchilar page from placeholder to real page
+2. Use reusable components if available:
+- PageHeader
+- FilterBar
+- DataTableShell
+- EmptyState
+- StatsCard
+
+3. Add:
+- top summary cards:
+  - Jami foydalanuvchilar
+  - Faol foydalanuvchilar
+  - Bloklanganlar
+  - Yangi foydalanuvchilar
+
+4. Add table with:
+- loading state
+- empty state
+- action dropdown/menu
+- filter bar
+- pagination controls
+
+5. Add create/edit modal or page
+6. Add confirm dialogs for block/unblock and status changes
+
+====================================
+API / DATA REQUIREMENTS
+====================================
+
+Use real backend data.
+Do NOT fake final functionality.
+
+If some backend field names differ, inspect and adapt to the real schema.
+Do not invent schema blindly.
+
+====================================
+AUDIT REQUIREMENTS
+====================================
+
+Log these actions:
+- user created
+- user updated
+- user blocked
+- user unblocked
+- user role changed
+- user status changed
+
+====================================
+OUTPUT REQUIREMENTS
+====================================
+
+Do not stop at planning.
+Actually implement the module.
+
+At the end provide:
+1. exact files changed
+2. exact backend endpoints used or created
+3. exact permissions used
+4. which actions are fully working
+5. any backend gaps still remaining
+
+IMPORTANT:
+- Do not break auth
+- Do not break RBAC
+- Keep Uzbek labels in UI
+- Make it premium and admin-grade
