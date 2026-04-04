@@ -144,6 +144,15 @@ All placeholder pages have been replaced with real API-connected data:
 
 52 Prisma models at `apps/api/prisma/schema.prisma` (User model now has firstName/lastName columns).
 
+## Production Deployment
+
+- **Production server**: API only (`apps/api` / `@ruhiyat/api`) — single NestJS process
+- **Production build**: `pnpm --filter @ruhiyat/api run build` → `apps/api/dist/main.js`
+- **Production run**: `node --enable-source-maps apps/api/dist/main.js` on `process.env.PORT`
+- **Health check**: `GET /api/healthz` → `{"status":"ok"}`
+- **Web panels**: Deployed separately (e.g. Vercel), NOT in Replit production
+- **CORS**: Configure `CORS_ORIGINS` env var with comma-separated allowed origins for web panels
+
 ## Stack
 
 - **Monorepo**: pnpm workspaces
