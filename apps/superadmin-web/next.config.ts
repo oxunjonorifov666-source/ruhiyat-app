@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   basePath: '/superadmin',
+  skipTrailingSlashRedirect: true,
   reactStrictMode: true,
   transpilePackages: ['@ruhiyat/ui', '@ruhiyat/types', '@ruhiyat/config'],
   allowedDevOrigins: ['*'],

@@ -46,6 +46,8 @@ pnpm workspace monorepo for "Ruhiyat" — a digital mental wellness platform. **
 
 ### Route Protection
 - Web: Next.js middleware checks cookies, redirects to `/login` if no token
+- Web: `skipTrailingSlashRedirect: true` in both Next.js configs — prevents 308 trailing slash redirect that breaks Replit proxy routing
+- Web: Middleware matcher `['/(.*)', '/']` catches ALL paths; API and static paths excluded programmatically in middleware body
 - Web: AuthProvider validates token on mount, role-checks, auto-refresh
 - Mobile: AppNavigator conditionally renders AuthStack vs MainStack based on auth state
 

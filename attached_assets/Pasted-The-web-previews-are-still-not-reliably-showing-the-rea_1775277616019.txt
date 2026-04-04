@@ -1,0 +1,74 @@
+The web previews are still not reliably showing the real working app, even after previous fixes.
+
+I need you to fully diagnose and fix this end-to-end so the Superadmin Web and Admin Web open correctly inside Replit Preview and use the real Next.js apps from apps/, not any stale or scaffold artifact code.
+
+GOAL:
+Make both preview apps actually usable inside Replit:
+- Superadmin Web must open the real Next.js login page
+- Admin Web must open the real Next.js login page
+- Both must use the real backend API
+- No "Backend Not Configured"
+- No stale Vite/scaffold artifact confusion
+- No cached old preview
+
+YOU MUST DO THESE EXACT TASKS:
+
+1) Identify the true canonical web apps:
+- apps/superadmin-web
+- apps/admin-web
+
+2) Identify and eliminate preview conflicts caused by:
+- old artifacts/*
+- stale Vite scaffold files
+- stale .next cache
+- wrong artifact bindings
+- wrong preview target
+- wrong workflow target
+
+3) Ensure both registered Replit preview apps/artifacts point to the real Next.js apps in apps/, not old scaffold code.
+
+4) If needed:
+- recreate the Superadmin Web artifact correctly from apps/superadmin-web
+- recreate the Admin Web artifact correctly from apps/admin-web
+- remove or disconnect conflicting stale artifact sources
+- keep apps/api unchanged
+
+5) Verify proxy + API integration:
+- /superadmin/login loads real login page
+- /admin/login loads real login page
+- /superadmin/api/auth/login works
+- /admin/api/auth/login works
+
+6) Verify with actual browser-level checks:
+- confirm preview opens the correct login screen
+- confirm login works for both accounts
+- confirm dashboard opens after login
+
+7) Show me the final exact result:
+- which source directory each preview is using
+- which artifact/workflow is bound to each panel
+- confirmation that stale artifact conflicts are gone
+- confirmation that both previews now show the real login screens
+
+IMPORTANT RULES:
+- Do not just say it works
+- Do not stop after clearing cache
+- Do not use old artifacts if they are conflicting
+- Fix the root cause completely
+- Keep the current stack unchanged
+- Keep Uzbek UI unchanged
+- Keep backend unchanged unless required for preview connectivity
+
+TEST CREDENTIALS:
+Superadmin:
+superadmin@ruhiyat.uz
+admin123
+
+Admin:
+admin@markaz.uz
+admin123
+
+DELIVERABLE:
+- both previews truly working inside Replit
+- root cause explained clearly
+- exact final status confirmed
