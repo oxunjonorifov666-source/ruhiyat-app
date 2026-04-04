@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
+    "build:prod": "nest build && prisma db push && node dist/seed.js",
+    "seed": "ts-node --compiler-options '{\"module\":\"commonjs\"}' src/seed.ts",
     "start": "node dist/main",
     "start:prod": "node dist/main",
     "typecheck": "tsc -p tsconfig.json --noEmit",

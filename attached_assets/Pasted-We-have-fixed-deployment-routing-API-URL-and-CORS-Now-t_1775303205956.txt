@@ -1,0 +1,59 @@
+We have fixed deployment, routing, API URL, and CORS.  
+Now the Superadmin login request reaches the backend successfully, but the API returns invalid credentials.
+
+I need a FACT-BASED diagnosis and fix, not guesses.
+
+Current login attempt:
+- email: admin@ruhiyat.uz
+- password: 123456
+
+Current frontend result:
+- "Noto'g'ri hisob ma'lumotlari"
+
+Please do the following in the backend and database:
+
+1) Find the real login endpoint and auth logic in apps/api
+- identify the exact controller/service used for login
+- identify which fields it expects (email, password, username, etc.)
+- identify what conditions cause "invalid credentials"
+
+2) Check the database directly
+- find the actual table/model used for authentication
+- verify whether a user with email admin@ruhiyat.uz exists
+- if it exists, inspect:
+  - email
+  - hashed password presence
+  - role
+  - status/isActive if such field exists
+- do NOT guess; verify from actual DB records
+
+3) Test the password properly
+- verify whether password 123456 matches the stored hash for admin@ruhiyat.uz
+- if it does not match, explain why
+- if the user does not exist, state that clearly
+
+4) Apply the minimal safe fix
+- if user does not exist, create a default superadmin user:
+  - email: admin@ruhiyat.uz
+  - password: 123456
+  - role: superadmin (if role field exists)
+- if user exists but password is wrong, update the password correctly using the same hashing method the auth system uses
+- if user exists but role/status blocks login, fix that safely
+
+5) Verify end-to-end
+- test the login endpoint directly against the backend
+- confirm that login now succeeds with:
+  - email: admin@ruhiyat.uz
+  - password: 123456
+
+6) Return only factual results:
+- exact root cause
+- exact files changed
+- whether the user was created or updated
+- whether login now works
+
+Important:
+- Use the real app code and real database
+- Do not give generic advice
+- Do not only print a hash
+- Actually make the backend accept the credentials above
