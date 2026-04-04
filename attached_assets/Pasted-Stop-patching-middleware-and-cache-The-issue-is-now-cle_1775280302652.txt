@@ -1,0 +1,66 @@
+Stop patching middleware and cache. The issue is now clearly in the Replit preview/artifact binding layer, not in the app logic.
+
+I want a full clean rebuild of the preview bindings for both web panels.
+
+GOAL:
+Make both Superadmin Web and Admin Web open correctly inside Replit Preview with the real Next.js apps from apps/, with no stale artifact, no old cache, and no redirect confusion.
+
+DO THESE EXACT STEPS:
+
+1) Treat these as the only canonical web apps:
+- apps/superadmin-web
+- apps/admin-web
+
+2) Completely remove or disconnect any conflicting old preview/artifact sources, including:
+- stale artifact scaffold sources
+- old Vite-related artifact bindings
+- stale preview targets
+- stale cached preview configuration
+
+3) Recreate both preview apps/artifacts cleanly from scratch using ONLY:
+- apps/superadmin-web
+- apps/admin-web
+
+4) Bind them correctly so:
+- Superadmin Web preview root opens the real app
+- Admin Web preview root opens the real app
+- no legacy artifact source is used
+
+5) Keep:
+- apps/api unchanged
+- current stack unchanged
+- auth/backend logic unchanged unless absolutely required
+
+6) After recreating the preview apps, verify:
+- Superadmin preview opens the real login page
+- Admin preview opens the real login page
+- login works for both
+- dashboard opens after login
+
+7) Show me the exact final mapping:
+- Superadmin preview → which source directory
+- Admin preview → which source directory
+- no stale artifact remains connected
+
+8) If needed, create fresh preview routes from scratch rather than trying to reuse broken ones.
+
+IMPORTANT:
+- Do not just clear cache again
+- Do not just say “it works”
+- Do not stop until the preview itself opens correctly
+- Fix the preview/artifact root cause completely
+
+TEST CREDENTIALS:
+Superadmin:
+superadmin@ruhiyat.uz
+admin123
+
+Admin:
+admin@markaz.uz
+admin123
+
+DELIVERABLE:
+- both previews recreated cleanly
+- both previews opening correctly
+- exact final artifact/source mapping
+- exact statement that stale preview bindings were removed
