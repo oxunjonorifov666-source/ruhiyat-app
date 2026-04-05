@@ -65,3 +65,22 @@ The Ruhiyat project is built as a pnpm monorepo, encompassing several applicatio
 ### Frontend (Superadmin)
 - **Chat Page** (`/chat`): Stats cards (total/active chats, total/today messages), pie chart, filterable chat list with type/status filters, detail sheet with participant list and message history, toggle active/inactive, CSV export
 - **Videochat Page** (`/videochat`): Stats cards (total/scheduled/active/completed sessions), pie chart, filterable session list with status/type/date filters, detail sheet with host/participant info, start/end/cancel actions, CSV export
+
+## Sessions Module (Booking System)
+
+### Database
+- **BookingSession** model with enums `BookingStatus` (PENDING/ACCEPTED/REJECTED/COMPLETED/CANCELLED) and `BookingPaymentStatus` (UNPAID/PAID/REFUNDED)
+- Relations to User, Psychologist, Meeting, Chat; mapped to `booking_sessions` table
+
+### Backend
+- **REST Endpoints**: `/api/sessions` (stats, CRUD, state transitions), `/api/sessions/user` (user's own sessions), `/api/sessions/psychologist` (psychologist's own sessions)
+- **State Machine**: PENDING→ACCEPTED/REJECTED/CANCELLED, ACCEPTED→COMPLETED/CANCELLED
+- **Integrations on Accept**: Creates Meeting (with URL) + Chat (with participants) in a single transaction
+- **Integrations on Cancel (paid)**: Creates REFUND transaction, sets paymentStatus=REFUNDED
+- **Integrations on Complete**: Meeting status→COMPLETED, Psychologist totalSessions incremented
+- **RBAC**: `sessions.read` (list/stats/detail), `sessions.write` (create), `sessions.manage` (accept/reject/cancel/complete)
+- **Key Files**: `apps/api/src/sessions/sessions.service.ts`, `sessions.controller.ts`, `sessions.module.ts`
+
+### Frontend (Superadmin)
+- **Sessions Page** (`/sessions`): 6 stats cards (total/pending/accepted/completed/today/revenue), pie chart, filterable table with status/payment/date filters, detail sheet with user+psychologist info + meeting/chat details, action buttons (accept/reject/cancel/complete) with AlertDialog confirmation, CSV export
+- **Navigation**: Added under "Faoliyat" section with CalendarCheck icon

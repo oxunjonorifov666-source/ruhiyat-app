@@ -78,6 +78,7 @@ model User {
   savedItems         SavedItem[]
   testResults        TestResult[]
   psychologist       Psychologist?
+  bookingSessions    BookingSession[]   @relation("bookingUser")
 
   @@map("users")
 }
@@ -243,8 +244,9 @@ model Psychologist {
   createdAt          DateTime               @default(now()) @map("created_at")
   updatedAt          DateTime               @updatedAt @map("updated_at")
 
-  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  center EducationCenter? @relation(fields: [centerId], references: [id])
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  center           EducationCenter? @relation(fields: [centerId], references: [id])
+  bookingSessions  BookingSession[]
 
   @@map("psychologists")
 }
@@ -451,8 +453,9 @@ model Chat {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  participants ChatParticipant[]
-  messages     Message[]
+  participants    ChatParticipant[]
+  messages        Message[]
+  bookingSessions BookingSession[]
 
   @@map("chats")
 }
@@ -849,8 +852,9 @@ model Meeting {
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
-  host         User                 @relation("host", fields: [hostId], references: [id])
-  participants MeetingParticipant[]
+  host             User                 @relation("host", fields: [hostId], references: [id])
+  participants     MeetingParticipant[]
+  bookingSessions  BookingSession[]
 
   @@map("meetings")
 }
@@ -1035,6 +1039,51 @@ model IntegrationSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("integration_settings")
+}
+
+// ============================================================================
+// BOOKING SESSIONS
+// ============================================================================
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingPaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+model BookingSession {
+  id              Int                  @id @default(autoincrement())
+  userId          Int                  @map("user_id")
+  psychologistId  Int                  @map("psychologist_id")
+  administratorId Int?                 @map("administrator_id")
+  scheduledAt     DateTime             @map("scheduled_at")
+  duration        Int                  @default(60)
+  price           Int                  @default(0)
+  status          BookingStatus        @default(PENDING)
+  paymentStatus   BookingPaymentStatus @default(UNPAID)
+  meetingId       Int?                 @map("meeting_id")
+  chatId          Int?                 @map("chat_id")
+  notes           String?
+  cancelReason    String?              @map("cancel_reason")
+  cancelledBy     Int?                 @map("cancelled_by")
+  completedAt     DateTime?            @map("completed_at")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  user          User          @relation("bookingUser", fields: [userId], references: [id], onDelete: Cascade)
+  psychologist  Psychologist  @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  meeting       Meeting?      @relation(fields: [meetingId], references: [id])
+  chat          Chat?         @relation(fields: [chatId], references: [id])
+
+  @@map("booking_sessions")
 }
 
 // ============================================================================

@@ -1,0 +1,126 @@
+You are a senior SaaS architect.
+
+We already have:
+- Auth + RBAC
+- Users module
+- Psychologists module
+- Administrators module
+- Moderation module
+- Finance module
+- Communication module (chat + video)
+
+Now we implement the CORE BUSINESS FLOW.
+
+====================================
+MODULE: SESSIONS (BOOKING SYSTEM)
+====================================
+
+This module connects the entire platform.
+
+====================================
+BUSINESS LOGIC
+====================================
+
+Users must be able to:
+- browse psychologists
+- book a session
+- pay for session
+- join chat/video session
+
+Psychologists must:
+- accept/reject sessions
+- manage availability
+
+====================================
+DATABASE (Prisma)
+====================================
+
+Create Session model:
+
+- id
+- userId
+- psychologistId
+- administratorId (optional)
+- scheduledAt
+- duration
+- price
+- status (pending, accepted, rejected, completed, cancelled)
+- paymentStatus (unpaid, paid, refunded)
+- meetingId (link to video session)
+- createdAt
+
+====================================
+BACKEND REQUIREMENTS
+====================================
+
+Endpoints:
+
+- GET /api/sessions
+- GET /api/sessions/:id
+- POST /api/sessions (book session)
+- PATCH /api/sessions/:id/accept
+- PATCH /api/sessions/:id/reject
+- PATCH /api/sessions/:id/cancel
+- PATCH /api/sessions/:id/complete
+
+- GET /api/sessions/user
+- GET /api/sessions/psychologist
+
+====================================
+INTEGRATION REQUIREMENTS
+====================================
+
+When session is created:
+- link user + psychologist
+
+When session is accepted:
+- create video session
+- generate meeting link
+
+When session is paid:
+- create transaction in finance
+
+When session starts:
+- open chat + video
+
+====================================
+RBAC
+====================================
+
+Permissions:
+- sessions.read
+- sessions.write
+- sessions.manage
+
+====================================
+FRONTEND (Superadmin)
+====================================
+
+Page: /sessions
+
+Include:
+- stats cards
+- filters (status, date)
+- table
+- detail view
+
+====================================
+SECURITY
+====================================
+
+- validate ownership
+- prevent invalid state transitions
+- audit all actions
+
+====================================
+OUTPUT
+====================================
+
+Implement fully.
+
+Return:
+- files changed
+- endpoints created
+- integrations done
+- what's working
+- what's missing

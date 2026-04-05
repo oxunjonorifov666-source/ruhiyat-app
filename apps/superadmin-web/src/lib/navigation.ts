@@ -2,7 +2,7 @@ import {
   LayoutDashboard, BarChart3, FileText, Users, Brain, UserCog,
   Shield, MessageSquare, Video, Globe, Star, Megaphone, Newspaper,
   Image, Bell, Headphones, PlayCircle, Heart, Puzzle, ClipboardList,
-  GraduationCap, Calendar, History, Activity, AlertTriangle, CreditCard,
+  GraduationCap, Calendar, CalendarCheck, History, Activity, AlertTriangle, CreditCard,
   DollarSign, ArrowLeftRight, PieChart, Settings, Smartphone, Lock,
   ScrollText, Plug, Monitor, Key, UserCheck, Flag, Ban, Eye,
   TrendingUp, type LucideIcon
@@ -68,6 +68,7 @@ export const superadminNavGroups: NavGroup[] = [
   {
     label: 'Faoliyat',
     items: [
+      { title: 'Seanslar', href: '/sessions', icon: CalendarCheck, permission: 'sessions.read' },
       { title: 'Uchrashuvlar', href: '/meetings', icon: Calendar, permission: 'meetings.read' },
       { title: 'Seanslar tarixi', href: '/sessions-history', icon: History, permission: 'meetings.read' },
       { title: 'Faollik jurnali', href: '/activity-logs', icon: Activity, permission: 'system.audit' },
