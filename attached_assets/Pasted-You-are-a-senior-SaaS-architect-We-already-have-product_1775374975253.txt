@@ -1,0 +1,140 @@
+You are a senior SaaS architect.
+
+We already have:
+- production-ready auth system
+- RBAC / permissions
+- Users module (fully implemented)
+- Psychologists module (fully implemented)
+- Administrators module (fully implemented)
+- Moderation module (fully implemented)
+
+Now implement the FINANCE module at production level.
+
+====================================
+MODULE: MOLIYA (Finance)
+====================================
+
+This module must include:
+- Payments
+- Transactions
+- Revenue
+- Financial analytics
+
+====================================
+BUSINESS LOGIC
+====================================
+
+The system supports:
+- user payments for sessions
+- psychologist earnings
+- platform commission
+- subscription payments
+
+====================================
+DATABASE (Prisma)
+====================================
+
+Create models:
+
+Transaction:
+- id
+- userId
+- psychologistId (optional)
+- administratorId (optional)
+- amount
+- currency
+- type (payment, refund, commission, subscription)
+- status (pending, completed, failed)
+- method (card, click, payme, cash)
+- description
+- createdAt
+
+Payment:
+- id
+- userId
+- psychologistId
+- sessionId (optional)
+- amount
+- status
+- createdAt
+
+RevenueStats:
+- totalRevenue
+- totalPayments
+- totalRefunds
+- monthlyRevenue
+
+====================================
+BACKEND (NestJS)
+====================================
+
+Create finance module:
+
+Endpoints:
+
+GET /api/finance/transactions
+GET /api/finance/payments
+GET /api/finance/revenue
+GET /api/finance/stats
+
+Support:
+- pagination
+- filters (date range, status, type)
+- sorting
+
+Add DTO validation.
+
+====================================
+RBAC / SECURITY
+====================================
+
+Permissions:
+- finance.read
+- finance.manage
+
+Rules:
+- only ADMIN / SUPERADMIN can view
+- sensitive data must be protected
+- log all financial actions
+
+====================================
+FRONTEND (Superadmin)
+====================================
+
+Upgrade pages:
+
+- /payments
+- /transactions
+- /revenue
+- /finance-statistics
+
+Add:
+
+1. Stats cards
+- total revenue
+- total transactions
+- monthly revenue
+- failed payments
+
+2. Charts
+- line chart (monthly revenue)
+- bar chart (transactions)
+
+3. Table
+- transaction list
+- filters
+- export button (CSV)
+
+4. Clean UI (premium)
+
+====================================
+OUTPUT
+====================================
+
+Implement fully.
+
+Return:
+- files changed
+- endpoints created
+- working features
+- missing parts

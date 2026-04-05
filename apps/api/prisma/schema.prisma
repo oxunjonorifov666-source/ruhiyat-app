@@ -882,12 +882,38 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum PaymentMethod {
+  CARD
+  CLICK
+  PAYME
+  CASH
+  TRANSFER
+}
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+  COMMISSION
+  SUBSCRIPTION
+  PAYOUT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 model Payment {
   id                Int           @id @default(autoincrement())
   userId            Int           @map("user_id")
+  psychologistId    Int?          @map("psychologist_id")
+  sessionId         Int?          @map("session_id")
   amount            Int
   currency          String        @default("UZS")
   status            PaymentStatus @default(PENDING)
+  method            PaymentMethod @default(CARD)
   provider          String?
   providerPaymentId String?       @map("provider_payment_id")
   description       String?
@@ -902,15 +928,19 @@ model Payment {
 }
 
 model Transaction {
-  id          Int      @id @default(autoincrement())
-  paymentId   Int?     @map("payment_id")
-  userId      Int      @map("user_id")
-  type        String
-  amount      Int
-  currency    String   @default("UZS")
-  description String?
-  referenceId String?  @map("reference_id")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id              Int               @id @default(autoincrement())
+  paymentId       Int?              @map("payment_id")
+  userId          Int               @map("user_id")
+  psychologistId  Int?              @map("psychologist_id")
+  administratorId Int?              @map("administrator_id")
+  type            TransactionType   @default(PAYMENT)
+  status          TransactionStatus @default(PENDING)
+  amount          Int
+  currency        String            @default("UZS")
+  method          PaymentMethod?
+  description     String?
+  referenceId     String?           @map("reference_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
 
   payment Payment? @relation(fields: [paymentId], references: [id])
   user    User     @relation(fields: [userId], references: [id])

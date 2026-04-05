@@ -17,6 +17,8 @@ const ADMIN_PERMISSIONS = [
   { resource: 'meetings', action: 'read' },
   { resource: 'meetings', action: 'write' },
   { resource: 'finance', action: 'read' },
+  { resource: 'finance', action: 'write' },
+  { resource: 'finance', action: 'manage' },
   { resource: 'courses', action: 'read' },
   { resource: 'courses', action: 'write' },
   { resource: 'assessments', action: 'read' },
