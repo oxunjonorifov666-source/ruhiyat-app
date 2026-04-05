@@ -13,6 +13,9 @@ export class DashboardController {
   @Get('superadmin/stats')
   @Permissions('system.settings')
   async getSuperadminStats() {
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
     const [
       totalUsers,
       activePsychologists,
@@ -22,6 +25,12 @@ export class DashboardController {
       communityPosts,
       articles,
       recentUsers,
+      pendingBookings,
+      completedBookings,
+      totalBookings,
+      bookingRevenue,
+      recentAuditLogs,
+      usersByMonth,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.psychologist.count({ where: { isAvailable: true } }),
@@ -35,7 +44,35 @@ export class DashboardController {
         orderBy: { createdAt: 'desc' },
         select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, createdAt: true },
       }),
+      this.prisma.bookingSession.count({ where: { status: 'PENDING' } }),
+      this.prisma.bookingSession.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.bookingSession.count(),
+      this.prisma.bookingSession.aggregate({ where: { paymentStatus: 'PAID' }, _sum: { price: true } }),
+      this.prisma.auditLog.findMany({
+        take: 8,
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
+      }),
+      this.prisma.$queryRaw<{ month: string; count: bigint }[]>`
+        SELECT to_char(created_at, 'YYYY-MM') as month, COUNT(*)::bigint as count
+        FROM users
+        WHERE created_at >= ${sixMonthsAgo}
+        GROUP BY to_char(created_at, 'YYYY-MM')
+        ORDER BY month ASC
+      `,
     ]);
+
+    const monthNames = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
+    const monthlyGrowth = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const found = usersByMonth.find((r) => r.month === key);
+      monthlyGrowth.push({
+        month: monthNames[d.getMonth()],
+        count: found ? Number(found.count) : 0,
+      });
+    }
 
     return {
       stats: {
@@ -47,7 +84,24 @@ export class DashboardController {
         communityPosts,
         articles,
       },
+      bookings: {
+        total: totalBookings,
+        pending: pendingBookings,
+        completed: completedBookings,
+        revenue: bookingRevenue._sum.price || 0,
+      },
       recentUsers,
+      monthlyGrowth,
+      recentActivity: recentAuditLogs.map((log) => ({
+        id: log.id,
+        action: log.action,
+        resource: log.resource,
+        resourceId: log.resourceId,
+        userName: log.user
+          ? `${log.user.firstName || ''} ${log.user.lastName || ''}`.trim() || log.user.email
+          : 'Tizim',
+        createdAt: log.createdAt,
+      })),
     };
   }
 

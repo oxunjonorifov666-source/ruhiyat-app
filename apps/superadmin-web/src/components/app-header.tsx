@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Moon, Sun, RefreshCw, LogOut, User, Settings, CloudSun, CalendarDays, Clock } from "lucide-react"
+import { Moon, Sun, RefreshCw, LogOut, User, Settings, CloudSun, CalendarDays, Clock, Bell, Check } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,16 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useTheme } from "@/components/theme-provider"
 import { useAuth } from "@/components/auth-provider"
+import { apiClient } from "@/lib/api-client"
+
+interface Notification {
+  id: number
+  title: string
+  body: string | null
+  type: string
+  isRead: boolean
+  createdAt: string
+}
 
 const roleLabels: Record<string, string> = {
   SUPERADMIN: "Superadmin",
@@ -76,6 +87,112 @@ function WeatherWidget() {
   )
 }
 
+function formatTimeSince(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return "Hozirgina"
+  if (mins < 60) return `${mins} daqiqa oldin`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} soat oldin`
+  const days = Math.floor(hours / 24)
+  return `${days} kun oldin`
+}
+
+function NotificationBell() {
+  const [notifications, setNotifications] = React.useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = React.useState(0)
+  const [open, setOpen] = React.useState(false)
+
+  const fetchNotifications = React.useCallback(async () => {
+    try {
+      const res = await apiClient<{ data: Notification[]; total: number }>("/notifications", {
+        params: { limit: 10, page: 1 },
+      })
+      setNotifications(res.data || [])
+      setUnreadCount((res.data || []).filter((n) => !n.isRead).length)
+    } catch {
+      setNotifications([])
+      setUnreadCount(0)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 30000)
+    return () => clearInterval(interval)
+  }, [fetchNotifications])
+
+  const markRead = async (id: number) => {
+    try {
+      await apiClient(`/notifications/${id}/read`, { method: "PATCH" })
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      )
+      setUnreadCount((prev) => Math.max(0, prev - 1))
+    } catch {}
+  }
+
+  const typeIcons: Record<string, string> = {
+    session: "bg-blue-100 text-blue-600",
+    payment: "bg-green-100 text-green-600",
+    alert: "bg-red-100 text-red-600",
+    general: "bg-gray-100 text-gray-600",
+  }
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="size-8 relative">
+          <Bell className="size-3.5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white animate-pulse">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel className="flex items-center justify-between">
+          <span>Bildirishnomalar</span>
+          {unreadCount > 0 && (
+            <Badge variant="secondary" className="text-[10px]">
+              {unreadCount} ta yangi
+            </Badge>
+          )}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <ScrollArea className="max-h-[320px]">
+          {notifications.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              Bildirishnomalar yo'q
+            </div>
+          ) : (
+            notifications.map((n) => (
+              <DropdownMenuItem
+                key={n.id}
+                className={`flex items-start gap-3 p-3 cursor-pointer ${!n.isRead ? "bg-muted/50" : ""}`}
+                onClick={() => !n.isRead && markRead(n.id)}
+              >
+                <div className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full ${typeIcons[n.type] || typeIcons.general}`}>
+                  <Bell className="size-3" />
+                </div>
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <p className={`text-sm truncate ${!n.isRead ? "font-semibold" : ""}`}>{n.title}</p>
+                  {n.body && <p className="text-xs text-muted-foreground line-clamp-2">{n.body}</p>}
+                  <p className="text-[10px] text-muted-foreground">{formatTimeSince(n.createdAt)}</p>
+                </div>
+                {!n.isRead && (
+                  <div className="mt-1 size-2 rounded-full bg-blue-500 shrink-0" />
+                )}
+              </DropdownMenuItem>
+            ))
+          )}
+        </ScrollArea>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function getInitials(user: { firstName?: string | null; lastName?: string | null; email?: string | null } | null) {
   if (!user) return "SA"
   if (user.firstName && user.lastName) return (user.firstName[0] + user.lastName[0]).toUpperCase()
@@ -105,6 +222,8 @@ export function AppHeader() {
       <WeatherWidget />
 
       <div className="ml-auto flex items-center gap-2">
+        <NotificationBell />
+
         <Button variant="ghost" size="icon" className="size-8" onClick={() => window.location.reload()}>
           <RefreshCw className="size-3.5" />
         </Button>

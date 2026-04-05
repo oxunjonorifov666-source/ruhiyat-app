@@ -19,7 +19,7 @@ interface PageHeaderProps {
   icon?: LucideIcon
   badge?: string
   badgeVariant?: "default" | "secondary" | "outline" | "destructive"
-  actions?: PageHeaderAction[]
+  actions?: PageHeaderAction[] | React.ReactNode
   children?: React.ReactNode
 }
 
@@ -51,20 +51,24 @@ export function PageHeader({
             )}
           </div>
         </div>
-        {actions && actions.length > 0 && (
-          <div className="flex items-center gap-2 shrink-0">
-            {actions.map((action, i) => (
-              <Button
-                key={i}
-                variant={action.variant || "default"}
-                size="sm"
-                onClick={action.onClick}
-              >
-                {action.icon && <action.icon className="size-4 mr-1.5" />}
-                {action.label}
-              </Button>
-            ))}
-          </div>
+        {actions && (
+          Array.isArray(actions) ? (
+            <div className="flex items-center gap-2 shrink-0">
+              {(actions as PageHeaderAction[]).map((action, i) => (
+                <Button
+                  key={i}
+                  variant={action.variant || "default"}
+                  size="sm"
+                  onClick={action.onClick}
+                >
+                  {action.icon && <action.icon className="size-4 mr-1.5" />}
+                  {action.label}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <div className="shrink-0">{actions}</div>
+          )
         )}
       </div>
       {children}

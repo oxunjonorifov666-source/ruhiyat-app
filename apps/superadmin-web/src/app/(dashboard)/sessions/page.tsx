@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,9 +25,10 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   CalendarCheck, Clock, CheckCircle, XCircle, AlertTriangle, Download, Filter, X,
-  Eye, DollarSign, Users, TrendingUp,
+  Eye, DollarSign, Users, TrendingUp, Loader2,
 } from "lucide-react"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts"
+import { toast } from "sonner"
 
 interface SessionUser {
   id: number
@@ -213,11 +215,18 @@ export default function SessionsPage() {
     }
   }, [page, search, filterStatus, filterPayment, filterDateFrom, filterDateTo])
 
+  const [statsLoading, setStatsLoading] = useState(true)
+
   const fetchStats = useCallback(async () => {
+    setStatsLoading(true)
     try {
       const res = await apiClient<SessionStats>("/sessions/stats")
       setStats(res)
-    } catch {}
+    } catch {
+      setStats({ total: 0, pending: 0, accepted: 0, completed: 0, cancelled: 0, rejected: 0, todaySessions: 0, monthSessions: 0, paidCount: 0, totalRevenue: 0 })
+    } finally {
+      setStatsLoading(false)
+    }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -234,11 +243,19 @@ export default function SessionsPage() {
     }
   }
 
+  const actionToastMessages: Record<string, string> = {
+    accept: "Seans muvaffaqiyatli qabul qilindi",
+    reject: "Seans rad etildi",
+    cancel: "Seans bekor qilindi",
+    complete: "Seans yakunlandi",
+  }
+
   const handleAction = async () => {
     if (!actionSession || !actionType) return
     setActionLoading(true)
     try {
       await apiClient(`/sessions/${actionSession.id}/${actionType}`, { method: "PATCH" })
+      toast.success(actionToastMessages[actionType] || "Amal bajarildi")
       fetchData()
       fetchStats()
       if (sheetOpen && selectedSession?.id === actionSession.id) {
@@ -246,7 +263,7 @@ export default function SessionsPage() {
         setSelectedSession(updated)
       }
     } catch (e: any) {
-      alert(e.message)
+      toast.error("Xatolik yuz berdi", { description: e.message })
     } finally {
       setActionLoading(false)
       setActionSession(null)
@@ -417,31 +434,54 @@ export default function SessionsPage() {
         }
       />
 
-      {stats && (
+      {statsLoading ? (
+        <StatsGrid columns={3}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <StatsCard key={i} title="" value="" icon={CalendarCheck} loading />
+          ))}
+        </StatsGrid>
+      ) : stats ? (
         <>
-          <StatsGrid>
+          <StatsGrid columns={3}>
             <StatsCard title="Jami seanslar" value={stats.total} icon={CalendarCheck}
+              iconColor="bg-sky-500/10 text-sky-600"
               trend={stats.monthSessions > 0 ? { value: stats.monthSessions, label: "bu oy" } : undefined} />
-            <StatsCard title="Kutilmoqda" value={stats.pending} icon={Clock} />
-            <StatsCard title="Qabul qilingan" value={stats.accepted} icon={Users} />
-            <StatsCard title="Yakunlangan" value={stats.completed} icon={CheckCircle} />
-            <StatsCard title="Bugungi" value={stats.todaySessions} icon={TrendingUp} />
-            <StatsCard title="Umumiy daromad" value={formatPrice(stats.totalRevenue)} icon={DollarSign} />
+            <StatsCard title="Kutilmoqda" value={stats.pending} icon={Clock}
+              iconColor="bg-orange-500/10 text-orange-600" />
+            <StatsCard title="Qabul qilingan" value={stats.accepted} icon={Users}
+              iconColor="bg-blue-500/10 text-blue-600" />
+            <StatsCard title="Yakunlangan" value={stats.completed} icon={CheckCircle}
+              iconColor="bg-green-500/10 text-green-600" />
+            <StatsCard title="Bugungi" value={stats.todaySessions} icon={TrendingUp}
+              iconColor="bg-violet-500/10 text-violet-600" />
+            <StatsCard title="Umumiy daromad" value={formatPrice(stats.totalRevenue)} icon={DollarSign}
+              iconColor="bg-emerald-500/10 text-emerald-600" />
           </StatsGrid>
 
           {statusChartData.length > 0 && (
             <Card>
-              <CardHeader><CardTitle>Holat bo'yicha taqsimot</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Holat bo'yicha taqsimot</CardTitle></CardHeader>
               <CardContent>
-                <div className="h-[200px]">
+                <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={statusChartData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                      <Pie data={statusChartData} cx="50%" cy="50%" innerRadius={55} outerRadius={85}
+                        dataKey="value" paddingAngle={2} animationBegin={0} animationDuration={800}
+                        label={({ name, value }) => `${name}: ${value}`}>
                         {statusChartData.map((entry, i) => (
                           <Cell key={i} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: "8px",
+                          border: "1px solid hsl(var(--border))",
+                          backgroundColor: "hsl(var(--card))",
+                          color: "hsl(var(--card-foreground))",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Legend verticalAlign="bottom" height={36} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -665,7 +705,8 @@ export default function SessionsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={actionLoading}>Bekor qilish</AlertDialogCancel>
             <AlertDialogAction onClick={handleAction} disabled={actionLoading}>
-              {actionLoading ? "Yuklanmoqda..." : actionType ? actionLabels[actionType]?.buttonLabel : ""}
+              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {actionLoading ? "Bajarilmoqda..." : actionType ? actionLabels[actionType]?.buttonLabel : ""}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

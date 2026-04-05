@@ -84,3 +84,39 @@ The Ruhiyat project is built as a pnpm monorepo, encompassing several applicatio
 ### Frontend (Superadmin)
 - **Sessions Page** (`/sessions`): 6 stats cards (total/pending/accepted/completed/today/revenue), pie chart, filterable table with status/payment/date filters, detail sheet with user+psychologist info + meeting/chat details, action buttons (accept/reject/cancel/complete) with AlertDialog confirmation, CSV export
 - **Navigation**: Added under "Faoliyat" section with CalendarCheck icon
+
+## Product Polish & UX Improvements
+
+### Toast Notifications
+- **Sonner** integrated as global toast system in dashboard layout
+- Sessions page actions use `toast.success/error` instead of `alert()`
+- Rich toasts with descriptions for errors
+
+### Notification System
+- **Notification bell** in header with unread count badge (animated pulse)
+- Dropdown showing recent notifications with mark-as-read
+- Auto-polls every 30 seconds for new notifications
+- Scoped to current user (security-fixed: userId from JWT, ownership check on mark-read)
+
+### Dashboard Improvements
+- **Real bar chart** (recharts) showing user registration growth over last 6 months
+- **Booking session stats row**: total/pending/completed/revenue from real API
+- **Real activity feed**: populated from audit logs with action/resource labels and user names
+- **Enhanced API**: `GET /api/dashboard/superadmin/stats` returns monthlyGrowth, bookings, recentActivity
+- **Animated numbers**: count-up animation on stat values
+- **Full skeleton loading**: every section has proper skeleton placeholders
+
+### UI Quality
+- **StatsCard**: hover shadow + scale animation, `loading` prop for skeleton state, supports JSX `value`
+- **DataTable**: debounced auto-search, improved empty state with icon, dark mode error styling, table header background
+- **PageHeader**: accepts both array-based and JSX-based `actions` prop
+- **Skeleton loaders**: stats cards, charts, user lists, activity feed
+
+### Performance
+- **`useApiData` hook**: reusable data fetching with loading/error/refresh states, auto-refresh interval, race condition protection
+- **`useDebounce` hook**: 400ms debounced search to reduce API calls
+- **Dashboard auto-refresh**: stats refresh every 60 seconds
+
+### Custom Hooks
+- `apps/superadmin-web/src/hooks/use-api-data.ts` — data fetching with caching, auto-refresh, race conditions
+- `apps/superadmin-web/src/hooks/use-debounce.ts` — value debouncing utility

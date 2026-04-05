@@ -150,14 +150,14 @@ export class CommunicationController {
 
   @Get('notifications')
   findAllNotifications(
+    @CurrentUser() user: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('userId') userId?: string,
   ) {
     return this.service.findAllNotifications({
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
-      userId: userId ? parseInt(userId) : undefined,
+      userId: user.userId,
     });
   }
 
@@ -167,7 +167,9 @@ export class CommunicationController {
   createNotification(@Body() data: any) { return this.service.createNotification(data); }
 
   @Patch('notifications/:id/read')
-  markNotificationRead(@Param('id', ParseIntPipe) id: number) { return this.service.markNotificationRead(id); }
+  markNotificationRead(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.service.markNotificationRead(id, user.userId);
+  }
 
   @Get('announcements')
   findAllAnnouncements(

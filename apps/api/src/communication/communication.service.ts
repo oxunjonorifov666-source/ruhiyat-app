@@ -341,7 +341,12 @@ export class CommunicationService {
     return this.prisma.notification.create({ data });
   }
 
-  async markNotificationRead(id: number) {
+  async markNotificationRead(id: number, userId?: number) {
+    const notification = await this.prisma.notification.findUnique({ where: { id } });
+    if (!notification) throw new NotFoundException("Bildirishnoma topilmadi");
+    if (userId && notification.userId !== userId) {
+      throw new ForbiddenException("Ruxsat yo'q");
+    }
     return this.prisma.notification.update({ where: { id }, data: { isRead: true } });
   }
 

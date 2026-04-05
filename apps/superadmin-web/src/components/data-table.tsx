@@ -1,21 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, AlertCircle, Inbox } from "lucide-react"
+import { useDebounce } from "@/hooks/use-debounce"
 
 interface Column<T> {
   key: string
-  title: string
+  title?: string
+  header?: string
   render?: (item: T) => React.ReactNode
 }
 
 interface DataTableProps<T> {
-  title: string
+  title?: string
   description?: string
   columns: Column<T>[]
   data: T[]
@@ -24,33 +26,47 @@ interface DataTableProps<T> {
   limit: number
   loading: boolean
   error?: string | null
+  search?: string
   searchPlaceholder?: string
   onPageChange: (page: number) => void
-  onSearch: (search: string) => void
+  onSearch?: (search: string) => void
+  onSearchChange?: (search: string) => void
   headerAction?: React.ReactNode
 }
 
 export function DataTable<T extends Record<string, any>>({
   title, description, columns, data, total, page, limit,
-  loading, error, searchPlaceholder, onPageChange, onSearch, headerAction,
+  loading, error, search: externalSearch, searchPlaceholder,
+  onPageChange, onSearch, onSearchChange, headerAction,
 }: DataTableProps<T>) {
-  const [searchValue, setSearchValue] = useState("")
+  const [searchValue, setSearchValue] = useState(externalSearch || "")
+  const debouncedSearch = useDebounce(searchValue, 400)
   const totalPages = Math.ceil(total / limit)
 
+  useEffect(() => {
+    if (onSearchChange) {
+      onSearchChange(debouncedSearch)
+    }
+  }, [debouncedSearch])
+
   const handleSearch = () => {
-    onSearch(searchValue)
-    onPageChange(1)
+    if (onSearch) {
+      onSearch(searchValue)
+      onPageChange(1)
+    }
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-          {description && <p className="text-muted-foreground mt-1">{description}</p>}
+      {title && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            {description && <p className="text-muted-foreground mt-1">{description}</p>}
+          </div>
+          {headerAction}
         </div>
-        {headerAction}
-      </div>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
@@ -65,42 +81,53 @@ export function DataTable<T extends Record<string, any>>({
                 className="pl-9"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={handleSearch}>
-              Qidirish
-            </Button>
+            {onSearch && (
+              <Button variant="outline" size="sm" onClick={handleSearch}>
+                Qidirish
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 mb-4">
+            <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-4 text-sm text-red-700 dark:text-red-400 mb-4 flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" />
               {error}
             </div>
           )}
 
           {loading ? (
-            <div className="space-y-3">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+            <div className="space-y-1">
+              <Skeleton className="h-10 w-full rounded-t-md" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full" />
               ))}
             </div>
           ) : data.length === 0 ? (
-            <div className="flex h-32 items-center justify-center text-muted-foreground">
-              Ma'lumot topilmadi
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <Inbox className="size-12 mb-3 opacity-40" />
+              <p className="font-medium">Ma'lumot topilmadi</p>
+              <p className="text-xs mt-1">Qidiruv parametrlarini o'zgartiring</p>
             </div>
           ) : (
             <>
-              <div className="rounded-md border">
+              <div className="rounded-md border overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/50">
                       {columns.map((col) => (
-                        <TableHead key={col.key}>{col.title}</TableHead>
+                        <TableHead key={col.key} className="font-semibold">
+                          {col.header || col.title}
+                        </TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.map((item, idx) => (
-                      <TableRow key={item.id || idx}>
+                      <TableRow
+                        key={item.id || idx}
+                        className="transition-colors hover:bg-muted/40"
+                      >
                         {columns.map((col) => (
                           <TableCell key={col.key}>
                             {col.render ? col.render(item) : item[col.key]}
@@ -114,7 +141,7 @@ export function DataTable<T extends Record<string, any>>({
 
               <div className="flex items-center justify-between mt-4">
                 <p className="text-sm text-muted-foreground">
-                  Jami: {total} ta
+                  Jami: <span className="font-medium text-foreground">{total}</span> ta
                 </p>
                 <div className="flex items-center gap-2">
                   <Button
@@ -125,7 +152,7 @@ export function DataTable<T extends Record<string, any>>({
                   >
                     <ChevronLeft className="size-4" />
                   </Button>
-                  <span className="text-sm">
+                  <span className="text-sm tabular-nums">
                     {page} / {totalPages || 1}
                   </span>
                   <Button
