@@ -56,9 +56,15 @@ model User {
   transactions       Transaction[]
   communityPosts     CommunityPost[]
   comments           Comment[]
-  complaints         Complaint[]          @relation("reporter")
-  resolvedComplaints Complaint[]          @relation("resolver")
-  moderationActions  ModerationAction[]
+  complaints             Complaint[]          @relation("reporter")
+  resolvedComplaints     Complaint[]          @relation("resolver")
+  assignedComplaints     Complaint[]          @relation("assignedTo")
+  moderationActions      ModerationAction[]
+  createdReports         ModerationReport[]   @relation("reportCreator")
+  assignedReports        ModerationReport[]   @relation("reportAssignee")
+  resolvedReports        ModerationReport[]   @relation("reportResolver")
+  blockActions           BlockHistory[]       @relation("blockPerformer")
+  contentModerations     ContentModeration[]  @relation("contentModerator")
   chatParticipants   ChatParticipant[]
   sentMessages       Message[]
   meetingHost        Meeting[]            @relation("host")
@@ -558,31 +564,118 @@ model Comment {
 }
 
 enum ComplaintStatus {
-  PENDING
-  REVIEWING
+  NEW
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ReportSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReportStatus {
+  NEW
+  IN_REVIEW
   RESOLVED
   DISMISSED
 }
 
-model Complaint {
-  id          Int             @id @default(autoincrement())
-  reporterId  Int             @map("reporter_id")
-  targetType  String          @map("target_type")
-  targetId    Int             @map("target_id")
-  reason      String
-  description String?
-  status      ComplaintStatus @default(PENDING)
-  resolvedBy  Int?            @map("resolved_by")
-  resolvedAt  DateTime?       @map("resolved_at")
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+enum ContentModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
 
-  reporter User  @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  resolver User? @relation("resolver", fields: [resolvedBy], references: [id])
+model Complaint {
+  id               Int               @id @default(autoincrement())
+  reporterId       Int               @map("reporter_id")
+  targetType       String            @map("target_type")
+  targetId         Int               @map("target_id")
+  subject          String
+  description      String?
+  status           ComplaintStatus   @default(NEW)
+  priority         ComplaintPriority @default(MEDIUM)
+  assignedToUserId Int?              @map("assigned_to_user_id")
+  resolutionNote   String?           @map("resolution_note")
+  resolvedBy       Int?              @map("resolved_by")
+  resolvedAt       DateTime?         @map("resolved_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  reporter   User  @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolver   User? @relation("resolver", fields: [resolvedBy], references: [id])
+  assignedTo User? @relation("assignedTo", fields: [assignedToUserId], references: [id])
 
   moderationActions ModerationAction[]
 
   @@map("complaints")
+}
+
+model ModerationReport {
+  id               Int            @id @default(autoincrement())
+  type             String
+  targetType       String         @map("target_type")
+  targetId         Int            @map("target_id")
+  summary          String
+  details          String?
+  severity         ReportSeverity @default(MEDIUM)
+  status           ReportStatus   @default(NEW)
+  createdByUserId  Int            @map("created_by_user_id")
+  assignedToUserId Int?           @map("assigned_to_user_id")
+  resolutionNote   String?        @map("resolution_note")
+  resolvedBy       Int?           @map("resolved_by")
+  resolvedAt       DateTime?      @map("resolved_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  createdBy  User  @relation("reportCreator", fields: [createdByUserId], references: [id])
+  assignedTo User? @relation("reportAssignee", fields: [assignedToUserId], references: [id])
+  resolver   User? @relation("reportResolver", fields: [resolvedBy], references: [id])
+
+  @@map("moderation_reports")
+}
+
+model BlockHistory {
+  id         Int      @id @default(autoincrement())
+  targetType String   @map("target_type")
+  targetId   Int      @map("target_id")
+  action     String
+  reason     String?
+  performedBy Int     @map("performed_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  performer User @relation("blockPerformer", fields: [performedBy], references: [id])
+
+  @@map("block_history")
+}
+
+model ContentModeration {
+  id             Int                    @id @default(autoincrement())
+  contentType    String                 @map("content_type")
+  contentId      Int                    @map("content_id")
+  contentTitle   String?                @map("content_title")
+  status         ContentModerationStatus @default(PENDING)
+  moderatorId    Int?                   @map("moderator_id")
+  moderatorNote  String?                @map("moderator_note")
+  reviewedAt     DateTime?              @map("reviewed_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  moderator User? @relation("contentModerator", fields: [moderatorId], references: [id])
+
+  @@map("content_moderation")
 }
 
 model ModerationAction {

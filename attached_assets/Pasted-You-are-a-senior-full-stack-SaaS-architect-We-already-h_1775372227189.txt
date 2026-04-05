@@ -1,0 +1,234 @@
+You are a senior full-stack SaaS architect.
+
+We already have:
+- production-ready auth
+- RBAC / permissions
+- Users module fully implemented
+- Psychologists module fully implemented
+- Administrators module fully implemented
+
+Now build the next critical platform module:
+
+====================================
+MODULE: MODERATSIYA MARKAZI
+====================================
+
+This module includes:
+1. Shikoyatlar
+2. Reportlar
+3. Bloklash
+4. Kontent nazorati
+
+This must be production-grade, secure, and auditable.
+
+====================================
+BUSINESS REQUIREMENTS
+====================================
+
+A. SHIKOYATLAR
+Users can submit complaints against:
+- psychologists
+- administrators
+- content
+- sessions
+
+Each complaint should include:
+- id
+- complainantUserId
+- targetType (psychologist, administrator, content, session)
+- targetId
+- subject
+- description
+- status (new, in_review, resolved, rejected)
+- priority (low, medium, high, urgent)
+- assignedToUserId (optional)
+- resolutionNote (optional)
+- createdAt
+- updatedAt
+
+B. REPORTLAR
+Reports are moderation incidents triggered by system/admin review.
+Each report should include:
+- id
+- type
+- targetType
+- targetId
+- summary
+- details
+- severity
+- status
+- createdByUserId
+- assignedToUserId
+- resolutionNote
+- createdAt
+
+C. BLOKLASH
+Superadmin should be able to:
+- block user
+- unblock user
+- block psychologist
+- unblock psychologist
+- add reason
+- see block history
+
+D. KONTENT NAZORATI
+Moderate:
+- articles
+- banners
+- notifications
+- videos
+- audio
+- affirmations
+- tests
+- trainings
+
+Each content moderation item should support:
+- pending
+- approved
+- rejected
+- hidden
+- moderator note
+
+====================================
+BACKEND REQUIREMENTS
+====================================
+
+1. Create proper Prisma models if missing:
+- Complaint
+- ModerationReport
+- BlockHistory
+- ContentModeration (if needed)
+
+2. Create NestJS module(s):
+- moderation.module
+- complaints controller/service
+- reports controller/service
+- blocking controller/service
+- content moderation controller/service
+
+3. Endpoints:
+Complaints:
+- GET /api/complaints
+- GET /api/complaints/stats
+- GET /api/complaints/:id
+- POST /api/complaints
+- PATCH /api/complaints/:id
+- PATCH /api/complaints/:id/assign
+- PATCH /api/complaints/:id/resolve
+- PATCH /api/complaints/:id/reject
+
+Reports:
+- GET /api/moderation-reports
+- GET /api/moderation-reports/stats
+- GET /api/moderation-reports/:id
+- POST /api/moderation-reports
+- PATCH /api/moderation-reports/:id
+- PATCH /api/moderation-reports/:id/resolve
+
+Blocking:
+- GET /api/blocks
+- GET /api/blocks/history
+- PATCH /api/blocks/users/:id/block
+- PATCH /api/blocks/users/:id/unblock
+- PATCH /api/blocks/psychologists/:id/block
+- PATCH /api/blocks/psychologists/:id/unblock
+
+Content moderation:
+- GET /api/content-moderation
+- GET /api/content-moderation/stats
+- PATCH /api/content-moderation/:id/approve
+- PATCH /api/content-moderation/:id/reject
+- PATCH /api/content-moderation/:id/hide
+
+4. Add DTO validation everywhere
+5. Add pagination, filters, search, sorting
+6. Add audit logging for all moderation actions
+
+====================================
+RBAC / SECURITY
+====================================
+
+Use permissions:
+- moderation.read
+- moderation.write
+- moderation.manage
+- complaints.read
+- complaints.manage
+- reports.read
+- reports.manage
+- blocks.manage
+- content.moderate
+
+Rules:
+- only privileged roles can resolve/reject complaints
+- only privileged roles can block/unblock
+- prevent self-block actions
+- prevent blocking SUPERADMIN accounts
+- all sensitive actions must be audited
+
+====================================
+FRONTEND REQUIREMENTS
+====================================
+
+Upgrade these Superadmin pages into real modules:
+- /complaints
+- /reports-moderation
+- /blocking
+- /content-control
+
+For each page:
+1. Stats cards
+2. Search and filter bar
+3. Premium table
+4. Detail drawer or detail page
+5. Action menus
+6. Confirmation dialogs
+7. Uzbek labels
+8. Loading, empty, and error states
+
+Specific expectations:
+
+Complaints page:
+- columns: subject, target type, priority, status, assigned, createdAt
+- actions: view, assign, resolve, reject
+
+Reports page:
+- columns: type, target, severity, status, assigned, createdAt
+- actions: view, resolve
+
+Blocking page:
+- show blocked entities
+- show reasons
+- unblock action
+- history tab or section
+
+Content control page:
+- list content items
+- moderation state badges
+- approve/reject/hide actions
+
+====================================
+DESIGN REQUIREMENTS
+====================================
+
+- premium admin-grade UI
+- consistent with existing Users / Psychologists / Administrators modules
+- use reusable page shell components
+- keep clean card/table/dialog patterns
+- responsive layout
+
+====================================
+OUTPUT REQUIREMENTS
+====================================
+
+Do not stop at planning.
+Actually implement the module.
+
+At the end return:
+1. exact files changed
+2. exact Prisma models added/changed
+3. exact endpoints created
+4. permissions added
+5. which pages are fully working
+6. which parts are still placeholder
+7. what should be built next

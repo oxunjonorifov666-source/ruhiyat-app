@@ -29,6 +29,15 @@ const ADMIN_PERMISSIONS = [
   { resource: 'administrators', action: 'manage' },
   { resource: 'centers', action: 'read' },
   { resource: 'centers', action: 'write' },
+  { resource: 'moderation', action: 'read' },
+  { resource: 'moderation', action: 'write' },
+  { resource: 'moderation', action: 'manage' },
+  { resource: 'complaints', action: 'read' },
+  { resource: 'complaints', action: 'manage' },
+  { resource: 'reports', action: 'read' },
+  { resource: 'reports', action: 'manage' },
+  { resource: 'blocks', action: 'manage' },
+  { resource: 'content', action: 'moderate' },
 ];
 
 const USER_PERMISSIONS = [
