@@ -1,0 +1,120 @@
+You are a senior SaaS architect.
+
+We already have:
+- Auth + RBAC
+- Users module
+- Psychologists module
+- Administrators module
+- Moderation module
+- Finance module
+
+Now implement the COMMUNICATION module.
+
+====================================
+MODULE: MULOQOT
+====================================
+
+This module includes:
+- Chat
+- Videochat
+
+====================================
+BUSINESS LOGIC
+====================================
+
+Users can:
+- chat with psychologists
+- book sessions
+- have real-time conversations
+
+====================================
+BACKEND REQUIREMENTS
+====================================
+
+Create models:
+
+ChatRoom:
+- id
+- userId
+- psychologistId
+- status
+- createdAt
+
+Message:
+- id
+- chatRoomId
+- senderId
+- message
+- type (text, file, image)
+- createdAt
+
+VideoSession:
+- id
+- userId
+- psychologistId
+- scheduledAt
+- status
+- meetingLink
+- createdAt
+
+====================================
+ENDPOINTS
+====================================
+
+Chat:
+- GET /api/chat/rooms
+- GET /api/chat/:id/messages
+- POST /api/chat/:id/message
+
+Video:
+- POST /api/video/schedule
+- GET /api/video/sessions
+- PATCH /api/video/:id/start
+- PATCH /api/video/:id/end
+
+====================================
+REAL-TIME
+====================================
+
+Use WebSocket (Socket.IO)
+
+- real-time messaging
+- typing indicator
+- read status
+
+====================================
+FRONTEND
+====================================
+
+Pages:
+- /chat
+- /videochat
+
+Chat page:
+- sidebar (chat list)
+- message window
+- input box
+- real-time updates
+
+Video page:
+- sessions list
+- start/join session
+- status
+
+====================================
+SECURITY
+====================================
+
+- only participants can access chat
+- validate sessions
+- RBAC protected
+
+====================================
+OUTPUT
+====================================
+
+Implement fully and return:
+- files changed
+- endpoints created
+- real-time setup
+- what's working

@@ -53,3 +53,15 @@ The Ruhiyat project is built as a pnpm monorepo, encompassing several applicatio
 - **UI Libraries**: Tailwind CSS, shadcn/ui
 - **Authentication Libraries**: Passport.js, bcryptjs, `expo-secure-store`
 - **Backend Framework**: NestJS
+- **Real-time Communication**: Socket.IO (via @nestjs/websockets, @nestjs/platform-socket.io)
+
+## Communication Module (Muloqot)
+
+### Backend
+- **WebSocket Gateway**: `ChatGateway` at `/chat` namespace with JWT auth, real-time messaging, typing indicators, read status tracking, online user presence
+- **REST Endpoints**: Chat management (`/api/chats`, `/api/chat/stats`), Video sessions (`/api/video/sessions`, `/api/video/stats`, `/api/video/schedule`), Notifications, Announcements
+- **Key Files**: `apps/api/src/communication/chat.gateway.ts`, `communication.service.ts`, `communication.controller.ts`, `communication.module.ts`
+
+### Frontend (Superadmin)
+- **Chat Page** (`/chat`): Stats cards (total/active chats, total/today messages), pie chart, filterable chat list with type/status filters, detail sheet with participant list and message history, toggle active/inactive, CSV export
+- **Videochat Page** (`/videochat`): Stats cards (total/scheduled/active/completed sessions), pie chart, filterable session list with status/type/date filters, detail sheet with host/participant info, start/end/cancel actions, CSV export
