@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Moon, Sun, RefreshCw, LogOut, User, Bell } from "lucide-react"
+import { Moon, Sun, RefreshCw, LogOut, User, Bell, Heart } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -139,6 +139,13 @@ export function AppHeader() {
     <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 !h-4" />
+      <div className="flex items-center gap-2 mr-2">
+        <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <Heart className="size-3.5" />
+        </div>
+        <span className="text-sm font-semibold hidden lg:block">Ruhiyat</span>
+      </div>
+      <Separator orientation="vertical" className="mr-2 !h-4 hidden lg:block" />
       <DateTime />
       <div className="ml-auto flex items-center gap-1">
         <NotificationBell />
@@ -165,6 +172,7 @@ export function AppHeader() {
             <DropdownMenuLabel>
               <div className="flex flex-col">
                 <span>{getDisplayName(user)}</span>
+                <span className="text-xs font-normal text-muted-foreground">{user?.role === "ADMINISTRATOR" ? "Administrator" : user?.role || ""}</span>
                 <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
                 {user?.administrator?.center?.name && (
                   <span className="text-xs font-normal text-muted-foreground mt-0.5">

@@ -1,0 +1,180 @@
+You are a senior enterprise system architect.
+
+We already have a partially built Administrator panel.
+Now we must COMPLETE it to match my EXACT required menu structure and product logic.
+
+IMPORTANT:
+- Do NOT improvise the menu structure
+- Do NOT rename sections
+- Do NOT reduce the scope
+- Follow my structure exactly
+- Keep strict center-based isolation
+- Use existing backend where possible
+- UI must match the current design system and look premium, modern, and production-ready
+
+====================================
+EXACT ADMINISTRATOR PANEL STRUCTURE
+====================================
+
+1. BOSHQARUV PANELI
+- Dashboard
+
+2. FOYDALANUVCHILAR BOSHQARUVI
+- O‘quvchilar
+- O‘qituvchilar
+- Psixologlar
+- Xodimlar
+
+3. TA’LIM BOSHQARUVI
+- Kurslar
+- Guruhlar
+
+4. MOLIYA
+- To‘lovlar
+- Hisobotlar
+- Statistika
+- Daromadlar
+- Tranzaksiyalar
+
+5. PSIXOLOGIYA / TEST
+- Testlar
+- Natijalar analitikasi
+
+6. MULOQOT
+- Chat
+- Bildirishnomalar
+
+7. FAOLIYAT
+- Uchrashuvlar
+- Seanslar tarixi
+
+8. KONTENT
+- E’lonlar
+
+9. SOZLAMALAR
+- Markaz sozlamalari
+- Xodim rollari
+- Xavfsizlik
+- Audit loglari
+- Integratsiyalar
+
+====================================
+HEADER REQUIREMENTS
+====================================
+
+Implement Administrator panel header with:
+- logo
+- real date
+- real time
+- refresh button
+- dark/light toggle
+- current user avatar
+- current user name and role
+- notification bell
+
+====================================
+FOOTER REQUIREMENTS
+====================================
+
+Implement Administrator panel footer with:
+- project name
+- project short description
+- contact info
+- session info
+- version
+- copyright
+
+====================================
+IMPLEMENTATION REQUIREMENTS
+====================================
+
+For EACH menu item:
+1. create the proper route/page
+2. use Uzbek labels
+3. add title + subtitle
+4. add premium page layout
+5. connect to existing backend where available
+6. if backend is missing, create a clear placeholder page with realistic structure
+7. keep strict center-scoped isolation
+8. do NOT allow global/superadmin-level access
+
+====================================
+REAL MODULE EXPECTATIONS
+====================================
+
+1. O‘quvchilar
+- list
+- search
+- filters
+- detail view
+- session history
+
+2. O‘qituvchilar
+- list
+- search
+- filters
+- detail view
+
+3. Psixologlar
+- improve existing module
+- performance view
+- availability view
+
+4. Xodimlar
+- list
+- roles
+- permissions within center scope
+
+5. Kurslar
+- CRUD
+- assign groups
+- basic progress view
+
+6. Guruhlar
+- CRUD
+- assign users
+- group members list
+
+7. To‘lovlar / Daromadlar / Tranzaksiyalar
+- center-scoped finance pages
+- filters
+- statistics
+- reports
+
+8. Testlar
+- tests list
+- results list
+- analytics view
+
+9. Chat / Bildirishnomalar
+- admin monitoring views
+- notification center
+
+10. Uchrashuvlar / Seanslar tarixi
+- list
+- filters
+- detail view
+
+11. E’lonlar
+- CRUD
+- publish/unpublish
+
+12. Sozlamalar
+- center settings
+- staff roles
+- security settings
+- audit logs
+- integrations placeholders
+
+====================================
+OUTPUT
+====================================
+
+Actually implement the missing Administrator panel modules.
+
+At the end return:
+1. exact files changed
+2. which menu items are fully working
+3. which menu items are placeholders
+4. which backend APIs were reused
+5. which backend gaps still remain

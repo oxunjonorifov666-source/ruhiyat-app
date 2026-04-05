@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { AppHeader } from "@/components/app-header"
+import { AppFooter } from "@/components/app-footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { Toaster } from "sonner"
@@ -40,11 +41,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <AuthGate>
           <SidebarProvider>
             <AppSidebar />
-            <SidebarInset>
+            <SidebarInset className="flex flex-col">
               <AppHeader />
               <main className="flex-1 overflow-auto p-4 md:p-6">
                 {children}
               </main>
+              <AppFooter />
             </SidebarInset>
           </SidebarProvider>
           <Toaster position="top-right" richColors />
