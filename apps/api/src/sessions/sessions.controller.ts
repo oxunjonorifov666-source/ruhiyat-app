@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -8,13 +9,34 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 @Controller('sessions')
 @UseGuards(JwtAuthGuard)
 export class SessionsController {
-  constructor(private readonly service: SessionsService) {}
+  constructor(
+    private readonly service: SessionsService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  private async resolveCenterId(user: { userId: number; role: string }, queryCenterId?: string): Promise<number | undefined> {
+    if (user.role === 'SUPERADMIN') {
+      return queryCenterId ? parseInt(queryCenterId) || undefined : undefined;
+    }
+    if (user.role === 'ADMINISTRATOR') {
+      const admin = await this.prisma.administrator.findUnique({
+        where: { userId: user.userId },
+        select: { centerId: true },
+      });
+      return admin?.centerId ?? undefined;
+    }
+    return undefined;
+  }
 
   @Get('stats')
   @UseGuards(PermissionsGuard)
   @Permissions('sessions.read')
-  getStats() {
-    return this.service.getStats();
+  async getStats(
+    @CurrentUser() user: any,
+    @Query('centerId') centerId?: string,
+  ) {
+    const resolvedCenterId = await this.resolveCenterId(user, centerId);
+    return this.service.getStats(resolvedCenterId);
   }
 
   @Get('user')
@@ -48,7 +70,8 @@ export class SessionsController {
   @Get()
   @UseGuards(PermissionsGuard)
   @Permissions('sessions.read')
-  findAll(
+  async findAll(
+    @CurrentUser() user: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
@@ -58,7 +81,9 @@ export class SessionsController {
     @Query('userId') userId?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Query('centerId') centerId?: string,
   ) {
+    const resolvedCenterId = await this.resolveCenterId(user, centerId);
     return this.service.findAll({
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
@@ -69,6 +94,7 @@ export class SessionsController {
       userId: userId ? parseInt(userId) : undefined,
       dateFrom,
       dateTo,
+      centerId: resolvedCenterId,
     });
   }
 

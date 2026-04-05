@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { AppHeader } from "@/components/app-header"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
+import { Toaster } from "sonner"
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useAuth()
@@ -46,6 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </main>
             </SidebarInset>
           </SidebarProvider>
+          <Toaster position="top-right" richColors />
         </AuthGate>
       </AuthProvider>
     </ThemeProvider>

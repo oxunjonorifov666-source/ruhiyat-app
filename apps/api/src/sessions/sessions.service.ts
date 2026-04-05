@@ -15,23 +15,36 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 export class SessionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getStats() {
+  private async getCenterPsychologistFilter(centerId?: number) {
+    if (!centerId) return {};
+    const psychologists = await this.prisma.psychologist.findMany({
+      where: { centerId },
+      select: { id: true },
+    });
+    return psychologists.length > 0
+      ? { psychologistId: { in: psychologists.map((p) => p.id) } }
+      : { id: -1 };
+  }
+
+  async getStats(centerId?: number) {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
+    const centerFilter = await this.getCenterPsychologistFilter(centerId);
+
     const [total, pending, accepted, completed, cancelled, rejected, todaySessions, monthSessions, paidCount, totalRevenueAgg] =
       await Promise.all([
-        this.prisma.bookingSession.count(),
-        this.prisma.bookingSession.count({ where: { status: 'PENDING' } }),
-        this.prisma.bookingSession.count({ where: { status: 'ACCEPTED' } }),
-        this.prisma.bookingSession.count({ where: { status: 'COMPLETED' } }),
-        this.prisma.bookingSession.count({ where: { status: 'CANCELLED' } }),
-        this.prisma.bookingSession.count({ where: { status: 'REJECTED' } }),
-        this.prisma.bookingSession.count({ where: { createdAt: { gte: startOfToday } } }),
-        this.prisma.bookingSession.count({ where: { createdAt: { gte: startOfMonth } } }),
-        this.prisma.bookingSession.count({ where: { paymentStatus: 'PAID' } }),
-        this.prisma.bookingSession.aggregate({ where: { paymentStatus: 'PAID' }, _sum: { price: true } }),
+        this.prisma.bookingSession.count({ where: centerFilter }),
+        this.prisma.bookingSession.count({ where: { ...centerFilter, status: 'PENDING' } }),
+        this.prisma.bookingSession.count({ where: { ...centerFilter, status: 'ACCEPTED' } }),
+        this.prisma.bookingSession.count({ where: { ...centerFilter, status: 'COMPLETED' } }),
+        this.prisma.bookingSession.count({ where: { ...centerFilter, status: 'CANCELLED' } }),
+        this.prisma.bookingSession.count({ where: { ...centerFilter, status: 'REJECTED' } }),
+        this.prisma.bookingSession.count({ where: { ...centerFilter, createdAt: { gte: startOfToday } } }),
+        this.prisma.bookingSession.count({ where: { ...centerFilter, createdAt: { gte: startOfMonth } } }),
+        this.prisma.bookingSession.count({ where: { ...centerFilter, paymentStatus: 'PAID' } }),
+        this.prisma.bookingSession.aggregate({ where: { ...centerFilter, paymentStatus: 'PAID' }, _sum: { price: true } }),
       ]);
 
     return {
@@ -58,11 +71,13 @@ export class SessionsService {
     userId?: number;
     dateFrom?: string;
     dateTo?: string;
+    centerId?: number;
   } = {}) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
-    const where: any = {};
+    const centerFilter = await this.getCenterPsychologistFilter(query.centerId);
+    const where: any = { ...centerFilter };
 
     if (query.status) where.status = query.status;
     if (query.paymentStatus) where.paymentStatus = query.paymentStatus;
