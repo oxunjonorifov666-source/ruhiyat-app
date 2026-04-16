@@ -1,14 +1,11 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { AuthUser, UserRole } from '@ruhiyat/types';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  constructor(
-    private reflector: Reflector,
-    private prisma: PrismaService,
-  ) {}
+  constructor(private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
@@ -20,29 +17,30 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest();
+    const user: AuthUser = request.user;
 
-    if (user.role === 'SUPERADMIN') {
-      return true;
-    }
-
-    const roleMap: Record<string, string> = {
-      'ADMINISTRATOR': 'ADMIN',
-      'MOBILE_USER': 'USER',
-    };
-    const roleName = roleMap[user.role] || user.role;
-
-    const role = await this.prisma.role.findUnique({
-      where: { name: roleName },
-      include: { permissions: true },
-    });
-
-    if (!role) {
+    if (!user) {
       return false;
     }
 
-    const userPermissions = role.permissions.map(p => `${p.resource}.${p.action}`);
+    // SUPERADMIN has global bypass
+    if (user.role === UserRole.SUPERADMIN) {
+      return true;
+    }
 
-    return requiredPermissions.every(rp => userPermissions.includes(rp));
+    // Access permissions from the cached JWT payload via request object
+    const userPermissions = user.permissions || [];
+
+    // O(1) Check for each required permission
+    const hasPermission = requiredPermissions.every((rp) => 
+      userPermissions.includes(rp) || userPermissions.includes('*')
+    );
+
+    if (!hasPermission) {
+      throw new ForbiddenException('Sizga ushbu amalni bajarishga ruxsat berilmagan');
+    }
+
+    return true;
   }
 }

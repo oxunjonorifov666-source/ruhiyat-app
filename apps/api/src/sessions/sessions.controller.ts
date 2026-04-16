@@ -1,52 +1,38 @@
 import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { TenantGuard } from '../auth/guards/tenant.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser, UserRole } from '@ruhiyat/types';
 
 @Controller('sessions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, TenantGuard)
 export class SessionsController {
-  constructor(
-    private readonly service: SessionsService,
-    private readonly prisma: PrismaService,
-  ) {}
-
-  private async resolveCenterId(user: { userId: number; role: string }, queryCenterId?: string): Promise<number | undefined> {
-    if (user.role === 'SUPERADMIN') {
-      return queryCenterId ? parseInt(queryCenterId) || undefined : undefined;
-    }
-    if (user.role === 'ADMINISTRATOR') {
-      const admin = await this.prisma.administrator.findUnique({
-        where: { userId: user.userId },
-        select: { centerId: true },
-      });
-      return admin?.centerId ?? undefined;
-    }
-    return undefined;
-  }
+  constructor(private readonly service: SessionsService) {}
 
   @Get('stats')
-  @UseGuards(PermissionsGuard)
   @Permissions('sessions.read')
   async getStats(
-    @CurrentUser() user: any,
+    @CurrentUser() requester: AuthUser,
     @Query('centerId') centerId?: string,
   ) {
-    const resolvedCenterId = await this.resolveCenterId(user, centerId);
-    return this.service.getStats(resolvedCenterId);
+    const targetCenterId = requester.role === UserRole.SUPERADMIN 
+      ? (centerId ? parseInt(centerId) : undefined)
+      : requester.centerId;
+
+    return this.service.getStats(targetCenterId as number);
   }
 
   @Get('user')
   findByCurrentUser(
-    @CurrentUser() user: any,
+    @CurrentUser() requester: AuthUser,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('status') status?: string,
   ) {
-    return this.service.findByUser(user.userId, {
+    return this.service.findByUser(requester.id, {
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
       status,
@@ -55,12 +41,12 @@ export class SessionsController {
 
   @Get('psychologist')
   findByCurrentPsychologist(
-    @CurrentUser() user: any,
+    @CurrentUser() requester: AuthUser,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('status') status?: string,
   ) {
-    return this.service.findByPsychologist(user.userId, {
+    return this.service.findByPsychologist(requester.id, {
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
       status,
@@ -68,10 +54,9 @@ export class SessionsController {
   }
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('sessions.read')
   async findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() requester: AuthUser,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
@@ -83,7 +68,10 @@ export class SessionsController {
     @Query('dateTo') dateTo?: string,
     @Query('centerId') centerId?: string,
   ) {
-    const resolvedCenterId = await this.resolveCenterId(user, centerId);
+    const targetCenterId = requester.role === UserRole.SUPERADMIN 
+      ? (centerId ? parseInt(centerId) : undefined)
+      : requester.centerId;
+
     return this.service.findAll({
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
@@ -94,56 +82,91 @@ export class SessionsController {
       userId: userId ? parseInt(userId) : undefined,
       dateFrom,
       dateTo,
-      centerId: resolvedCenterId,
+      centerId: targetCenterId as number,
     });
   }
 
   @Get(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions('sessions.read')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  findOne(
+    @CurrentUser() requester: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('centerId') centerId?: string,
+  ) {
+    const targetCenterId = requester.role === UserRole.SUPERADMIN 
+      ? (centerId ? parseInt(centerId) : undefined)
+      : requester.centerId;
+
+    return this.service.findOne(id, targetCenterId as number);
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('sessions.write')
-  create(@Body() data: any, @CurrentUser() user: any) {
+  create(@Body() data: any, @CurrentUser() requester: AuthUser) {
+    const targetCenterId = requester.role === UserRole.SUPERADMIN 
+      ? data.centerId
+      : requester.centerId;
+
     return this.service.create({
       ...data,
-      administratorId: data.administratorId || undefined,
+      centerId: targetCenterId,
     });
   }
 
   @Patch(':id/accept')
-  @UseGuards(PermissionsGuard)
   @Permissions('sessions.manage')
-  accept(@Param('id', ParseIntPipe) id: number) {
-    return this.service.accept(id);
+  accept(
+    @CurrentUser() requester: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('centerId') centerId?: string,
+  ) {
+    const targetCenterId = requester.role === UserRole.SUPERADMIN 
+      ? (centerId ? parseInt(centerId) : undefined)
+      : requester.centerId;
+
+    return this.service.accept(id, targetCenterId as number);
   }
 
   @Patch(':id/reject')
-  @UseGuards(PermissionsGuard)
   @Permissions('sessions.manage')
-  reject(@Param('id', ParseIntPipe) id: number) {
-    return this.service.reject(id);
+  reject(
+    @CurrentUser() requester: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('centerId') centerId?: string,
+  ) {
+    const targetCenterId = requester.role === UserRole.SUPERADMIN 
+      ? (centerId ? parseInt(centerId) : undefined)
+      : requester.centerId;
+
+    return this.service.reject(id, targetCenterId as number);
   }
 
   @Patch(':id/cancel')
-  @UseGuards(PermissionsGuard)
   @Permissions('sessions.manage')
   cancel(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: any,
+    @CurrentUser() requester: AuthUser,
     @Body() body: { cancelReason?: string },
+    @Query('centerId') centerId?: string,
   ) {
-    return this.service.cancel(id, user.userId, body?.cancelReason);
+    const targetCenterId = requester.role === UserRole.SUPERADMIN 
+      ? (centerId ? parseInt(centerId) : undefined)
+      : requester.centerId;
+
+    return this.service.cancel(id, requester.id, body?.cancelReason, targetCenterId as number);
   }
 
   @Patch(':id/complete')
-  @UseGuards(PermissionsGuard)
   @Permissions('sessions.manage')
-  complete(@Param('id', ParseIntPipe) id: number) {
-    return this.service.complete(id);
+  complete(
+    @CurrentUser() requester: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('centerId') centerId?: string,
+  ) {
+    const targetCenterId = requester.role === UserRole.SUPERADMIN 
+      ? (centerId ? parseInt(centerId) : undefined)
+      : requester.centerId;
+
+    return this.service.complete(id, targetCenterId as number);
   }
 }

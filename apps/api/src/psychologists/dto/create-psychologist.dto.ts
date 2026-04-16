@@ -20,6 +20,18 @@ export class CreatePsychologistDto {
 
   @IsOptional()
   @IsString()
+  patronymic?: string;
+
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @IsOptional()
+  @IsString()
+  dateOfBirth?: string;
+
+  @IsOptional()
+  @IsString()
   specialization?: string;
 
   @IsOptional()
@@ -48,6 +60,12 @@ export class CreatePsychologistDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(200)
+  age?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   hourlyRate?: number;
 
   @IsOptional()
@@ -57,4 +75,8 @@ export class CreatePsychologistDto {
   @IsOptional()
   @IsInt()
   userId?: number;
+
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
 }

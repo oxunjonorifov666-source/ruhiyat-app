@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Search, ChevronLeft, ChevronRight, AlertCircle, Inbox } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
+import { FilterBar, FilterField } from "./filter-bar"
 
 interface Column<T> {
   key: string
@@ -32,17 +33,21 @@ interface DataTableProps<T> {
   onSearch?: (search: string) => void
   onSearchChange?: (search: string) => void
   headerAction?: React.ReactNode
+  filterFields?: FilterField[]
+  activeFilters?: Record<string, string>
+  onFilterChange?: (filterId: string, value: string) => void
+  onResetFilters?: () => void
   filters?: React.ReactNode
 }
 
 export function DataTable<T extends Record<string, any>>({
   title, description, columns, data, total, page, limit,
   loading, error, search: externalSearch, searchPlaceholder,
-  onPageChange, onSearch, onSearchChange, headerAction, filters,
+  onPageChange, onSearch, onSearchChange, headerAction, filterFields, activeFilters, onFilterChange, onResetFilters, filters
 }: DataTableProps<T>) {
   const [searchValue, setSearchValue] = useState(externalSearch || "")
   const debouncedSearch = useDebounce(searchValue, 400)
-  const totalPages = Math.ceil(total / limit)
+  const totalPages = Math.ceil(total / (limit || 20))
 
   useEffect(() => {
     if (onSearchChange) {
@@ -50,11 +55,8 @@ export function DataTable<T extends Record<string, any>>({
     }
   }, [debouncedSearch])
 
-  const handleSearch = () => {
-    if (onSearch) {
-      onSearch(searchValue)
-      onPageChange(1)
-    }
+  const handleSearchChange = (val: string) => {
+    setSearchValue(val)
   }
 
   return (
@@ -70,27 +72,20 @@ export function DataTable<T extends Record<string, any>>({
       )}
 
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <Input
-                  placeholder={searchPlaceholder || "Qidirish..."}
-                  value={searchValue}
-                  onChange={(e) => setSearchValue(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="pl-9"
-                />
-              </div>
-              {onSearch && (
-                <Button variant="outline" size="sm" onClick={handleSearch}>
-                  Qidirish
-                </Button>
-              )}
-            </div>
-            {filters}
-          </div>
+        <CardHeader className="pb-3 border-b mb-4">
+          <FilterBar
+            searchQuery={searchValue}
+            onSearchChange={handleSearchChange}
+            searchPlaceholder={searchPlaceholder}
+            filters={filterFields}
+            activeFilters={activeFilters}
+            onFilterChange={(f, v) => onFilterChange ? onFilterChange(f, v) : null}
+            onResetFilters={() => {
+              setSearchValue("")
+              if (onResetFilters) onResetFilters()
+            }}
+          />
+          {filters && <div className="mt-4">{filters}</div>}
         </CardHeader>
         <CardContent>
           {error && (
@@ -107,7 +102,7 @@ export function DataTable<T extends Record<string, any>>({
                 <Skeleton key={i} className="h-14 w-full" />
               ))}
             </div>
-          ) : data.length === 0 ? (
+          ) : !data || data.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Inbox className="size-12 mb-3 opacity-40" />
               <p className="font-medium">Ma'lumot topilmadi</p>

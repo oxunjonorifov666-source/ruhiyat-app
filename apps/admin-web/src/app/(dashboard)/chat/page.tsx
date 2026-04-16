@@ -39,7 +39,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const { data: stats } = useApiData<ChatStats>("/chat/stats")
+  const { data: stats } = useApiData<ChatStats>({ path: "/chat/stats" })
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null)
@@ -75,7 +75,7 @@ export default function ChatPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Chat" subtitle="Xabarlar va chatlarni monitoring qilish" icon={MessageSquare} />
+      <PageHeader title="Xabarlar yordamchisi" description="Tizim foydalanuvchilariga xabar yuborish jurnali" icon={MessageSquare} />
 
       <StatsGrid>
         <StatsCard title="Jami chatlar" value={stats?.totalChats || 0} icon={MessageSquare} loading={!stats} iconColor="text-blue-600" />

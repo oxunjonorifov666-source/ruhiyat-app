@@ -8,12 +8,15 @@ packages:
 
 autoInstallPeers: false
 
+# React Native / EAS: isolated pnpm ko‘pincha native modul bilan muammo chiqaradi (Expo monorepo qo‘llanmasi).
+nodeLinker: hoisted
+
 catalog:
   '@replit/vite-plugin-cartographer': ^0.5.1
   '@replit/vite-plugin-dev-banner': ^0.1.1
   '@replit/vite-plugin-runtime-error-modal': ^0.0.6
   '@tailwindcss/vite': ^4.1.14
-  '@tanstack/react-query': ^5.90.21
+  '@tanstack/react-query': ^5.96.2
   '@types/node': ^25.3.3
   '@types/react': ^19.2.0
   '@types/react-dom': ^19.2.0
@@ -31,7 +34,8 @@ catalog:
   vite: ^7.3.0
   zod: ^3.25.76
 
-minimumReleaseAge: 1440
+# EAS/CI: 1440 (24 soat) yangi versiyalarni bloklab qo‘yishi mumkin — o‘rnatish muvaffaqiyatsiz.
+minimumReleaseAge: 0
 
 minimumReleaseAgeExclude:
   - '@replit/*'

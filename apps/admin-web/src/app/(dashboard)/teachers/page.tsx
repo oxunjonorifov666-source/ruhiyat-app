@@ -4,12 +4,25 @@ import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { apiClient, PaginatedResponse } from "@/lib/api-client"
 import { DataTable } from "@/components/data-table"
+import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { Plus, MoreHorizontal, Edit, Eye, Trash2, UserPlus, Mail, Phone, BookOpen, Calendar, Loader2, GraduationCap } from "lucide-react"
+import { RoleGuard } from "@/components/role-guard"
+import { buildCenterEndpoint } from "@/lib/endpoints"
+import { PageHeader } from "@/components/page-header"
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetDescription, 
+  SheetHeader, 
+  SheetTitle,
+  SheetFooter
+} from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 
 interface Teacher {
   id: number
@@ -24,22 +37,36 @@ interface Teacher {
 
 export default function TeachersPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const centerId = user?.administrator?.centerId
+  
   const [data, setData] = useState<Teacher[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  
+  // Form state
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null)
   const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    subject: "",
+    isActive: true
+  })
 
   const fetchData = useCallback(async () => {
     if (!centerId) return
     setLoading(true); setError(null)
     try {
-      const res = await apiClient<PaginatedResponse<Teacher>>(`/education-centers/${centerId}/teachers`, {
-        params: { page, limit: 20, search },
+      const endpoint = buildCenterEndpoint("teachers", centerId)
+      const res = await apiClient<PaginatedResponse<Teacher>>(endpoint, {
+        params: { page, limit: 15, search }
       })
       setData(res.data); setTotal(res.total)
     } catch (e: any) { setError(e.message) }
@@ -48,60 +75,248 @@ export default function TeachersPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); setSaving(true)
-    const fd = new FormData(e.currentTarget)
-    try {
-      await apiClient(`/education-centers/${centerId}/teachers`, {
-        method: "POST",
-        body: { firstName: fd.get("firstName"), lastName: fd.get("lastName"), subject: fd.get("subject") || null, email: fd.get("email") || null, phone: fd.get("phone") || null },
+  const openForm = (teacher: Teacher | null = null) => {
+    if (teacher) {
+      setSelectedTeacher(teacher)
+      setForm({
+        firstName: teacher.firstName || "",
+        lastName: teacher.lastName || "",
+        email: teacher.email || "",
+        phone: teacher.phone || "",
+        subject: teacher.subject || "",
+        isActive: teacher.isActive
       })
-      setDialogOpen(false); fetchData()
-    } catch (e: any) { alert(e.message) }
-    finally { setSaving(false) }
+    } else {
+      setSelectedTeacher(null)
+      setForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        subject: "",
+        isActive: true
+      })
+    }
+    setIsSheetOpen(true)
   }
 
-  if (!centerId) return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!centerId) return
+    setSaving(true)
+    try {
+      const endpoint = buildCenterEndpoint("teachers", centerId)
+      if (selectedTeacher) {
+        await apiClient(`${endpoint}/${selectedTeacher.id}`, {
+          method: "PATCH",
+          body: form
+        })
+      } else {
+        await apiClient(endpoint, {
+          method: "POST",
+          body: form
+        })
+      }
+      setIsSheetOpen(false)
+      fetchData()
+    } catch (e: any) {
+      alert(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: number) => {
+    if (!centerId || !confirm("Haqiqatan ham ushbu o'qituvchini o'chirmoqchimisiz?")) return
+    try {
+      const endpoint = buildCenterEndpoint("teachers", centerId)
+      await apiClient(`${endpoint}/${id}`, { method: "DELETE" })
+      fetchData()
+    } catch (e: any) {
+      alert(e.message)
+    }
+  }
 
   const columns = [
     {
-      key: "name", title: "Ism",
+      key: "name", 
+      title: "O'qituvchi",
       render: (t: Teacher) => (
-        <div>
-          <span className="font-medium">{t.firstName && t.lastName ? `${t.firstName} ${t.lastName}` : t.email || t.phone || `#${t.id}`}</span>
-          <div className="text-xs text-muted-foreground">{t.email || t.phone || ""}</div>
+        <div className="flex flex-col">
+          <span className="font-medium text-sm">
+            {t.firstName || t.lastName ? `${t.firstName || ''} ${t.lastName || ''}`.trim() : "Ismsiz"}
+          </span>
+          <div className="flex items-center gap-2 mt-1">
+            {t.email && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Mail size={10} />{t.email}</span>}
+            {t.phone && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Phone size={10} />{t.phone}</span>}
+          </div>
         </div>
       ),
     },
-    { key: "subject", title: "Fan", render: (t: Teacher) => t.subject || "—" },
-    { key: "isActive", title: "Holat", render: (t: Teacher) => <Badge variant={t.isActive ? "default" : "secondary"}>{t.isActive ? "Faol" : "Nofaol"}</Badge> },
-    { key: "createdAt", title: "Qo'shilgan sana", render: (t: Teacher) => new Date(t.createdAt).toLocaleDateString("uz-UZ") },
+    { 
+      key: "subject", 
+      title: "Mutaxassislik", 
+      render: (t: Teacher) => (
+        <div className="flex items-center gap-1.5">
+          <BookOpen size={14} className="text-muted-foreground" />
+          <span className="text-sm">{t.subject || "Belgilanmagan"}</span>
+        </div>
+      )
+    },
+    { 
+      key: "isActive", 
+      title: "Holat", 
+      render: (t: Teacher) => (
+        <Badge 
+          variant="outline" 
+          className={t.isActive ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-slate-50 text-slate-600 border-slate-200"}
+        >
+          {t.isActive ? "Faol" : "Nofaol"}
+        </Badge>
+      ) 
+    },
+    { 
+      key: "createdAt", 
+      title: "Qo'shilgan", 
+      render: (t: Teacher) => (
+        <span className="text-xs text-muted-foreground flex items-center gap-1">
+          <Calendar size={12} />
+          {new Date(t.createdAt).toLocaleDateString("uz-UZ")}
+        </span>
+      )
+    },
+    { 
+      key: "actions", 
+      title: "", 
+      render: (t: Teacher) => (
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="size-8 p-0"><MoreHorizontal className="size-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => openForm(t)}><Edit className="mr-2 size-4" /> Tahrirlash</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push(`/teachers/${t.id}`)}><Eye className="mr-2 size-4" /> Ma'lumotlar</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleDelete(t.id)} className="text-red-600"><Trash2 className="mr-2 size-4" /> O'chirish</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )
+    }
   ]
 
+  if (!centerId) return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+
   return (
-    <DataTable
-      title="O'qituvchilar" description="Markaz o'qituvchilarini boshqarish"
-      columns={columns} data={data} total={total} page={page} limit={20}
-      loading={loading} error={error} searchPlaceholder="O'qituvchi qidirish..."
-      onPageChange={setPage} onSearch={setSearch}
-      headerAction={
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild><Button><Plus className="size-4 mr-2" />Yangi o'qituvchi</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Yangi o'qituvchi qo'shish</DialogTitle></DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label>Ism</Label><Input name="firstName" required /></div>
-                <div><Label>Familiya</Label><Input name="lastName" required /></div>
+    <div className="space-y-6">
+      <PageHeader
+        title="O'qituvchilar"
+        description="Markaz o'qituvchilari va ularning mutaxassisliklarini boshqaring"
+        icon={GraduationCap}
+        actions={[
+          { label: "Yangi o'qituvchi", icon: UserPlus, onClick: () => openForm() }
+        ]}
+      />
+
+      <DataTable
+        columns={columns}
+        data={data}
+        total={total}
+        page={page}
+        limit={15}
+        loading={loading}
+        error={error}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        searchPlaceholder="Ism, fan yoki aloqa ma'lumotlari..."
+      />
+
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{selectedTeacher ? "O'qituvchini tahrirlash" : "Yangi o'qituvchi qo'shish"}</SheetTitle>
+            <SheetDescription>
+              O'qituvchining shaxsiy va professional ma'lumotlarini kiriting.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleSave} className="space-y-5 mt-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Ism</Label>
+                <Input 
+                  id="firstName" 
+                  value={form.firstName} 
+                  onChange={(e) => setForm({...form, firstName: e.target.value})} 
+                  required 
+                />
               </div>
-              <div><Label>Fan</Label><Input name="subject" /></div>
-              <div><Label>Email</Label><Input name="email" type="email" /></div>
-              <div><Label>Telefon</Label><Input name="phone" placeholder="+998..." /></div>
-              <Button type="submit" disabled={saving} className="w-full">{saving ? "Saqlanmoqda..." : "Saqlash"}</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      }
-    />
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Familiya</Label>
+                <Input 
+                  id="lastName" 
+                  value={form.lastName} 
+                  onChange={(e) => setForm({...form, lastName: e.target.value})} 
+                  required 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subject">Dars beradigan fani / Mutaxassislik</Label>
+              <Input 
+                id="subject" 
+                value={form.subject} 
+                onChange={(e) => setForm({...form, subject: e.target.value})} 
+                placeholder="Masalan: Matematika, Psixologiya"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email manzili</Label>
+              <Input 
+                id="email" 
+                type="email"
+                value={form.email} 
+                onChange={(e) => setForm({...form, email: e.target.value})} 
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefon raqami</Label>
+              <Input 
+                id="phone" 
+                value={form.phone} 
+                onChange={(e) => setForm({...form, phone: e.target.value})} 
+                placeholder="+998"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+              <div className="space-y-0.5">
+                <Label>Faollik holati</Label>
+                <p className="text-[10px] text-muted-foreground">O'qituvchi dars o'tish imkoniyatiga egami?</p>
+              </div>
+              <Switch 
+                checked={form.isActive} 
+                onCheckedChange={(v: boolean) => setForm({...form, isActive: v})} 
+              />
+            </div>
+
+            <SheetFooter className="mt-8">
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)} className="flex-1">
+                Bekor qilish
+              </Button>
+              <Button type="submit" disabled={saving} className="flex-1">
+                {saving && <Loader2 className="size-4 animate-spin mr-2" />}
+                {selectedTeacher ? "Yangilash" : "Qo'shish"}
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
+    </div>
   )
 }

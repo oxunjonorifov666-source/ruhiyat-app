@@ -1,17 +1,22 @@
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import { AuthUser, UserRole } from '@ruhiyat/types';
 
 const USER_SELECT = {
   id: true, email: true, phone: true, firstName: true, lastName: true,
   role: true, isActive: true, isBlocked: true, blockedAt: true, blockedReason: true,
   isVerified: true, lastLoginAt: true, createdAt: true, updatedAt: true,
+  administrator: { select: { centerId: true, center: { select: { name: true } } } },
+  psychologist: { select: { centerId: true, center: { select: { name: true } } } },
 };
 
 const USER_LIST_SELECT = {
   id: true, email: true, phone: true, firstName: true, lastName: true,
   role: true, isActive: true, isBlocked: true, blockedAt: true,
   isVerified: true, lastLoginAt: true, createdAt: true,
+  administrator: { select: { centerId: true } },
+  psychologist: { select: { centerId: true } },
 };
 
 @Injectable()
@@ -21,12 +26,25 @@ export class UsersService {
   async findAll(query: {
     page?: number; limit?: number; search?: string;
     role?: string; status?: string; sortBy?: string; sortOrder?: string;
-  }) {
+    centerId?: number;
+  }, requester: AuthUser) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
 
     const where: any = {};
+
+    // Multi-tenant isolation logic
+    const targetCenterId = requester.role === UserRole.SUPERADMIN ? query.centerId : requester.centerId;
+
+    if (targetCenterId) {
+      where.OR = [
+        { administrator: { centerId: targetCenterId } },
+        { psychologist: { centerId: targetCenterId } }
+      ];
+    } else if (requester.role !== UserRole.SUPERADMIN) {
+      throw new ForbiddenException('Markaz tayinlanmagan');
+    }
 
     if (query.role) where.role = query.role;
 
@@ -41,6 +59,7 @@ export class UsersService {
 
     if (query.search) {
       where.OR = [
+        ...(where.OR || []),
         { email: { contains: query.search, mode: 'insensitive' } },
         { phone: { contains: query.search } },
         { firstName: { contains: query.search, mode: 'insensitive' } },
@@ -63,27 +82,55 @@ export class UsersService {
       this.prisma.user.count({ where }),
     ]);
 
-    return { data, total, page, limit };
+    // Flatten centerId for easier frontend consumption
+    const flattenedData = data.map(user => ({
+      ...user,
+      centerId: user.administrator?.centerId || user.psychologist?.centerId || null,
+    }));
+
+    return { data: flattenedData, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, requester: AuthUser) {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: USER_SELECT,
     });
+    
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
-    return user;
+
+    const userCenterId = user.administrator?.centerId || user.psychologist?.centerId || null;
+
+    // Multi-tenant isolation
+    if (requester.role !== UserRole.SUPERADMIN && userCenterId !== requester.centerId) {
+      throw new ForbiddenException('Ushbu foydalanuvchi ma\'lumotlarini ko\'rishga ruxsatingiz yo\'q');
+    }
+
+    return {
+      ...user,
+      centerId: userCenterId,
+    };
   }
 
-  async getStats() {
+  async getStats(requester: AuthUser, centerId?: number) {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
+    const where: any = {};
+    const targetCenterId = requester.role === UserRole.SUPERADMIN ? centerId : requester.centerId;
+    
+    if (targetCenterId) {
+      where.OR = [
+        { administrator: { centerId: targetCenterId } },
+        { psychologist: { centerId: targetCenterId } }
+      ];
+    }
+
     const [total, active, blocked, newUsers] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { isActive: true, isBlocked: false } }),
-      this.prisma.user.count({ where: { isBlocked: true } }),
-      this.prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      this.prisma.user.count({ where }),
+      this.prisma.user.count({ where: { ...where, isActive: true, isBlocked: false } }),
+      this.prisma.user.count({ where: { ...where, isBlocked: true } }),
+      this.prisma.user.count({ where: { ...where, createdAt: { gte: thirtyDaysAgo } } }),
     ]);
 
     return { total, active, blocked, newUsers };
@@ -92,60 +139,65 @@ export class UsersService {
   async create(data: {
     email?: string; phone?: string; password: string;
     firstName?: string; lastName?: string; role: string;
-  }) {
+    centerId?: number;
+  }, requester: AuthUser) {
+    let targetCenterId = requester.role === UserRole.SUPERADMIN ? data.centerId : requester.centerId;
+
     if (data.email) {
       const existing = await this.prisma.user.findUnique({ where: { email: data.email } });
       if (existing) throw new ConflictException('Bu email allaqachon ro\'yxatdan o\'tgan');
     }
-    if (data.phone) {
-      const existing = await this.prisma.user.findUnique({ where: { phone: data.phone } });
-      if (existing) throw new ConflictException('Bu telefon raqam allaqachon ro\'yxatdan o\'tgan');
-    }
-    if (!data.email && !data.phone) {
-      throw new ConflictException('Email yoki telefon raqam kiritish shart');
-    }
-
+    
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: data.email || undefined,
-        phone: data.phone || undefined,
-        passwordHash,
-        firstName: data.firstName || undefined,
-        lastName: data.lastName || undefined,
-        role: data.role as any,
-        isVerified: true,
-      },
-      select: USER_SELECT,
-    });
+    // Create User and Profile in a transaction
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: data.email || undefined,
+          phone: data.phone || undefined,
+          passwordHash,
+          firstName: data.firstName || undefined,
+          lastName: data.lastName || undefined,
+          role: data.role as any,
+          isVerified: true,
+        },
+      });
 
-    return user;
+      if (data.role === UserRole.ADMINISTRATOR && targetCenterId) {
+        await tx.administrator.create({
+          data: {
+            userId: user.id,
+            centerId: targetCenterId as number,
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+          }
+        });
+      } else if (data.role === 'PSYCHOLOGIST' || data.role === 'MOBILE_USER') {
+        // Handle other roles similarly if needed...
+        // For Phase 1, we focus on Administrator Panel users
+      }
+
+      return tx.user.findUnique({
+        where: { id: user.id },
+        select: USER_SELECT,
+      });
+    });
   }
 
   async update(
     id: number,
     data: { firstName?: string; lastName?: string; email?: string; phone?: string; isActive?: boolean; role?: string },
-    callerRole?: string,
+    requester: AuthUser,
   ) {
-    const user = await this.findOne(id);
+    const user = await this.findOne(id, requester);
 
-    if ((data.role !== undefined || data.isActive !== undefined) && callerRole !== 'SUPERADMIN') {
+    if ((data.role !== undefined || data.isActive !== undefined) && requester.role !== UserRole.SUPERADMIN) {
       throw new ForbiddenException("Faqat superadmin rol yoki faollik holatini o'zgartira oladi");
     }
 
-    if (user.role === 'SUPERADMIN' && data.role && data.role !== 'SUPERADMIN') {
+    if (user.role === UserRole.SUPERADMIN && data.role && data.role !== UserRole.SUPERADMIN) {
       throw new ForbiddenException("Superadmin rolini o'zgartirib bo'lmaydi");
-    }
-
-    if (data.email && data.email !== user.email) {
-      const existing = await this.prisma.user.findUnique({ where: { email: data.email } });
-      if (existing) throw new ConflictException('Bu email allaqachon ishlatilmoqda');
-    }
-
-    if (data.phone && data.phone !== user.phone) {
-      const existing = await this.prisma.user.findUnique({ where: { phone: data.phone } });
-      if (existing) throw new ConflictException('Bu telefon raqam allaqachon ishlatilmoqda');
     }
 
     const updateData: any = {};
@@ -163,17 +215,14 @@ export class UsersService {
     });
   }
 
-  async block(id: number, callerId: number, reason?: string) {
-    const user = await this.findOne(id);
+  async block(id: number, reason: string | undefined, requester: AuthUser) {
+    const user = await this.findOne(id, requester);
 
-    if (user.role === 'SUPERADMIN') {
+    if (user.role === UserRole.SUPERADMIN) {
       throw new ForbiddenException("Superadmin foydalanuvchini bloklab bo'lmaydi");
     }
-    if (callerId === id) {
+    if (requester.id === id) {
       throw new ForbiddenException("O'zingizni bloklay olmaysiz");
-    }
-    if (user.isBlocked) {
-      throw new ConflictException("Foydalanuvchi allaqachon bloklangan");
     }
 
     return this.prisma.user.update({
@@ -188,8 +237,8 @@ export class UsersService {
     });
   }
 
-  async unblock(id: number) {
-    const user = await this.findOne(id);
+  async unblock(id: number, requester: AuthUser) {
+    const user = await this.findOne(id, requester);
 
     if (!user.isBlocked) {
       throw new ConflictException("Foydalanuvchi bloklanmagan");
@@ -207,19 +256,23 @@ export class UsersService {
     });
   }
 
-  async remove(id: number, callerId?: number) {
-    const user = await this.findOne(id);
-    if (user.role === 'SUPERADMIN') {
+  async remove(id: number, requester: AuthUser) {
+    const user = await this.findOne(id, requester);
+    
+    if (user.role === UserRole.SUPERADMIN) {
       throw new ForbiddenException("Superadmin foydalanuvchini o'chirib bo'lmaydi");
     }
-    if (callerId && callerId === id) {
+    if (requester.id === id) {
       throw new ForbiddenException("O'zingizni o'chira olmaysiz");
     }
+    
     await this.prisma.user.delete({ where: { id } });
-    return { message: "Foydalanuvchi o'chirildi" };
+    return { success: true, message: "Foydalanuvchi o'chirildi" };
   }
 
-  async getSessions(id: number) {
+  async getSessions(id: number, requester: AuthUser) {
+    await this.findOne(id, requester);
+    
     return this.prisma.session.findMany({
       where: { userId: id, isRevoked: false },
       orderBy: { createdAt: 'desc' },

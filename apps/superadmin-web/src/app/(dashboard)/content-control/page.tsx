@@ -28,7 +28,7 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   CheckCircle2, XCircle, EyeOff, Search, MoreHorizontal,
   ChevronLeft, ChevronRight, Loader2, RefreshCw,
-  FileText, Clock, Shield,
+  FileText, Clock, Shield, Trash2,
 } from "lucide-react"
 
 interface ContentItem {
@@ -74,7 +74,7 @@ export default function ContentControlPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
   const [actionTarget, setActionTarget] = useState<ContentItem | null>(null)
-  const [actionType, setActionType] = useState<"approve" | "reject" | "hide" | null>(null)
+  const [actionType, setActionType] = useState<"approve" | "reject" | "hide" | "delete" | null>(null)
   const [moderatorNote, setModeratorNote] = useState("")
   const [actionLoading, setActionLoading] = useState(false)
   const limit = 20
@@ -114,8 +114,22 @@ export default function ContentControlPage() {
 
   const totalPages = Math.ceil(total / limit)
 
-  const actionTitle = actionType === "approve" ? "Kontentni tasdiqlash" : actionType === "reject" ? "Kontentni rad etish" : "Kontentni yashirish"
-  const actionDesc = actionType === "approve" ? "Bu kontentni tasdiqlaysizmi?" : actionType === "reject" ? "Bu kontentni rad etasizmi?" : "Bu kontentni yashirasizmi?"
+  const actionTitle =
+    actionType === "approve"
+      ? "Kontentni tasdiqlash"
+      : actionType === "reject"
+        ? "Kontentni rad etish"
+        : actionType === "delete"
+          ? "Kontentni o'chirish"
+          : "Kontentni yashirish"
+  const actionDesc =
+    actionType === "approve"
+      ? "Bu kontentni tasdiqlaysizmi?"
+      : actionType === "reject"
+        ? "Bu kontentni rad etasizmi?"
+        : actionType === "delete"
+          ? "Bu kontentni o'chirasizmi? (soft-delete / unpublish)"
+          : "Bu kontentni yashirasizmi?"
 
   return (
     <div className="space-y-6">
@@ -216,6 +230,9 @@ export default function ContentControlPage() {
                             <DropdownMenuItem onClick={() => { setActionTarget(item); setActionType("hide") }}>
                               <EyeOff className="mr-2 h-4 w-4" />Yashirish
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setActionTarget(item); setActionType("delete") }} className="text-destructive focus:text-destructive">
+                              <Trash2 className="mr-2 h-4 w-4" />O'chirish
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -251,9 +268,9 @@ export default function ContentControlPage() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setModeratorNote("")}>Bekor qilish</AlertDialogCancel>
             <AlertDialogAction onClick={handleAction} disabled={actionLoading}
-              className={actionType === "reject" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}>
+              className={actionType === "reject" || actionType === "delete" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}>
               {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {actionType === "approve" ? "Tasdiqlash" : actionType === "reject" ? "Rad etish" : "Yashirish"}
+              {actionType === "approve" ? "Tasdiqlash" : actionType === "reject" ? "Rad etish" : actionType === "delete" ? "O'chirish" : "Yashirish"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

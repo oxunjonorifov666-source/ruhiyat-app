@@ -7,57 +7,88 @@ export interface AuthUser {
   firstName: string | null;
   lastName: string | null;
   role: string;
+  avatarUrl: string | null;
+  isPremium: boolean;
+  gender: string | null;
+  dateOfBirth: string | null;
+  bio?: string | null;
+  /** ISO — bazadan (`mobile_users.onboarding_completed_at`) */
+  onboardingCompletedAt?: string | null;
+  /** Bazadan JSON (`mobile_users.notification_prefs`) */
+  notificationPrefs?: Record<string, unknown> | null;
+  analyticsOptIn?: boolean;
+  biometricEnabled?: boolean;
 }
 
-export interface LoginResponse {
-  user: AuthUser;
-  accessToken: string;
-  refreshToken: string;
-}
 
-export interface OtpResponse {
-  message: string;
-  code?: string;
-  verified?: boolean;
-  user?: AuthUser;
-  accessToken?: string;
-  refreshToken?: string;
-}
 
 export const authService = {
-  async login(phone: string, password: string): Promise<LoginResponse> {
-    return apiClient.post<LoginResponse>('/auth/login', { phone, password });
+  async loginWithEmail(email: string, password: string) {
+    return apiClient.post<{ accessToken: string; refreshToken: string; user: AuthUser }>(
+      '/auth/login',
+      { email, password }
+    );
   },
 
-  async register(data: { phone: string; firstName: string; lastName: string; password: string }): Promise<LoginResponse> {
-    return apiClient.post<LoginResponse>('/auth/register', {
-      phone: data.phone,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      password: data.password,
-      role: 'MOBILE_USER',
+  async loginWithPhone(phone: string, password: string) {
+    return apiClient.post<{ accessToken: string; refreshToken: string; user: AuthUser }>(
+      '/auth/login',
+      { phone, password }
+    );
+  },
+
+  async register(data: {
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    email?: string;
+    password: string;
+    code?: string;
+  }) {
+    return apiClient.post<{ accessToken: string; refreshToken: string; user: AuthUser }>(
+      '/auth/register',
+      data
+    );
+  },
+
+  /** Ro‘yxatdan o‘tishdan oldin — telefon yoki emailga 6 raqamli kod */
+  async sendRegistrationOtp(body: { phone?: string; email?: string }) {
+    return apiClient.post<{ message: string; expiresAt?: string; devCode?: string }>('/auth/otp/send', {
+      ...body,
+      purpose: 'registration',
     });
   },
 
-  async sendOtp(phone: string, purpose: string): Promise<OtpResponse> {
-    return apiClient.post<OtpResponse>('/auth/otp/send', { phone, purpose });
-  },
-
-  async verifyOtp(phone: string, code: string, purpose: string): Promise<OtpResponse> {
-    return apiClient.post<OtpResponse>('/auth/otp/verify', { phone, code, purpose });
-  },
-
-  async getProfile(): Promise<{ user: AuthUser }> {
+  async getProfile() {
     return apiClient.get<{ user: AuthUser }>('/auth/me');
   },
 
-  async logout(refreshToken: string): Promise<void> {
-    try {
-      await apiClient.post('/auth/logout', { refreshToken });
-    } catch {}
+  async updateProfile(data: Partial<AuthUser> & { dateOfBirth?: string; bio?: string }) {
+    const res = await apiClient.patch<{ user: AuthUser }>('/auth/profile', data);
+    return res.user;
   },
 
-  async requestPasswordReset(email: string): Promise<{ message: string }> {
-    return apiClient.post('/auth/password/reset-request', { email });
+  async logout(refreshToken: string) {
+    return apiClient.post('/auth/logout', { refreshToken }).catch(() => {});
+  },
+
+  async requestPasswordReset(body: { email?: string; phone?: string }) {
+    return apiClient.post<{ message: string }>('/auth/password/reset-request', body);
+  },
+
+  async verifyPasswordReset(body: { email?: string; phone?: string; code: string }) {
+    return apiClient.post<{ message: string; resetToken: string; expiresInSec: number }>(
+      '/auth/password/reset-verify',
+      body
+    );
+  },
+
+  async resetPassword(params: { resetToken: string; newPassword: string } | { token: string; newPassword: string }) {
+    return apiClient.post<{ message: string }>('/auth/password/reset', params);
+  },
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    return apiClient.patch<{ message: string }>('/auth/password', { currentPassword, newPassword });
   },
 };
+

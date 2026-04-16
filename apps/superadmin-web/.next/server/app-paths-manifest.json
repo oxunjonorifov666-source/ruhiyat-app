@@ -1,1 +1,9 @@
-{}
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/(dashboard)/tests/page": "app/(dashboard)/tests/page.js",
+  "/(dashboard)/affirmations/page": "app/(dashboard)/affirmations/page.js",
+  "/(dashboard)/complaints/page": "app/(dashboard)/complaints/page.js",
+  "/(dashboard)/videos/page": "app/(dashboard)/videos/page.js",
+  "/(dashboard)/trainings/page": "app/(dashboard)/trainings/page.js",
+  "/(dashboard)/tests/results/page": "app/(dashboard)/tests/results/page.js"
+}

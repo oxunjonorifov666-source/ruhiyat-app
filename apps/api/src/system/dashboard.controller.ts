@@ -1,18 +1,44 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { TenantGuard } from '../auth/guards/tenant.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser, UserRole } from '@ruhiyat/types';
+import { SuperadminOverviewService } from './superadmin-overview.service';
 
 @Controller('dashboard')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, TenantGuard)
 export class DashboardController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly superadminOverview: SuperadminOverviewService,
+  ) {}
+
+  @Get('superadmin/overview')
+  @Permissions('system.settings')
+  getSuperadminOverview(
+    @CurrentUser() requester: AuthUser,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('granularity') granularity?: string,
+  ) {
+    return this.superadminOverview.getOverview(
+      requester,
+      dateFrom,
+      dateTo,
+      granularity as 'day' | 'week' | 'month' | undefined,
+    );
+  }
 
   @Get('superadmin/stats')
   @Permissions('system.settings')
-  async getSuperadminStats() {
+  async getSuperadminStats(@CurrentUser() requester: AuthUser) {
+    if (requester.role !== UserRole.SUPERADMIN) {
+      throw new ForbiddenException('Siz ushbu ma\'lumotlarni ko\'rish huquqiga ega emassiz');
+    }
+
     const now = new Date();
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
@@ -67,7 +93,7 @@ export class DashboardController {
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const found = usersByMonth.find((r) => r.month === key);
+      const found = usersByMonth.find((r: any) => r.month === key);
       monthlyGrowth.push({
         month: monthNames[d.getMonth()],
         count: found ? Number(found.count) : 0,
@@ -92,7 +118,7 @@ export class DashboardController {
       },
       recentUsers,
       monthlyGrowth,
-      recentActivity: recentAuditLogs.map((log) => ({
+      recentActivity: recentAuditLogs.map((log: any) => ({
         id: log.id,
         action: log.action,
         resource: log.resource,
@@ -107,15 +133,19 @@ export class DashboardController {
 
   @Get('admin/stats')
   @Permissions('centers.read')
-  async getAdminStats(@CurrentUser() currentUser: { userId: number }) {
-    const admin = await this.prisma.administrator.findUnique({
-      where: { userId: currentUser.userId },
-      select: { centerId: true },
-    });
-
-    const centerId = admin?.centerId;
+  async getAdminStats(
+    @CurrentUser() requester: AuthUser,
+    @Query('centerId') explicitCenterId?: string,
+  ) {
+    const centerId = requester.role === UserRole.SUPERADMIN 
+      ? (explicitCenterId ? parseInt(explicitCenterId) : null)
+      : requester.centerId;
+    
     if (!centerId) {
-      return { stats: { totalStudents: 0, totalTeachers: 0, totalCourses: 0, totalGroups: 0, totalPsychologists: 0, totalSessions: 0, pendingSessions: 0, completedSessions: 0, totalRevenue: 0, monthlyRevenue: 0 }, sessions: { upcoming: [], recent: [] }, monthlyStudents: [] };
+      if (requester.role === UserRole.SUPERADMIN && !explicitCenterId) {
+        throw new ForbiddenException('Superadmin uchun markaz ID ko\'rsatilmadi');
+      }
+      return { stats: { totalStudents: 0 }, sessions: { upcoming: [], recent: [] }, monthlyStudents: [] };
     }
 
     const now = new Date();
@@ -126,7 +156,7 @@ export class DashboardController {
       where: { centerId },
       select: { id: true },
     });
-    const psychologistIds = centerPsychologistIds.map((p) => p.id);
+    const psychologistIds = centerPsychologistIds.map((p: any) => p.id);
 
     const sessionWhere = psychologistIds.length > 0
       ? { psychologistId: { in: psychologistIds } }
@@ -146,6 +176,11 @@ export class DashboardController {
       upcomingSessions,
       recentSessions,
       studentsByMonth,
+      activeEnrollments,
+      completedEnrollments,
+      totalEnrollments,
+      totalTests,
+      completedTests,
     ] = await Promise.all([
       this.prisma.student.count({ where: { centerId } }),
       this.prisma.teacher.count({ where: { centerId } }),
@@ -188,6 +223,29 @@ export class DashboardController {
         GROUP BY to_char(created_at, 'YYYY-MM')
         ORDER BY month ASC
       `,
+      this.prisma.enrollment.count({ where: { student: { centerId }, status: 'active' } }),
+      this.prisma.enrollment.count({ where: { student: { centerId }, status: 'completed' } }),
+      this.prisma.enrollment.count({ where: { student: { centerId } } }),
+      // Fix: Count tests taken by users who have or had sessions with this center's psychologists
+      this.prisma.testResult.count({
+        where: {
+          user: {
+            bookingSessions: {
+              some: { psychologistId: { in: psychologistIds } }
+            }
+          }
+        }
+      }),
+      this.prisma.testResult.count({
+        where: {
+          user: {
+            bookingSessions: {
+              some: { psychologistId: { in: psychologistIds } }
+            }
+          },
+          score: { gte: 50 }
+        }
+      }),
     ]);
 
     const monthNames = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
@@ -195,12 +253,22 @@ export class DashboardController {
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const found = studentsByMonth.find((r) => r.month === key);
+      const found = studentsByMonth.find((r: any) => r.month === key);
       monthlyStudents.push({
         month: monthNames[d.getMonth()],
         count: found ? Number(found.count) : 0,
       });
     }
+
+    // KPI Calculations (Real logic)
+    // 1. Psychologist Load: Average sessions per psychologist per month (Target: 40)
+    const psychologistLoad = totalPsychologists > 0 ? Math.round((completedSessions / (totalPsychologists * 40)) * 100) : 0;
+    
+    // 2. Group Occupancy: Students per group relative to average capacity (Target: 15)
+    const groupOccupancy = totalGroups > 0 ? Math.round((activeEnrollments / (totalGroups * 15)) * 100) : 0;
+    
+    // 3. Test Success: Positive results relative to total tests
+    const testSuccessRate = totalTests > 0 ? Math.round((completedTests / totalTests) * 100) : 0;
 
     return {
       stats: {
@@ -212,11 +280,16 @@ export class DashboardController {
         totalSessions,
         pendingSessions,
         completedSessions,
-        totalRevenue: sessionRevenue._sum.price || 0,
-        monthlyRevenue: monthlySessionRevenue._sum.price || 0,
+        totalRevenue: Number(sessionRevenue._sum.price || 0),
+        monthlyRevenue: Number(monthlySessionRevenue._sum.price || 0),
+        completionRate: totalEnrollments > 0 ? Math.round((completedEnrollments / totalEnrollments) * 100) : 0,
+        activeEnrollments,
+        psychologistLoad: Math.min(psychologistLoad, 100),
+        groupOccupancy: Math.min(groupOccupancy, 100),
+        testSuccessRate: Math.min(testSuccessRate, 100),
       },
       sessions: {
-        upcoming: upcomingSessions.map((s) => ({
+        upcoming: upcomingSessions.map((s: any) => ({
           id: s.id,
           scheduledAt: s.scheduledAt,
           status: s.status,
@@ -224,7 +297,7 @@ export class DashboardController {
           psychologist: `${s.psychologist.firstName} ${s.psychologist.lastName}`,
           client: s.user.firstName ? `${s.user.firstName} ${s.user.lastName || ''}`.trim() : s.user.email,
         })),
-        recent: recentSessions.map((s) => ({
+        recent: recentSessions.map((s: any) => ({
           id: s.id,
           scheduledAt: s.scheduledAt,
           status: s.status,

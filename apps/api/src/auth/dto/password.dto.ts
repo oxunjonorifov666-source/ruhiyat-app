@@ -1,13 +1,47 @@
-import { IsEmail, IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MinLength, MaxLength, Matches, Length } from 'class-validator';
 
+/** Kamida bittasi: email yoki telefon (mobil ilova asosan telefon) */
 export class RequestPasswordResetDto {
+  @IsOptional()
   @IsEmail()
-  email: string;
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+998\d{9}$/, {
+    message: "Telefon +998901234567 ko'rinishida bo'lishi kerak",
+  })
+  phone?: string;
+}
+
+export class VerifyPasswordResetOtpDto {
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+998\d{9}$/, {
+    message: "Telefon +998901234567 ko'rinishida bo'lishi kerak",
+  })
+  phone?: string;
+
+  @IsString()
+  @Length(6, 6, { message: "Kod 6 raqam bo'lishi kerak" })
+  @Matches(/^\d+$/)
+  code: string;
 }
 
 export class ResetPasswordDto {
+  /** verify qadamidan keyin JWT (tavsiya etiladi) */
+  @IsOptional()
   @IsString()
-  token: string;
+  resetToken?: string;
+
+  /** eski bir bosqichli oqim: 6 raqamli kod */
+  @IsOptional()
+  @IsString()
+  token?: string;
 
   @IsString()
   @MinLength(8, { message: "Parol kamida 8 ta belgidan iborat bo'lishi kerak" })

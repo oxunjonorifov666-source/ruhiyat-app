@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { Brain, Eye, EyeOff, AlertCircle } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,8 +14,6 @@ export default function LoginPage() {
   const [error, setError] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
-  const router = useRouter()
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
@@ -32,7 +29,7 @@ export default function LoginPage() {
       }
 
       storeTokens(data.accessToken, data.refreshToken)
-      router.push("/dashboard")
+      window.location.assign("/superadmin/dashboard")
     } catch (err: any) {
       setError(err.message || "Kirish xatoligi yuz berdi")
       setLoading(false)

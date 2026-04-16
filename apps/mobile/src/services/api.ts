@@ -1,14 +1,32 @@
-import { API_BASE_URL } from '@ruhiyat/config';
+import { API_BASE_URL } from '../config';
+import { ApiError } from '../lib/ApiError';
 
-const BASE_URL = API_BASE_URL.startsWith('http')
-  ? API_BASE_URL
-  : 'http://localhost:3000/api';
+function parseApiErrorJson(body: Record<string, unknown>, status: number): ApiError {
+  const msg =
+    typeof body.message === 'string'
+      ? body.message
+      : Array.isArray(body.message)
+        ? String(body.message[0] ?? '')
+        : typeof body.error === 'string'
+          ? body.error
+          : `Xatolik: ${status}`;
+  const code =
+    typeof body.code === 'string' && body.code.length > 0
+      ? body.code
+      : status === 403
+        ? 'FORBIDDEN'
+        : status === 401
+          ? 'UNAUTHORIZED'
+          : 'API_ERROR';
+  const path = typeof body.path === 'string' ? body.path : undefined;
+  return new ApiError(msg || `Xatolik: ${status}`, status, code, path);
+}
 
 class ApiClient {
   private baseUrl: string;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
-  private onTokenRefresh: ((accessToken: string, refreshToken: string) => void) | null = null;
+  private onTokenRefresh: ((a: string, r: string) => void) | null = null;
   private onAuthFailed: (() => void) | null = null;
 
   constructor(baseUrl: string) {
@@ -26,34 +44,53 @@ class ApiClient {
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (this.accessToken) {
-      headers['Authorization'] = `Bearer ${this.accessToken}`;
-    }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.accessToken) headers['Authorization'] = `Bearer ${this.accessToken}`;
 
     const config: RequestInit = { method, headers };
-    if (body) {
-      config.body = JSON.stringify(body);
-    }
+    if (body !== undefined) config.body = JSON.stringify(body);
 
-    let response = await fetch(`${this.baseUrl}${path}`, config);
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, config);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('Network request failed') || msg.includes('Failed to fetch')) {
+        throw new ApiError(
+          "Internet yo‘q yoki serverga ulanib bo‘lmadi. Ulanishni tekshiring.",
+          0,
+          'NETWORK_ERROR',
+        );
+      }
+      throw e instanceof Error ? e : new ApiError(msg, 0, 'NETWORK_ERROR');
+    }
 
     if (response.status === 401 && this.refreshToken) {
       const refreshed = await this.tryRefresh();
       if (refreshed) {
         headers['Authorization'] = `Bearer ${this.accessToken}`;
-        response = await fetch(`${this.baseUrl}${path}`, { ...config, headers });
+        try {
+          response = await fetch(`${this.baseUrl}${path}`, { ...config, headers });
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (msg.includes('Network request failed') || msg.includes('Failed to fetch')) {
+            throw new ApiError(
+              "Internet yo‘q yoki serverga ulanib bo‘lmadi.",
+              0,
+              'NETWORK_ERROR',
+            );
+          }
+          throw e instanceof Error ? e : new ApiError(msg, 0, 'NETWORK_ERROR');
+        }
       } else {
         this.onAuthFailed?.();
-        throw new Error('Sessiya tugadi');
+        throw new ApiError('Sessiya tugadi. Qayta kiring.', 401, 'SESSION_EXPIRED');
       }
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || `Xatolik: ${response.status}`);
+      const error = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      throw parseApiErrorJson(error, response.status);
     }
 
     return response.json();
@@ -66,17 +103,13 @@ class ApiClient {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: this.refreshToken }),
       });
-
       if (!res.ok) return false;
-
-      const data = await res.json();
+      const data = await res.json() as any;
       this.accessToken = data.accessToken;
       this.refreshToken = data.refreshToken;
       this.onTokenRefresh?.(data.accessToken, data.refreshToken);
       return true;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }
 
   get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
@@ -95,7 +128,7 @@ class ApiClient {
     return this.request<T>('POST', path, body);
   }
 
-  patch<T>(path: string, body: unknown): Promise<T> {
+  patch<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>('PATCH', path, body);
   }
 
@@ -104,4 +137,5 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient(BASE_URL);
+export const apiClient = new ApiClient(API_BASE_URL);
+export { ApiError } from '../lib/ApiError';

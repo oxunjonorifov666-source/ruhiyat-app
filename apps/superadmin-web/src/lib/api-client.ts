@@ -1,6 +1,6 @@
 import { getStoredTokens, storeTokens, clearTokens } from './auth';
 
-const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/superadmin/api';
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
 const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl.replace(/\/+$/, '')}/api`;
 
 interface RequestOptions {

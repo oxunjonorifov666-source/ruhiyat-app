@@ -25,152 +25,24 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   CalendarCheck, Clock, CheckCircle, XCircle, AlertTriangle, Download, Filter, X,
-  Eye, DollarSign, Users, TrendingUp, Loader2,
+  Eye, DollarSign, Users, TrendingUp, Loader2, Video,
 } from "lucide-react"
+import {
+  type BookingSession,
+  type SessionStats,
+  statusLabels,
+  statusColors,
+  paymentLabels,
+  paymentColors,
+  getUserName,
+  getPsychName,
+  formatDate,
+  formatDateTime,
+  formatPrice,
+  exportSessionsCSV,
+} from "@/lib/booking-session-helpers"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts"
 import { toast } from "sonner"
-
-interface SessionUser {
-  id: number
-  email: string | null
-  firstName: string | null
-  lastName: string | null
-  role: string
-}
-
-interface SessionPsychologist {
-  id: number
-  firstName: string
-  lastName: string
-  specialization: string | null
-  hourlyRate: number | null
-  avatarUrl?: string | null
-  rating?: number | null
-  userId?: number
-}
-
-interface SessionMeeting {
-  id: number
-  title: string
-  meetingUrl: string | null
-  status: string
-  scheduledAt: string
-  duration: number
-  participants?: { user: SessionUser }[]
-}
-
-interface SessionChat {
-  id: number
-  _count: { messages: number }
-}
-
-interface BookingSession {
-  id: number
-  userId: number
-  psychologistId: number
-  administratorId: number | null
-  scheduledAt: string
-  duration: number
-  price: number
-  status: string
-  paymentStatus: string
-  meetingId: number | null
-  chatId: number | null
-  notes: string | null
-  cancelReason: string | null
-  completedAt: string | null
-  createdAt: string
-  updatedAt: string
-  user: SessionUser
-  psychologist: SessionPsychologist
-  meeting?: SessionMeeting | null
-  chat?: SessionChat | null
-}
-
-interface SessionStats {
-  total: number
-  pending: number
-  accepted: number
-  completed: number
-  cancelled: number
-  rejected: number
-  todaySessions: number
-  monthSessions: number
-  paidCount: number
-  totalRevenue: number
-}
-
-const statusLabels: Record<string, string> = {
-  PENDING: "Kutilmoqda",
-  ACCEPTED: "Qabul qilingan",
-  REJECTED: "Rad etilgan",
-  COMPLETED: "Yakunlangan",
-  CANCELLED: "Bekor qilingan",
-}
-
-const statusColors: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  PENDING: "outline",
-  ACCEPTED: "default",
-  REJECTED: "destructive",
-  COMPLETED: "secondary",
-  CANCELLED: "destructive",
-}
-
-const paymentLabels: Record<string, string> = {
-  UNPAID: "To'lanmagan",
-  PAID: "To'langan",
-  REFUNDED: "Qaytarilgan",
-}
-
-const paymentColors: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  UNPAID: "outline",
-  PAID: "default",
-  REFUNDED: "destructive",
-}
-
-const CHART_COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6"]
-
-function getUserName(user: { firstName?: string | null; lastName?: string | null; email?: string | null }) {
-  if (user.firstName) return `${user.firstName} ${user.lastName || ""}`.trim()
-  return user.email || "Noma'lum"
-}
-
-function getPsychName(p: { firstName: string; lastName: string }) {
-  return `${p.firstName} ${p.lastName}`.trim()
-}
-
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString("uz-UZ")
-}
-
-function formatDateTime(date: string) {
-  return new Date(date).toLocaleString("uz-UZ")
-}
-
-function formatPrice(price: number) {
-  return new Intl.NumberFormat("uz-UZ").format(price) + " so'm"
-}
-
-function exportCSV(data: BookingSession[]) {
-  const headers = ["ID", "Foydalanuvchi", "Psixolog", "Sana", "Davomiyligi", "Narxi", "Holat", "To'lov holati", "Yaratilgan"]
-  const rows = data.map(s => [
-    s.id,
-    getUserName(s.user),
-    getPsychName(s.psychologist),
-    formatDateTime(s.scheduledAt),
-    `${s.duration} min`,
-    s.price,
-    statusLabels[s.status] || s.status,
-    paymentLabels[s.paymentStatus] || s.paymentStatus,
-    formatDate(s.createdAt),
-  ])
-  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n")
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
-  const link = document.createElement("a")
-  link.href = URL.createObjectURL(blob)
-  link.download = `seanslar_${new Date().toISOString().split("T")[0]}.csv`
-  link.click()
-}
 
 export default function SessionsPage() {
   const [data, setData] = useState<BookingSession[]>([])
@@ -417,13 +289,14 @@ export default function SessionsPage() {
   ]
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <PageHeader
         title="Seanslar"
-        description="Bron qilingan seanslarni boshqarish"
+        description="Bron qilingan seanslar — ma'lumotlar bazadan (real vaqt)"
+        icon={Video}
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => exportCSV(data)}>
+            <Button variant="outline" size="sm" onClick={() => exportSessionsCSV(data, "seanslar")}>
               <Download className="mr-2 h-4 w-4" /> CSV
             </Button>
             <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
@@ -489,7 +362,7 @@ export default function SessionsPage() {
             </Card>
           )}
         </>
-      )}
+      ) : null}
 
       {showFilters && (
         <Card>

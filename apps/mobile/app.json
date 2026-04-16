@@ -2,31 +2,61 @@
   "expo": {
     "name": "Ruhiyat",
     "slug": "ruhiyat",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#6366f1"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true,
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
       "package": "com.ruhiyat.app",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#6366f1"
       },
-      "versionCode": 1
+      "versionCode": 2,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "scheme": "ruhiyat",
+    "extra": {
+      "apiUrl": "http://192.168.137.157:3001/api",
+      "startupEnableNotifications": true,
+      "startupEnableQueryPersist": false,
+      "eas": {
+        "projectId": "4c32c656-e2a2-47b4-8854-a2e9888036a7"
+      }
     },
     "plugins": [
-      "expo-router"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": ""
-      }
-    }
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Profil rasmi uchun galereyaga ruxsat.",
+          "cameraPermission": "Profil surati uchun kameraga ruxsat."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Seans eslatmalari uchun kalendar."
+        }
+      ]
+    ]
   }
 }

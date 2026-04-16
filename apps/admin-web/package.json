@@ -3,12 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p ${PORT:-24276}",
+    "dev": "next dev --turbopack -p 24276",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.1.15",
     "@ruhiyat/config": "workspace:*",
     "@ruhiyat/types": "workspace:*",
     "@ruhiyat/ui": "workspace:*",

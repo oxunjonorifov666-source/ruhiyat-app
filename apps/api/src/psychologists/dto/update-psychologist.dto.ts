@@ -44,4 +44,8 @@ export class UpdatePsychologistDto {
   @IsOptional()
   @IsBoolean()
   isAvailable?: boolean;
+
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
 }

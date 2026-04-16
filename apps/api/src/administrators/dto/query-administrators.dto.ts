@@ -14,7 +14,7 @@ export class QueryAdministratorsDto {
   search?: string;
 
   @IsOptional()
-  @IsIn(['active', 'inactive'])
+  @IsIn(['all', 'active', 'inactive'])
   status?: string;
 
   @IsOptional()
@@ -28,4 +28,8 @@ export class QueryAdministratorsDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sortOrder?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  centerId?: string;
 }

@@ -38,7 +38,7 @@ import {
   Eye, Pencil, CheckCircle2, XCircle, Clock, Star,
   ChevronLeft, ChevronRight, Loader2, RefreshCw,
   Mail, Phone, Calendar, Trash2, GraduationCap, Award,
-  Building2, Activity,
+  Building2, Activity, Users,
 } from "lucide-react"
 
 interface Psychologist {
@@ -46,6 +46,9 @@ interface Psychologist {
   userId: number
   firstName: string
   lastName: string
+  patronymic: string | null
+  gender: string | null
+  dateOfBirth: string | null
   specialization: string | null
   bio: string | null
   education: string | null
@@ -160,13 +163,17 @@ export default function PsychologistsPage() {
   const [actionError, setActionError] = useState<string | null>(null)
 
   const [createForm, setCreateForm] = useState({
-    firstName: "", lastName: "", email: "", phone: "",
+    firstName: "", lastName: "", patronymic: "", 
+    gender: "", dateOfBirth: "",
+    email: "", phone: "",
     specialization: "", bio: "", education: "",
     licenseNumber: "", experienceYears: "", hourlyRate: "",
-    certifications: [] as string[], certInput: "",
+    certifications: [] as string[], certInput: "", avatarUrl: "",
   })
   const [editForm, setEditForm] = useState({
-    firstName: "", lastName: "", specialization: "",
+    firstName: "", lastName: "", patronymic: "",
+    gender: "", dateOfBirth: "",
+    specialization: "", avatarUrl: "",
     bio: "", education: "", licenseNumber: "",
     experienceYears: "", hourlyRate: "",
     certifications: [] as string[], certInput: "",
@@ -236,12 +243,16 @@ export default function PsychologistsPage() {
     setEditForm({
       firstName: p.firstName || "",
       lastName: p.lastName || "",
+      patronymic: p.patronymic || "",
+      gender: p.gender || "",
+      dateOfBirth: p.dateOfBirth ? p.dateOfBirth.split('T')[0] : "",
       specialization: p.specialization || "",
       bio: p.bio || "",
       education: p.education || "",
       licenseNumber: p.licenseNumber || "",
       experienceYears: p.experienceYears?.toString() || "",
       hourlyRate: p.hourlyRate?.toString() || "",
+      avatarUrl: p.avatarUrl || "",
       certifications: p.certifications || [],
       certInput: "",
     })
@@ -256,6 +267,9 @@ export default function PsychologistsPage() {
       const body: any = {
         firstName: createForm.firstName,
         lastName: createForm.lastName,
+        patronymic: createForm.patronymic || undefined,
+        gender: createForm.gender || undefined,
+        dateOfBirth: createForm.dateOfBirth || undefined,
       }
       if (createForm.email) body.email = createForm.email
       if (createForm.phone) body.phone = createForm.phone
@@ -265,14 +279,17 @@ export default function PsychologistsPage() {
       if (createForm.licenseNumber) body.licenseNumber = createForm.licenseNumber
       if (createForm.experienceYears) body.experienceYears = parseInt(createForm.experienceYears)
       if (createForm.hourlyRate) body.hourlyRate = parseInt(createForm.hourlyRate)
+      if (createForm.avatarUrl) body.avatarUrl = createForm.avatarUrl
       if (createForm.certifications.length > 0) body.certifications = createForm.certifications
       await apiClient("/psychologists", { method: "POST", body })
       setCreateOpen(false)
       setCreateForm({
-        firstName: "", lastName: "", email: "", phone: "",
+        firstName: "", lastName: "", patronymic: "",
+        gender: "", dateOfBirth: "",
+        email: "", phone: "",
         specialization: "", bio: "", education: "",
         licenseNumber: "", experienceYears: "", hourlyRate: "",
-        certifications: [], certInput: "",
+        certifications: [], certInput: "", avatarUrl: "",
       })
       refreshAll()
     } catch (e: any) {
@@ -290,6 +307,9 @@ export default function PsychologistsPage() {
       const body: any = {
         firstName: editForm.firstName,
         lastName: editForm.lastName,
+        patronymic: editForm.patronymic || null,
+        gender: editForm.gender || null,
+        dateOfBirth: editForm.dateOfBirth || null,
       }
       if (editForm.specialization) body.specialization = editForm.specialization
       if (editForm.bio) body.bio = editForm.bio
@@ -297,6 +317,7 @@ export default function PsychologistsPage() {
       if (editForm.licenseNumber) body.licenseNumber = editForm.licenseNumber
       if (editForm.experienceYears) body.experienceYears = parseInt(editForm.experienceYears)
       if (editForm.hourlyRate) body.hourlyRate = parseInt(editForm.hourlyRate)
+      if (editForm.avatarUrl !== undefined) body.avatarUrl = editForm.avatarUrl
       body.certifications = editForm.certifications
       await apiClient(`/psychologists/${selectedPsych.id}`, { method: "PATCH", body })
       setEditOpen(false)
@@ -362,7 +383,7 @@ export default function PsychologistsPage() {
       <PageHeader
         title="Psixologlar"
         description="Barcha psixologlarni boshqarish"
-        action={
+        actions={
           <Button onClick={() => { setCreateOpen(true); setActionError(null) }}>
             <UserPlus className="mr-2 size-4" />Yangi psixolog
           </Button>
@@ -370,10 +391,10 @@ export default function PsychologistsPage() {
       />
 
       <StatsGrid>
-        <StatsCard title="Jami psixologlar" value={stats?.total ?? "—"} icon={Brain} />
-        <StatsCard title="Tasdiqlangan" value={stats?.approved ?? "—"} icon={ShieldCheck} variant="success" />
-        <StatsCard title="Kutilmoqda" value={stats?.pending ?? "—"} icon={Clock} variant="warning" />
-        <StatsCard title="Rad etilgan" value={stats?.rejected ?? "—"} icon={ShieldX} variant="danger" />
+        <StatsCard title="Jami psixologlar" value={stats?.total ?? "—"} icon={Users} />
+        <StatsCard title="Tasdiqlangan" value={stats?.approved ?? "—"} icon={CheckCircle2} iconColor="bg-emerald-500/10 text-emerald-600" />
+        <StatsCard title="Kutilmoqda" value={stats?.pending ?? "—"} icon={Clock} iconColor="bg-amber-500/10 text-amber-600" />
+        <StatsCard title="Rad etilgan" value={stats?.rejected ?? "—"} icon={XCircle} iconColor="bg-red-500/10 text-red-600" />
       </StatsGrid>
 
       <Card>
@@ -559,14 +580,20 @@ export default function PsychologistsPage() {
             <div className="mt-6 space-y-6">
               <div className="flex items-center gap-4">
                 <Avatar className="size-16">
-                  <AvatarFallback className="text-lg font-bold bg-violet-100 text-violet-700">
-                    {getInitials(detailPsych)}
-                  </AvatarFallback>
+                  {detailPsych.avatarUrl ? (
+                    <img src={detailPsych.avatarUrl} alt="" className="size-full object-cover" />
+                  ) : (
+                    <AvatarFallback className="text-lg font-bold bg-violet-100 text-violet-700">
+                      {getInitials(detailPsych)}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
                 <div>
-                  <h3 className="text-xl font-semibold">{getDisplayName(detailPsych)}</h3>
-                  <p className="text-muted-foreground">{detailPsych.specialization || "Mutaxassislik ko'rsatilmagan"}</p>
-                  <div className="flex items-center gap-2 mt-1">
+                  <h3 className="text-xl font-bold">
+                    {detailPsych.lastName} {detailPsych.firstName} {detailPsych.patronymic}
+                  </h3>
+                  <p className="text-muted-foreground font-medium">{detailPsych.specialization || "Mutaxassislik ko'rsatilmagan"}</p>
+                  <div className="flex items-center gap-2 mt-2">
                     {getStatusBadge(detailPsych)}
                     {getAvailabilityBadge(detailPsych)}
                   </div>
@@ -574,24 +601,30 @@ export default function PsychologistsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Reyting</p>
-                  <div className="flex items-center gap-1">
-                    <Star className="size-4 fill-amber-400 text-amber-400" />
-                    <span className="font-semibold">{detailPsych.rating?.toFixed(1) ?? "—"}</span>
+                <div className="rounded-2xl bg-muted/30 p-4 border border-border/50">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1 tracking-wider">Jinsi / Yoshi</p>
+                  <p className="font-semibold text-sm">
+                    {detailPsych.gender === 'male' ? 'Erkak' : detailPsych.gender === 'female' ? 'Ayol' : '—'} 
+                    {detailPsych.dateOfBirth ? ` / ${new Date().getFullYear() - new Date(detailPsych.dateOfBirth).getFullYear()} yosh` : ''}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-muted/30 p-4 border border-border/50">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1 tracking-wider">Reyting</p>
+                  <div className="flex items-center gap-1.5 font-bold text-amber-600">
+                    <Star className="size-4 fill-amber-500" />
+                    {detailPsych.rating?.toFixed(1) ?? "0.0"}
                   </div>
                 </div>
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Seanslar</p>
-                  <p className="font-semibold">{detailPsych.totalSessions}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-2xl bg-muted/30 p-4 border border-border/50">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1 tracking-wider">Seanslar</p>
+                  <p className="font-semibold">{detailPsych.totalSessions} ta</p>
                 </div>
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Tajriba</p>
-                  <p className="font-semibold">{detailPsych.experienceYears ? `${detailPsych.experienceYears} yil` : "—"}</p>
-                </div>
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Soatlik narx</p>
-                  <p className="font-semibold">{detailPsych.hourlyRate ? `${detailPsych.hourlyRate.toLocaleString()} so'm` : "—"}</p>
+                <div className="rounded-2xl bg-muted/30 p-4 border border-border/50">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1 tracking-wider">Tajriba</p>
+                  <p className="font-semibold text-emerald-600">{detailPsych.experienceYears ? `${detailPsych.experienceYears} yil` : "—"}</p>
                 </div>
               </div>
 
@@ -698,14 +731,36 @@ export default function PsychologistsPage() {
             <div className="rounded-md bg-red-50 border border-red-200 p-3 text-red-600 text-sm">{actionError}</div>
           )}
           <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label>Ism *</Label>
-                <Input value={createForm.firstName} onChange={(e) => setCreateForm(f => ({ ...f, firstName: e.target.value }))} />
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Familiya *</Label>
+                <Input value={createForm.lastName} onChange={(e) => setCreateForm(f => ({ ...f, lastName: e.target.value }))} className="mt-1" />
               </div>
               <div>
-                <Label>Familiya *</Label>
-                <Input value={createForm.lastName} onChange={(e) => setCreateForm(f => ({ ...f, lastName: e.target.value }))} />
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Ism *</Label>
+                <Input value={createForm.firstName} onChange={(e) => setCreateForm(f => ({ ...f, firstName: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Sharifi</Label>
+                <Input value={createForm.patronymic} onChange={(e) => setCreateForm(f => ({ ...f, patronymic: e.target.value }))} className="mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Jinsi</Label>
+                <Select value={createForm.gender} onValueChange={(v) => setCreateForm(f => ({ ...f, gender: v }))}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Tanlang" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Erkak</SelectItem>
+                    <SelectItem value="female">Ayol</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Tug'ilgan sana</Label>
+                <Input type="date" value={createForm.dateOfBirth} onChange={(e) => setCreateForm(f => ({ ...f, dateOfBirth: e.target.value }))} className="mt-1" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -789,14 +844,36 @@ export default function PsychologistsPage() {
             <div className="rounded-md bg-red-50 border border-red-200 p-3 text-red-600 text-sm">{actionError}</div>
           )}
           <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label>Ism</Label>
-                <Input value={editForm.firstName} onChange={(e) => setEditForm(f => ({ ...f, firstName: e.target.value }))} />
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Familiya</Label>
+                <Input value={editForm.lastName} onChange={(e) => setEditForm(f => ({ ...f, lastName: e.target.value }))} className="mt-1" />
               </div>
               <div>
-                <Label>Familiya</Label>
-                <Input value={editForm.lastName} onChange={(e) => setEditForm(f => ({ ...f, lastName: e.target.value }))} />
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Ism</Label>
+                <Input value={editForm.firstName} onChange={(e) => setEditForm(f => ({ ...f, firstName: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Sharifi</Label>
+                <Input value={editForm.patronymic} onChange={(e) => setEditForm(f => ({ ...f, patronymic: e.target.value }))} className="mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Jinsi</Label>
+                <Select value={editForm.gender} onValueChange={(v) => setEditForm(f => ({ ...f, gender: v }))}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Tanlang" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Erkak</SelectItem>
+                    <SelectItem value="female">Ayol</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Tug'ilgan sana</Label>
+                <Input type="date" value={editForm.dateOfBirth} onChange={(e) => setEditForm(f => ({ ...f, dateOfBirth: e.target.value }))} className="mt-1" />
               </div>
             </div>
             <div>

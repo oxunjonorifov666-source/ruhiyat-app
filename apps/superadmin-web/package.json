@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p ${PORT:-18343}",
+    "dev": "next dev -p 18344",
+    "dev:api": "pnpm --dir ../api dev",
+    "dev:stack": "concurrently -k -n api,ui -c blue,magenta \"pnpm run dev:api\" \"next dev -p 18344\"",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
@@ -16,20 +18,25 @@
     "@ruhiyat/ui": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "^2.1.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.511.0",
     "next": "^15.3.2",
     "radix-ui": "^1.4.3",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
     "recharts": "^2.15.4",
+    "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "concurrently": "^9.2.1",
     "tailwindcss": "^4.1.14",
     "typescript": "^5.8.3"
   }

@@ -7,92 +7,79 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================================================
-// AUTH & IDENTITY
-// ============================================================================
-
-enum UserRole {
-  SUPERADMIN
-  ADMINISTRATOR
-  MOBILE_USER
-}
-
-enum VerificationStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-enum SubscriptionPlan {
-  BASIC
-  PREMIUM
-}
-
 model User {
-  id           Int       @id @default(autoincrement())
-  email        String?   @unique
-  phone        String?   @unique
-  passwordHash String?   @map("password_hash")
-  firstName    String?   @map("first_name")
-  lastName     String?   @map("last_name")
-  role         UserRole
-  isActive     Boolean   @default(true) @map("is_active")
-  isBlocked    Boolean   @default(false) @map("is_blocked")
-  blockedAt    DateTime? @map("blocked_at")
-  blockedReason String?  @map("blocked_reason")
-  isVerified   Boolean   @default(false) @map("is_verified")
-  lastLoginAt  DateTime? @map("last_login_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-
-  superadmin         Superadmin?
+  id                 Int                  @id @default(autoincrement())
+  email              String?              @unique
+  phone              String?              @unique
+  passwordHash       String?              @map("password_hash")
+  firstName          String?              @map("first_name")
+  lastName           String?              @map("last_name")
+  role               UserRole
+  isActive           Boolean              @default(true) @map("is_active")
+  isBlocked          Boolean              @default(false) @map("is_blocked")
+  blockedAt          DateTime?            @map("blocked_at")
+  blockedReason      String?              @map("blocked_reason")
+  isVerified         Boolean              @default(false) @map("is_verified")
+  lastLoginAt        DateTime?            @map("last_login_at")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
   administrator      Administrator?
-  mobileUser         MobileUser?
-  sessions           Session[]
-  otpVerifications   OtpVerification[]
   auditLogs          AuditLog[]
-  notifications      Notification[]
-  payments           Payment[]
-  transactions       Transaction[]
-  communityPosts     CommunityPost[]
-  comments           Comment[]
-  complaints             Complaint[]          @relation("reporter")
-  resolvedComplaints     Complaint[]          @relation("resolver")
-  assignedComplaints     Complaint[]          @relation("assignedTo")
-  moderationActions      ModerationAction[]
-  createdReports         ModerationReport[]   @relation("reportCreator")
-  assignedReports        ModerationReport[]   @relation("reportAssignee")
-  resolvedReports        ModerationReport[]   @relation("reportResolver")
-  blockActions           BlockHistory[]       @relation("blockPerformer")
-  contentModerations     ContentModeration[]  @relation("contentModerator")
-  chatParticipants   ChatParticipant[]
-  sentMessages       Message[]
-  meetingHost        Meeting[]            @relation("host")
-  meetingParticipant MeetingParticipant[]
-  moodEntries        MoodEntry[]
-  diaryEntries       DiaryEntry[]
-  habits             Habit[]
-  habitLogs          HabitLog[]
-  sleepRecords       SleepRecord[]
+  securityLogs       SecurityLog[]
+  blockActions       BlockHistory[]       @relation("blockPerformer")
+  bookingSessions    BookingSession[]     @relation("bookingUser")
   breathingSessions  BreathingSession[]
-  savedItems         SavedItem[]
-  testResults        TestResult[]
+  chatParticipants   ChatParticipant[]
+  comments           Comment[]
+  communityPosts     CommunityPost[]
+  communityPostLikes CommunityPostLike[]
+  assignedComplaints Complaint[]          @relation("assignedTo")
+  complaints         Complaint[]          @relation("reporter")
+  resolvedComplaints Complaint[]          @relation("resolver")
+  contentModerations ContentModeration[]  @relation("contentModerator")
+  diaryEntries       DiaryEntry[]
+  habitLogs          HabitLog[]
+  habits             Habit[]
+  meetingParticipant MeetingParticipant[]
+  meetingHost        Meeting[]            @relation("host")
+  sentMessages       Message[]
+  mobileUser         MobileUser?
+  moderationActions  ModerationAction[]
+  assignedReports    ModerationReport[]   @relation("reportAssignee")
+  createdReports     ModerationReport[]   @relation("reportCreator")
+  resolvedReports    ModerationReport[]   @relation("reportResolver")
+  moodEntries        MoodEntry[]
+  notifications      Notification[]
+  otpVerifications   OtpVerification[]
+  payments           Payment[]
   psychologist       Psychologist?
-  bookingSessions    BookingSession[]   @relation("bookingUser")
+  savedItems         SavedItem[]
+  sessions           Session[]
+  sleepRecords       SleepRecord[]
+  superadmin         Superadmin?
+  testResults        TestResult[]
+  transactions       Transaction[]
+  reviews            Review[]
+  consumerSubscriptions ConsumerSubscription[]
+  sosAlerts                   SosAlert[]
+  aiPsychologistConversations AiPsychologistConversation[]
+  mobilePushDevices           MobilePushDevice[]
 
   @@map("users")
 }
 
 model Role {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
+  id          Int              @id @default(autoincrement())
+  name        String
   description String?
-  isSystem    Boolean  @default(false) @map("is_system")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
+  isSystem    Boolean          @default(false) @map("is_system")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  centerId    Int?             @map("center_id")
   permissions Permission[]
+  center      EducationCenter? @relation(fields: [centerId], references: [id], onDelete: Cascade)
 
+  @@unique([name, centerId])
   @@map("roles")
 }
 
@@ -102,8 +89,7 @@ model Permission {
   resource  String
   action    String
   createdAt DateTime @default(now()) @map("created_at")
-
-  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, resource, action])
   @@map("permissions")
@@ -118,8 +104,7 @@ model Session {
   isRevoked    Boolean  @default(false) @map("is_revoked")
   expiresAt    DateTime @map("expires_at")
   createdAt    DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
@@ -135,15 +120,10 @@ model OtpVerification {
   attempts  Int      @default(0)
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
-
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("otp_verifications")
 }
-
-// ============================================================================
-// PROFILES & ORGANIZATIONS
-// ============================================================================
 
 model Superadmin {
   id               Int      @id @default(autoincrement())
@@ -154,49 +134,55 @@ model Superadmin {
   twoFactorSecret  String?  @map("two_factor_secret")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("superadmins")
 }
 
 model EducationCenter {
-  id               Int              @id @default(autoincrement())
-  name             String
-  address          String?
-  phone            String?
-  email            String?
-  description      String?
-  logoUrl          String?          @map("logo_url")
-  subscriptionPlan SubscriptionPlan @default(BASIC) @map("subscription_plan")
-  isActive         Boolean          @default(true) @map("is_active")
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
-
-  administrators Administrator[]
-  psychologists  Psychologist[]
-  teachers       Teacher[]
-  staff          Staff[]
-  students       Student[]
-  courses        Course[]
-  groups         Group[]
+  id                Int                @id @default(autoincrement())
+  name              String
+  address           String?
+  phone             String?
+  email             String?
+  description       String?
+  logoUrl           String?            @map("logo_url")
+  subscriptionPlan  SubscriptionPlan   @default(BASIC) @map("subscription_plan")
+  centerTariffPlanId Int?              @map("center_tariff_plan_id")
+  isActive          Boolean            @default(true) @map("is_active")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  centerTariffPlan  CenterTariffPlan?  @relation(fields: [centerTariffPlanId], references: [id])
+  administrators    Administrator[]
+  auditLogs         AuditLog[]
+  centerPayments    CenterPayment[]
+  complaints        Complaint[]
+  courses           Course[]
+  groups            Group[]
+  moderationReports ModerationReport[]
+  payments          Payment[]
+  psychologists     Psychologist[]
+  roles             Role[]
+  staff             Staff[]
+  students          Student[]
+  teachers          Teacher[]
+  transactions      Transaction[]
 
   @@map("education_centers")
 }
 
 model Administrator {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique @map("user_id")
-  centerId  Int      @map("center_id")
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
+  id        Int             @id @default(autoincrement())
+  userId    Int             @unique @map("user_id")
+  centerId  Int             @map("center_id")
+  firstName String          @map("first_name")
+  lastName  String          @map("last_name")
   position  String?
-  invitedBy Int?     @map("invited_by")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  center EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  invitedBy Int?            @map("invited_by")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  center    EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("administrators")
 }
@@ -213,174 +199,167 @@ model MobileUser {
   pinHash          String?   @map("pin_hash")
   biometricEnabled Boolean   @default(false) @map("biometric_enabled")
   isPremium        Boolean   @default(false) @map("is_premium")
+  premiumUntil     DateTime? @map("premium_until")
+  consumerPlanId   Int?      @map("consumer_plan_id")
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at")
+  /** JSON: { pushEnabled, emailEnabled, remindersEnabled, marketingEnabled, moodReminder, sessionReminder } */
+  notificationPrefs Json?    @map("notification_prefs")
+  analyticsOptIn    Boolean   @default(false) @map("analytics_opt_in")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consumerPlan     ConsumerPlan? @relation(fields: [consumerPlanId], references: [id])
 
   @@map("mobile_users")
 }
 
 model Psychologist {
-  id                 Int                    @id @default(autoincrement())
-  userId             Int                    @unique @map("user_id")
-  centerId           Int?                   @map("center_id")
-  firstName          String                 @map("first_name")
-  lastName           String                 @map("last_name")
+  id                 Int                @id @default(autoincrement())
+  userId             Int                @unique @map("user_id")
+  centerId           Int?               @map("center_id")
+  firstName          String             @map("first_name")
+  lastName           String             @map("last_name")
+  patronymic         String?
+  gender             String?
+  dateOfBirth        DateTime?          @map("date_of_birth") @db.Date
   specialization     String?
   bio                String?
-  avatarUrl          String?                @map("avatar_url")
-  licenseNumber      String?                @map("license_number")
+  avatarUrl          String?            @map("avatar_url")
+  licenseNumber      String?            @map("license_number")
   education          String?
-  certifications     String[]               @default([])
-  experienceYears    Int?                   @map("experience_years")
-  verificationStatus VerificationStatus     @default(PENDING) @map("verification_status")
-  isVerified         Boolean                @default(false) @map("is_verified")
-  isAvailable        Boolean                @default(true) @map("is_available")
-  rejectionReason    String?                @map("rejection_reason")
-  hourlyRate         Int?                   @map("hourly_rate")
+  certifications     String[]           @default([])
+  experienceYears    Int?               @map("experience_years")
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  isVerified         Boolean            @default(false) @map("is_verified")
+  isAvailable        Boolean            @default(true) @map("is_available")
+  rejectionReason    String?            @map("rejection_reason")
+  hourlyRate         Int?               @map("hourly_rate")
   rating             Float?
-  totalSessions      Int                    @default(0) @map("total_sessions")
-  createdAt          DateTime               @default(now()) @map("created_at")
-  updatedAt          DateTime               @updatedAt @map("updated_at")
-
-  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  center           EducationCenter? @relation(fields: [centerId], references: [id])
-  bookingSessions  BookingSession[]
+  totalSessions      Int                @default(0) @map("total_sessions")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  bookingSessions    BookingSession[]
+  center             EducationCenter?   @relation(fields: [centerId], references: [id])
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("psychologists")
 }
 
 model Teacher {
-  id        Int      @id @default(autoincrement())
-  centerId  Int      @map("center_id")
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
+  id        Int             @id @default(autoincrement())
+  centerId  Int             @map("center_id")
+  firstName String          @map("first_name")
+  lastName  String          @map("last_name")
   subject   String?
   phone     String?
   email     String?
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  center EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  isActive  Boolean         @default(true) @map("is_active")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  center    EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
 
   @@map("teachers")
 }
 
 model Staff {
-  id        Int      @id @default(autoincrement())
-  centerId  Int      @map("center_id")
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
+  id        Int             @id @default(autoincrement())
+  centerId  Int             @map("center_id")
+  firstName String          @map("first_name")
+  lastName  String          @map("last_name")
   position  String?
   phone     String?
   email     String?
-  roleId    Int?     @map("role_id")
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  center EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  roleId    Int?            @map("role_id")
+  isActive  Boolean         @default(true) @map("is_active")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  center    EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
 
   @@map("staff")
 }
 
 model Student {
-  id          Int       @id @default(autoincrement())
-  centerId    Int       @map("center_id")
-  firstName   String    @map("first_name")
-  lastName    String    @map("last_name")
+  id          Int             @id @default(autoincrement())
+  centerId    Int             @map("center_id")
+  firstName   String          @map("first_name")
+  lastName    String          @map("last_name")
   phone       String?
   email       String?
-  dateOfBirth DateTime? @map("date_of_birth") @db.Date
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  center      EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  dateOfBirth DateTime?       @map("date_of_birth") @db.Date
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  payments    CenterPayment[]
   enrollments Enrollment[]
+  center      EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
 
   @@map("students")
 }
 
-// ============================================================================
-// EDUCATION
-// ============================================================================
-
 model Course {
-  id          Int      @id @default(autoincrement())
-  centerId    Int      @map("center_id")
-  title       String
-  description String?
-  category    String?
-  duration    Int?
-  price       Int?
-  imageUrl    String?  @map("image_url")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdBy   Int?     @map("created_by")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            Int             @id @default(autoincrement())
+  centerId      Int             @map("center_id")
+  description   String?
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  code          String?
+  durationWeeks Int?            @map("duration_weeks")
+  name          String
+  status        CourseStatus    @default(DRAFT)
+  center        EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  enrollments   Enrollment[]
+  groups        Group[]
 
-  center      EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
-  groups      Group[]
-  enrollments Enrollment[]
-
+  @@unique([centerId, code])
   @@map("courses")
 }
 
 model Group {
-  id          Int      @id @default(autoincrement())
-  centerId    Int      @map("center_id")
-  courseId    Int?     @map("course_id")
+  id          Int             @id @default(autoincrement())
+  centerId    Int             @map("center_id")
+  courseId    Int?            @map("course_id")
   name        String
   description String?
-  maxStudents Int?     @map("max_students")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  center      EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
-  course      Course?         @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  maxStudents Int?            @map("max_students")
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
   enrollments Enrollment[]
+  center      EducationCenter @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  course      Course?         @relation(fields: [courseId], references: [id])
 
   @@map("groups")
 }
 
 model Enrollment {
-  id          Int       @id @default(autoincrement())
-  studentId   Int       @map("student_id")
-  courseId    Int?      @map("course_id")
-  groupId     Int?      @map("group_id")
-  status      String    @default("active")
-  enrolledAt  DateTime  @default(now()) @map("enrolled_at")
-  completedAt DateTime? @map("completed_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  course  Course? @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  id          Int             @id @default(autoincrement())
+  studentId   Int             @map("student_id")
+  courseId    Int?            @map("course_id")
+  groupId     Int?            @map("group_id")
+  status      String          @default("active")
+  enrolledAt  DateTime        @default(now()) @map("enrolled_at")
+  completedAt DateTime?       @map("completed_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  payments    CenterPayment[]
+  course      Course?         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  group       Group?          @relation(fields: [groupId], references: [id])
+  student     Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("enrollments")
 }
 
-// ============================================================================
-// ASSESSMENTS
-// ============================================================================
-
 model Test {
-  id          Int      @id @default(autoincrement())
+  id          Int          @id @default(autoincrement())
   title       String
   description String?
   category    String?
-  type        String   @default("psychological")
+  type        String       @default("psychological")
   duration    Int?
-  imageUrl    String?  @map("image_url")
-  isPublished Boolean  @default(false) @map("is_published")
-  createdBy   Int?     @map("created_by")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
+  imageUrl    String?      @map("image_url")
+  isPublished Boolean      @default(false) @map("is_published")
+  createdBy   Int?         @map("created_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
   questions   Question[]
   testResults TestResult[]
 
@@ -396,9 +375,8 @@ model Question {
   imageUrl   String?  @map("image_url")
   metadata   Json?
   createdAt  DateTime @default(now()) @map("created_at")
-
-  test    Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
-  answers Answer[]
+  answers    Answer[]
+  test       Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
 
   @@map("questions")
 }
@@ -411,8 +389,7 @@ model Answer {
   score      Int      @default(0)
   orderIndex Int      @default(0) @map("order_index")
   createdAt  DateTime @default(now()) @map("created_at")
-
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@map("answers")
 }
@@ -427,48 +404,37 @@ model TestResult {
   interpretation String?
   completedAt    DateTime? @map("completed_at")
   createdAt      DateTime  @default(now()) @map("created_at")
-
-  test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  test           Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("test_results")
 }
 
-// ============================================================================
-// COMMUNICATION
-// ============================================================================
-
-enum ChatType {
-  DIRECT
-  GROUP
-  SUPPORT
-}
-
 model Chat {
-  id        Int      @id @default(autoincrement())
-  type      ChatType @default(DIRECT)
-  title     String?
-  createdBy Int?     @map("created_by")
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
+  id              Int               @id @default(autoincrement())
+  type            ChatType          @default(DIRECT)
+  title           String?
+  imageUrl        String?           @map("image_url")
+  createdBy       Int?              @map("created_by")
+  isActive        Boolean           @default(true) @map("is_active")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  bookingSessions BookingSession[]
   participants    ChatParticipant[]
   messages        Message[]
-  bookingSessions BookingSession[]
 
   @@map("chats")
 }
 
 model ChatParticipant {
-  id       Int       @id @default(autoincrement())
-  chatId   Int       @map("chat_id")
-  userId   Int       @map("user_id")
-  joinedAt DateTime  @default(now()) @map("joined_at")
-  leftAt   DateTime? @map("left_at")
-
-  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         Int       @id @default(autoincrement())
+  chatId     Int       @map("chat_id")
+  userId     Int       @map("user_id")
+  joinedAt   DateTime  @default(now()) @map("joined_at")
+  leftAt     DateTime? @map("left_at")
+  lastReadAt DateTime? @map("last_read_at")
+  chat       Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([chatId, userId])
   @@map("chat_participants")
@@ -485,9 +451,8 @@ model Message {
   isDeleted     Boolean  @default(false) @map("is_deleted")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
-
-  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  chat          Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender        User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@map("messages")
 }
@@ -501,8 +466,7 @@ model Notification {
   isRead    Boolean  @default(false) @map("is_read")
   metadata  String?
   createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }
@@ -524,182 +488,149 @@ model Announcement {
   @@map("announcements")
 }
 
-// ============================================================================
-// COMMUNITY
-// ============================================================================
-
 model CommunityPost {
-  id            Int      @id @default(autoincrement())
-  authorId      Int      @map("author_id")
+  id            Int       @id @default(autoincrement())
+  authorId      Int       @map("author_id")
   title         String?
   content       String
-  imageUrl      String?  @map("image_url")
-  likesCount    Int      @default(0) @map("likes_count")
-  commentsCount Int      @default(0) @map("comments_count")
-  isPublished   Boolean  @default(true) @map("is_published")
-  isFlagged     Boolean  @default(false) @map("is_flagged")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  comments Comment[]
+  imageUrl      String?   @map("image_url")
+  likesCount    Int       @default(0) @map("likes_count")
+  commentsCount Int       @default(0) @map("comments_count")
+  isPublished   Boolean   @default(true) @map("is_published")
+  isFlagged     Boolean   @default(false) @map("is_flagged")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  comments      Comment[]
+  likes         CommunityPostLike[]
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@map("community_posts")
 }
 
-model Comment {
-  id         Int      @id @default(autoincrement())
-  postId     Int      @map("post_id")
-  authorId   Int      @map("author_id")
-  content    String
-  parentId   Int?     @map("parent_id")
-  likesCount Int      @default(0) @map("likes_count")
-  isFlagged  Boolean  @default(false) @map("is_flagged")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+model CommunityPostLike {
+  id        Int           @id @default(autoincrement())
+  postId    Int           @map("post_id")
+  userId    Int           @map("user_id")
+  createdAt DateTime      @default(now()) @map("created_at")
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  post     CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  parent   Comment?      @relation("CommentThread", fields: [parentId], references: [id])
-  children Comment[]     @relation("CommentThread")
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
+  @@map("community_post_likes")
+}
+
+model Comment {
+  id         Int           @id @default(autoincrement())
+  postId     Int           @map("post_id")
+  authorId   Int           @map("author_id")
+  content    String
+  parentId   Int?          @map("parent_id")
+  likesCount Int           @default(0) @map("likes_count")
+  isFlagged  Boolean       @default(false) @map("is_flagged")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  author     User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent     Comment?      @relation("CommentThread", fields: [parentId], references: [id])
+  children   Comment[]     @relation("CommentThread")
+  post       CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("comments")
 }
 
-enum ComplaintStatus {
-  NEW
-  IN_REVIEW
-  RESOLVED
-  REJECTED
-}
-
-enum ComplaintPriority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-enum ReportSeverity {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum ReportStatus {
-  NEW
-  IN_REVIEW
-  RESOLVED
-  DISMISSED
-}
-
-enum ContentModerationStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  HIDDEN
-}
-
 model Complaint {
-  id               Int               @id @default(autoincrement())
-  reporterId       Int               @map("reporter_id")
-  targetType       String            @map("target_type")
-  targetId         Int               @map("target_id")
-  subject          String
-  description      String?
-  status           ComplaintStatus   @default(NEW)
-  priority         ComplaintPriority @default(MEDIUM)
-  assignedToUserId Int?              @map("assigned_to_user_id")
-  resolutionNote   String?           @map("resolution_note")
-  resolvedBy       Int?              @map("resolved_by")
-  resolvedAt       DateTime?         @map("resolved_at")
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
-
-  reporter   User  @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  resolver   User? @relation("resolver", fields: [resolvedBy], references: [id])
-  assignedTo User? @relation("assignedTo", fields: [assignedToUserId], references: [id])
-
+  id                Int                @id @default(autoincrement())
+  reporterId        Int                @map("reporter_id")
+  targetType        String             @map("target_type")
+  targetId          Int                @map("target_id")
+  subject           String
+  description       String?
+  status            ComplaintStatus    @default(NEW)
+  priority          ComplaintPriority  @default(MEDIUM)
+  assignedToUserId  Int?               @map("assigned_to_user_id")
+  resolutionNote    String?            @map("resolution_note")
+  resolvedBy        Int?               @map("resolved_by")
+  resolvedAt        DateTime?          @map("resolved_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  centerId          Int?               @map("center_id")
+  assignedTo        User?              @relation("assignedTo", fields: [assignedToUserId], references: [id])
+  center            EducationCenter?   @relation(fields: [centerId], references: [id])
+  reporter          User               @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolver          User?              @relation("resolver", fields: [resolvedBy], references: [id])
   moderationActions ModerationAction[]
 
   @@map("complaints")
 }
 
 model ModerationReport {
-  id               Int            @id @default(autoincrement())
+  id               Int              @id @default(autoincrement())
   type             String
-  targetType       String         @map("target_type")
-  targetId         Int            @map("target_id")
+  targetType       String           @map("target_type")
+  targetId         Int              @map("target_id")
   summary          String
   details          String?
-  severity         ReportSeverity @default(MEDIUM)
-  status           ReportStatus   @default(NEW)
-  createdByUserId  Int            @map("created_by_user_id")
-  assignedToUserId Int?           @map("assigned_to_user_id")
-  resolutionNote   String?        @map("resolution_note")
-  resolvedBy       Int?           @map("resolved_by")
-  resolvedAt       DateTime?      @map("resolved_at")
-  createdAt        DateTime       @default(now()) @map("created_at")
-  updatedAt        DateTime       @updatedAt @map("updated_at")
-
-  createdBy  User  @relation("reportCreator", fields: [createdByUserId], references: [id])
-  assignedTo User? @relation("reportAssignee", fields: [assignedToUserId], references: [id])
-  resolver   User? @relation("reportResolver", fields: [resolvedBy], references: [id])
+  severity         ReportSeverity   @default(MEDIUM)
+  status           ReportStatus     @default(NEW)
+  createdByUserId  Int              @map("created_by_user_id")
+  assignedToUserId Int?             @map("assigned_to_user_id")
+  resolutionNote   String?          @map("resolution_note")
+  resolvedBy       Int?             @map("resolved_by")
+  resolvedAt       DateTime?        @map("resolved_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  centerId         Int?             @map("center_id")
+  assignedTo       User?            @relation("reportAssignee", fields: [assignedToUserId], references: [id])
+  center           EducationCenter? @relation(fields: [centerId], references: [id])
+  createdBy        User             @relation("reportCreator", fields: [createdByUserId], references: [id])
+  resolver         User?            @relation("reportResolver", fields: [resolvedBy], references: [id])
 
   @@map("moderation_reports")
 }
 
 model BlockHistory {
-  id         Int      @id @default(autoincrement())
-  targetType String   @map("target_type")
-  targetId   Int      @map("target_id")
-  action     String
-  reason     String?
-  performedBy Int     @map("performed_by")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  performer User @relation("blockPerformer", fields: [performedBy], references: [id])
+  id          Int      @id @default(autoincrement())
+  targetType  String   @map("target_type")
+  targetId    Int      @map("target_id")
+  action      String
+  reason      String?
+  performedBy Int      @map("performed_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  performer   User     @relation("blockPerformer", fields: [performedBy], references: [id])
 
   @@map("block_history")
 }
 
 model ContentModeration {
-  id             Int                    @id @default(autoincrement())
-  contentType    String                 @map("content_type")
-  contentId      Int                    @map("content_id")
-  contentTitle   String?                @map("content_title")
-  status         ContentModerationStatus @default(PENDING)
-  moderatorId    Int?                   @map("moderator_id")
-  moderatorNote  String?                @map("moderator_note")
-  reviewedAt     DateTime?              @map("reviewed_at")
-  createdAt      DateTime               @default(now()) @map("created_at")
-  updatedAt      DateTime               @updatedAt @map("updated_at")
-
-  moderator User? @relation("contentModerator", fields: [moderatorId], references: [id])
+  id            Int                     @id @default(autoincrement())
+  contentType   String                  @map("content_type")
+  contentId     Int                     @map("content_id")
+  contentTitle  String?                 @map("content_title")
+  status        ContentModerationStatus @default(PENDING)
+  moderatorId   Int?                    @map("moderator_id")
+  moderatorNote String?                 @map("moderator_note")
+  reviewedAt    DateTime?               @map("reviewed_at")
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+  moderator     User?                   @relation("contentModerator", fields: [moderatorId], references: [id])
 
   @@map("content_moderation")
 }
 
 model ModerationAction {
-  id          Int      @id @default(autoincrement())
-  moderatorId Int      @map("moderator_id")
-  targetType  String   @map("target_type")
-  targetId    Int      @map("target_id")
+  id          Int        @id @default(autoincrement())
+  moderatorId Int        @map("moderator_id")
+  targetType  String     @map("target_type")
+  targetId    Int        @map("target_id")
   action      String
   reason      String?
-  complaintId Int?     @map("complaint_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  moderator User       @relation(fields: [moderatorId], references: [id])
-  complaint Complaint? @relation(fields: [complaintId], references: [id])
+  complaintId Int?       @map("complaint_id")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  complaint   Complaint? @relation(fields: [complaintId], references: [id])
+  moderator   User       @relation(fields: [moderatorId], references: [id])
 
   @@map("moderation_actions")
 }
-
-// ============================================================================
-// CONTENT
-// ============================================================================
 
 model Article {
   id            Int       @id @default(autoincrement())
@@ -819,42 +750,24 @@ model Training {
   @@map("trainings")
 }
 
-// ============================================================================
-// MEETINGS
-// ============================================================================
-
-enum MeetingStatus {
-  SCHEDULED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
-enum MeetingType {
-  CONSULTATION
-  THERAPY
-  GROUP_SESSION
-  TRAINING
-  OTHER
-}
-
 model Meeting {
-  id          Int           @id @default(autoincrement())
-  title       String
-  description String?
-  type        MeetingType   @default(CONSULTATION)
-  status      MeetingStatus @default(SCHEDULED)
-  hostId      Int           @map("host_id")
-  scheduledAt DateTime      @map("scheduled_at")
-  duration    Int
-  meetingUrl  String?       @map("meeting_url")
-  notes       String?
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-
-  host             User                 @relation("host", fields: [hostId], references: [id])
-  participants     MeetingParticipant[]
-  bookingSessions  BookingSession[]
+  id              Int                  @id @default(autoincrement())
+  title           String
+  description     String?
+  type            MeetingType          @default(CONSULTATION)
+  status          MeetingStatus        @default(SCHEDULED)
+  hostId          Int                  @map("host_id")
+  scheduledAt     DateTime             @map("scheduled_at")
+  duration        Int
+  meetingUrl      String?              @map("meeting_url")
+  /** Qo‘shimcha ishtirokchi berilmasa: barcha mobil foydalanuvchilar ro‘yxatda ko‘radi va kirishi mumkin */
+  openBroadcast   Boolean              @default(false) @map("open_broadcast")
+  notes           String?
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+  bookingSessions BookingSession[]
+  participants    MeetingParticipant[]
+  host            User                 @relation("host", fields: [hostId], references: [id])
 
   @@map("meetings")
 }
@@ -866,67 +779,56 @@ model MeetingParticipant {
   status    String    @default("invited")
   joinedAt  DateTime? @map("joined_at")
   leftAt    DateTime? @map("left_at")
-
-  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([meetingId, userId])
   @@map("meeting_participants")
 }
 
-// ============================================================================
-// FINANCE
-// ============================================================================
+model CenterPayment {
+  id           Int                 @id @default(autoincrement())
+  centerId     Int                 @map("center_id")
+  studentId    Int                 @map("student_id")
+  enrollmentId Int?                @map("enrollment_id")
+  amount       Int
+  currency     String              @default("UZS")
+  status       CenterPaymentStatus @default(PENDING)
+  method       PaymentMethod       @default(CASH)
+  paymentDate  DateTime?           @map("payment_date")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  center       EducationCenter     @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  enrollment   Enrollment?         @relation(fields: [enrollmentId], references: [id])
+  student      Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-enum PaymentStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
-  CANCELLED
-}
-
-enum PaymentMethod {
-  CARD
-  CLICK
-  PAYME
-  CASH
-  TRANSFER
-}
-
-enum TransactionType {
-  PAYMENT
-  REFUND
-  COMMISSION
-  SUBSCRIPTION
-  PAYOUT
-}
-
-enum TransactionStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  CANCELLED
+  @@map("center_payments")
 }
 
 model Payment {
-  id                Int           @id @default(autoincrement())
-  userId            Int           @map("user_id")
-  psychologistId    Int?          @map("psychologist_id")
-  sessionId         Int?          @map("session_id")
+  id                Int              @id @default(autoincrement())
+  userId            Int              @map("user_id")
+  psychologistId    Int?             @map("psychologist_id")
+  sessionId         Int?             @map("session_id")
   amount            Int
-  currency          String        @default("UZS")
-  status            PaymentStatus @default(PENDING)
-  method            PaymentMethod @default(CARD)
+  currency          String           @default("UZS")
+  status            PaymentStatus    @default(PENDING)
+  method            PaymentMethod    @default(CARD)
   provider          String?
-  providerPaymentId String?       @map("provider_payment_id")
+  providerPaymentId String?          @map("provider_payment_id")
   description       String?
   metadata          String?
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
-
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  kind              PaymentKind      @default(SESSION) @map("kind")
+  platformFeePercent Int?            @map("platform_fee_percent")
+  platformFeeAmount  Int?            @map("platform_fee_amount")
+  netAmount          Int?            @map("net_amount")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  centerId          Int?             @map("center_id")
+  center            EducationCenter? @relation(fields: [centerId], references: [id])
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  consumerSubscriptions ConsumerSubscription[]
 
   @@map("payments")
 }
@@ -945,9 +847,10 @@ model Transaction {
   description     String?
   referenceId     String?           @map("reference_id")
   createdAt       DateTime          @default(now()) @map("created_at")
-
-  payment Payment? @relation(fields: [paymentId], references: [id])
-  user    User     @relation(fields: [userId], references: [id])
+  centerId        Int?              @map("center_id")
+  center          EducationCenter?  @relation(fields: [centerId], references: [id])
+  payment         Payment?          @relation(fields: [paymentId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
 
   @@map("transactions")
 }
@@ -965,24 +868,98 @@ model RevenueRecord {
   @@map("revenue_records")
 }
 
-// ============================================================================
-// SYSTEM
-// ============================================================================
+model PlatformMonetizationSettings {
+  id                       Int      @id @default(1)
+  defaultCommissionPercent Int      @default(10) @map("default_commission_percent")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_monetization_settings")
+}
+
+model CenterTariffPlan {
+  id               Int              @id @default(autoincrement())
+  tier             SubscriptionPlan @unique
+  name             String
+  description      String?
+  maxUsers         Int?             @map("max_users")
+  maxPsychologists Int?             @map("max_psychologists")
+  featureFlags     Json?            @map("feature_flags")
+  isActive         Boolean          @default(true) @map("is_active")
+  sortOrder        Int              @default(0) @map("sort_order")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  centers          EducationCenter[]
+
+  @@map("center_tariff_plans")
+}
+
+model ConsumerPlan {
+  id                       Int      @id @default(autoincrement())
+  code                     String   @unique
+  name                     String
+  description              String?
+  monthlyPriceUzs          Int      @default(0) @map("monthly_price_uzs")
+  featurePsychChat         Boolean  @default(false) @map("feature_psych_chat")
+  featureVideoConsultation Boolean  @default(false) @map("feature_video_consultation")
+  featureCourses           Boolean  @default(false) @map("feature_courses")
+  featurePremiumContent    Boolean  @default(false) @map("feature_premium_content")
+  isActive                 Boolean  @default(true) @map("is_active")
+  sortOrder                Int      @default(0) @map("sort_order")
+  mobileUsers              MobileUser[]
+  subscriptions            ConsumerSubscription[]
+
+  @@map("consumer_plans")
+}
+
+model ConsumerSubscription {
+  id                 Int                        @id @default(autoincrement())
+  userId             Int                        @map("user_id")
+  consumerPlanId     Int                        @map("consumer_plan_id")
+  status             ConsumerSubscriptionStatus @default(PENDING)
+  startedAt          DateTime?                  @map("started_at")
+  currentPeriodEnd   DateTime?                  @map("current_period_end")
+  paymentId          Int?                       @map("payment_id")
+  createdAt          DateTime                   @default(now()) @map("created_at")
+  updatedAt          DateTime                   @updatedAt @map("updated_at")
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consumerPlan       ConsumerPlan               @relation(fields: [consumerPlanId], references: [id])
+  payment            Payment?                   @relation(fields: [paymentId], references: [id])
+
+  @@index([userId, status])
+  @@map("consumer_subscriptions")
+}
 
 model AuditLog {
-  id         Int      @id @default(autoincrement())
-  userId     Int?     @map("user_id")
+  id         Int              @id @default(autoincrement())
+  userId     Int?             @map("user_id")
   action     String
   resource   String
-  resourceId Int?     @map("resource_id")
+  resourceId Int?             @map("resource_id")
   details    Json?
-  ipAddress  String?  @map("ip_address")
-  userAgent  String?  @map("user_agent")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  user User? @relation(fields: [userId], references: [id])
+  ipAddress  String?          @map("ip_address")
+  userAgent  String?          @map("user_agent")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  centerId   Int?             @map("center_id")
+  center     EducationCenter? @relation(fields: [centerId], references: [id])
+  user       User?            @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
+}
+
+model SecurityLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  event     String
+  success   Boolean  @default(true)
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([event, createdAt])
+  @@map("security_logs")
 }
 
 model SystemSetting {
@@ -1041,24 +1018,6 @@ model IntegrationSetting {
   @@map("integration_settings")
 }
 
-// ============================================================================
-// BOOKING SESSIONS
-// ============================================================================
-
-enum BookingStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-  COMPLETED
-  CANCELLED
-}
-
-enum BookingPaymentStatus {
-  UNPAID
-  PAID
-  REFUNDED
-}
-
 model BookingSession {
   id              Int                  @id @default(autoincrement())
   userId          Int                  @map("user_id")
@@ -1077,18 +1036,13 @@ model BookingSession {
   completedAt     DateTime?            @map("completed_at")
   createdAt       DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime             @updatedAt @map("updated_at")
-
-  user          User          @relation("bookingUser", fields: [userId], references: [id], onDelete: Cascade)
-  psychologist  Psychologist  @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
-  meeting       Meeting?      @relation(fields: [meetingId], references: [id])
-  chat          Chat?         @relation(fields: [chatId], references: [id])
+  chat            Chat?                @relation(fields: [chatId], references: [id])
+  meeting         Meeting?             @relation(fields: [meetingId], references: [id])
+  psychologist    Psychologist         @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  user            User                 @relation("bookingUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("booking_sessions")
 }
-
-// ============================================================================
-// WELLNESS
-// ============================================================================
 
 model MoodEntry {
   id        Int      @id @default(autoincrement())
@@ -1097,8 +1051,7 @@ model MoodEntry {
   note      String?
   factors   String[]
   createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("mood_entries")
 }
@@ -1113,26 +1066,24 @@ model DiaryEntry {
   isPrivate Boolean  @default(true) @map("is_private")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("diary_entries")
 }
 
 model Habit {
-  id          Int      @id @default(autoincrement())
-  userId      Int      @map("user_id")
+  id          Int        @id @default(autoincrement())
+  userId      Int        @map("user_id")
   name        String
   description String?
-  frequency   String   @default("daily")
-  targetCount Int      @default(1) @map("target_count")
+  frequency   String     @default("daily")
+  targetCount Int        @default(1) @map("target_count")
   color       String?
   icon        String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  logs HabitLog[]
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  logs        HabitLog[]
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("habits")
 }
@@ -1143,9 +1094,8 @@ model HabitLog {
   userId      Int      @map("user_id")
   completedAt DateTime @default(now()) @map("completed_at")
   note        String?
-
-  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit       Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("habit_logs")
 }
@@ -1158,8 +1108,7 @@ model SleepRecord {
   quality    Int?
   notes      String?
   createdAt  DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sleep_records")
 }
@@ -1170,8 +1119,7 @@ model BreathingSession {
   technique   String
   duration    Int
   completedAt DateTime @default(now()) @map("completed_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("breathing_sessions")
 }
@@ -1182,9 +1130,237 @@ model SavedItem {
   itemType  String   @map("item_type")
   itemId    Int      @map("item_id")
   createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, itemType, itemId])
   @@map("saved_items")
+}
+
+model SosAlert {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  latitude  Float?
+  longitude Float?
+  message   String?
+  status    String   @default("NEW")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("sos_alerts")
+}
+
+model BreathingScenario {
+  id            Int      @id @default(autoincrement())
+  title         String
+  description   String?
+  inhaleSec     Int      @default(4) @map("inhale_sec")
+  holdSec       Int      @default(4) @map("hold_sec")
+  exhaleSec     Int      @default(4) @map("exhale_sec")
+  cyclesDefault Int      @default(4) @map("cycles_default")
+  orderIndex    Int      @default(0) @map("order_index")
+  isPublished   Boolean  @default(true) @map("is_published")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("breathing_scenarios")
+}
+
+model AiPsychologistConversation {
+  id        Int                       @id @default(autoincrement())
+  userId    Int                       @map("user_id")
+  createdAt DateTime                  @default(now()) @map("created_at")
+  updatedAt DateTime                  @updatedAt @map("updated_at")
+  user      User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AiPsychologistMessage[]
+
+  @@index([userId])
+  @@map("ai_psychologist_conversations")
+}
+
+model AiPsychologistMessage {
+  id             Int                        @id @default(autoincrement())
+  conversationId Int                      @map("conversation_id")
+  role           String
+  content        String
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  conversation   AiPsychologistConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_psychologist_messages")
+}
+
+model MobilePushDevice {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  expoPushToken String   @map("expo_push_token")
+  platform      String
+  deviceLabel   String?  @map("device_label")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, expoPushToken])
+  @@index([userId])
+  @@map("mobile_push_devices")
+}
+
+enum UserRole {
+  SUPERADMIN
+  ADMINISTRATOR
+  MOBILE_USER
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SubscriptionPlan {
+  BASIC
+  PRO
+  PREMIUM
+}
+
+enum CourseStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ChatType {
+  DIRECT
+  GROUP
+  SUPPORT
+}
+
+enum ComplaintStatus {
+  NEW
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ReportSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReportStatus {
+  NEW
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum ContentModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MeetingType {
+  CONSULTATION
+  THERAPY
+  GROUP_SESSION
+  TRAINING
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CARD
+  CLICK
+  PAYME
+  CASH
+  TRANSFER
+}
+
+enum CenterPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+  COMMISSION
+  SUBSCRIPTION
+  PAYOUT
+}
+
+enum PaymentKind {
+  SESSION
+  MOBILE_PREMIUM
+  CENTER_SUBSCRIPTION
+  OTHER
+}
+
+enum ConsumerSubscriptionStatus {
+  PENDING
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingPaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  targetId   Int      @map("target_id")
+  targetType String   @default("PSYCHOLOGIST")
+  userId     Int      @map("user_id")
+  rating     Int
+  comment    String?
+  status     String   @default("PUBLISHED")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
 }

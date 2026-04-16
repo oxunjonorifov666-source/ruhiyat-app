@@ -21,4 +21,5 @@ export class CreateComplaintDto {
   @IsString() subject: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsEnum(Priority) priority?: string;
+  @IsOptional() @IsInt() centerId?: number;
 }

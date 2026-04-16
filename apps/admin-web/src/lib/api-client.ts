@@ -1,6 +1,6 @@
 import { getStoredTokens, storeTokens, clearTokens } from './auth';
 
-const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/admin/api';
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
 const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl.replace(/\/+$/, '')}/api`;
 
 interface RequestOptions {
@@ -62,7 +62,7 @@ export async function apiClient<T = any>(path: string, options: RequestOptions =
       });
     } else {
       clearTokens();
-      window.location.href = '/admin/login';
+      window.location.href = '/login';
       throw new Error('Sessiya tugadi');
     }
   }

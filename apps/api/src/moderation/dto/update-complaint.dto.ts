@@ -7,10 +7,18 @@ enum Priority {
   URGENT = 'URGENT',
 }
 
+enum ComplaintStatus {
+  NEW = 'NEW',
+  IN_REVIEW = 'IN_REVIEW',
+  RESOLVED = 'RESOLVED',
+  REJECTED = 'REJECTED',
+}
+
 export class UpdateComplaintDto {
   @IsOptional() @IsString() subject?: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsEnum(Priority) priority?: string;
+  @IsOptional() @IsEnum(ComplaintStatus) status?: string;
 }
 
 export class AssignComplaintDto {

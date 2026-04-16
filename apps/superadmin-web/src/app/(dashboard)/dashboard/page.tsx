@@ -1,22 +1,20 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
 import {
-  Users, Brain, Building2, CreditCard, MessageSquare, Globe,
-  FileText, TrendingUp, Activity, Calendar, ShieldCheck, AlertTriangle,
-  CalendarCheck, Clock, CheckCircle, DollarSign,
+  Users, FileText, Globe, Calendar, Activity, CheckCircle, AlertTriangle,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/page-header"
-import { StatsCard, StatsGrid } from "@/components/stats-card"
+import { SuperadminOverviewPanel } from "@/components/superadmin/superadmin-overview-panel"
 import { useApiData } from "@/hooks/use-api-data"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts"
+import { LayoutDashboard } from "lucide-react"
 
-interface DashboardData {
+interface DashboardStatsPayload {
   stats: {
     totalUsers: number
     activePsychologists: number
@@ -101,150 +99,33 @@ function formatTimeSince(dateStr: string): string {
   return `${days} kun oldin`
 }
 
-function formatPrice(price: number) {
-  return new Intl.NumberFormat("uz-UZ").format(price) + " so'm"
-}
-
-function AnimatedNumber({ value, duration = 800 }: { value: number; duration?: number }) {
-  const [display, setDisplay] = useState(0)
-  const ref = useRef<number>(0)
-
-  useEffect(() => {
-    const start = ref.current
-    const diff = value - start
-    if (diff === 0) return
-    const startTime = performance.now()
-
-    const animate = (now: number) => {
-      const elapsed = now - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      const current = Math.round(start + diff * eased)
-      setDisplay(current)
-      if (progress < 1) requestAnimationFrame(animate)
-      else ref.current = value
-    }
-
-    requestAnimationFrame(animate)
-  }, [value, duration])
-
-  return <>{display.toLocaleString()}</>
-}
-
-function StatsCardSkeleton() {
-  return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <Skeleton className="h-3 w-24" />
-            <Skeleton className="h-7 w-16" />
-            <Skeleton className="h-3 w-20" />
-          </div>
-          <Skeleton className="size-10 rounded-lg" />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
 export default function DashboardPage() {
-  const { data, loading, error } = useApiData<DashboardData>({
+  const { data, loading, error } = useApiData<DashboardStatsPayload>({
     path: "/dashboard/superadmin/stats",
-    refreshInterval: 60000,
+    refreshInterval: 120000,
   })
 
-  const stats = data?.stats
-  const bookings = data?.bookings
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-10">
       <PageHeader
         title="Boshqaruv paneli"
-        description="Platformaning umumiy holati va asosiy ko'rsatkichlar"
+        description="Real vaqtga yaqin ko'rsatkichlar, filtrlash va eksport — barchasi bazadan"
+        icon={LayoutDashboard}
       />
 
-      {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => <StatsCardSkeleton key={i} />)}
-        </div>
-      ) : error ? (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-4 text-sm text-red-700">
-            Ma'lumotlarni yuklashda xatolik: {error}
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <StatsGrid columns={4}>
-            <StatsCard
-              title="Jami foydalanuvchilar"
-              value={<AnimatedNumber value={stats?.totalUsers || 0} />}
-              icon={Users}
-              iconColor="bg-blue-500/10 text-blue-600"
-            />
-            <StatsCard
-              title="Faol psixologlar"
-              value={<AnimatedNumber value={stats?.activePsychologists || 0} />}
-              icon={Brain}
-              iconColor="bg-violet-500/10 text-violet-600"
-            />
-            <StatsCard
-              title="Ta'lim markazlari"
-              value={<AnimatedNumber value={stats?.educationCenters || 0} />}
-              icon={Building2}
-              iconColor="bg-amber-500/10 text-amber-600"
-            />
-            <StatsCard
-              title="Jami to'lovlar"
-              value={<AnimatedNumber value={stats?.totalPayments || 0} />}
-              icon={CreditCard}
-              iconColor="bg-emerald-500/10 text-emerald-600"
-            />
-          </StatsGrid>
-
-          {bookings && (
-            <StatsGrid columns={4}>
-              <StatsCard
-                title="Jami seanslar"
-                value={<AnimatedNumber value={bookings.total} />}
-                icon={CalendarCheck}
-                iconColor="bg-sky-500/10 text-sky-600"
-              />
-              <StatsCard
-                title="Kutilayotgan seanslar"
-                value={<AnimatedNumber value={bookings.pending} />}
-                icon={Clock}
-                iconColor="bg-orange-500/10 text-orange-600"
-              />
-              <StatsCard
-                title="Yakunlangan seanslar"
-                value={<AnimatedNumber value={bookings.completed} />}
-                icon={CheckCircle}
-                iconColor="bg-green-500/10 text-green-600"
-              />
-              <StatsCard
-                title="Seans daromadi"
-                value={formatPrice(bookings.revenue)}
-                icon={DollarSign}
-                iconColor="bg-emerald-500/10 text-emerald-600"
-              />
-            </StatsGrid>
-          )}
-        </>
-      )}
+      <SuperadminOverviewPanel />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Foydalanuvchilar dinamikasi</CardTitle>
-            <CardDescription>Oxirgi 6 oy davomida ro'yxatdan o'tganlar</CardDescription>
+        <Card className="lg:col-span-2 overflow-hidden shadow-sm">
+          <CardHeader className="border-b bg-muted/20">
+            <CardTitle className="text-base">Ro'yxatdan o'tishlar (oxirgi 6 oy)</CardTitle>
+            <CardDescription>Umumiy tendensiya</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {loading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-64 w-full rounded-lg" />
-              </div>
+              <Skeleton className="h-64 w-full rounded-xl" />
+            ) : error ? (
+              <p className="text-sm text-destructive">{error}</p>
             ) : data?.monthlyGrowth && data.monthlyGrowth.length > 0 ? (
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -260,29 +141,26 @@ export default function DashboardPage() {
                         color: "hsl(var(--card-foreground))",
                         fontSize: "12px",
                       }}
-                      formatter={(value: number) => [`${value} ta`, "Foydalanuvchilar"]}
+                      formatter={(value: number) => [`${value} ta`, "Ro'yxatdan o'tganlar"]}
                     />
                     <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="flex h-64 items-center justify-center rounded-lg border border-dashed bg-muted/30">
-                <div className="text-center text-muted-foreground">
-                  <TrendingUp className="mx-auto size-10 mb-3 opacity-40" />
-                  <p className="text-sm font-medium">Ma'lumot yo'q</p>
-                </div>
+              <div className="flex h-64 items-center justify-center rounded-lg border border-dashed bg-muted/30 text-sm text-muted-foreground">
+                Ma'lumot yo'q
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden shadow-sm">
+          <CardHeader className="border-b bg-muted/20">
             <CardTitle className="text-base">So'nggi foydalanuvchilar</CardTitle>
-            <CardDescription>Yaqinda ro'yxatdan o'tganlar</CardDescription>
+            <CardDescription>Yaqinda qo'shilganlar</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             {loading ? (
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -303,7 +181,10 @@ export default function DashboardPage() {
                   </p>
                 )}
                 {data?.recentUsers.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-dashed last:border-0 transition-colors hover:bg-muted/30 rounded px-1">
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between gap-2 py-1.5 border-b border-dashed last:border-0 rounded px-1 hover:bg-muted/30"
+                  >
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">
                         {u.firstName && u.lastName
@@ -323,56 +204,23 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <StatsGrid columns={4}>
-        {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <StatsCardSkeleton key={i} />)
-        ) : (
-          <>
-            <StatsCard
-              title="Faol seanslar"
-              value={<AnimatedNumber value={stats?.activeSessions || 0} />}
-              icon={MessageSquare}
-              iconColor="bg-sky-500/10 text-sky-600"
-              description="Hozirgi faol seanslar"
-            />
-            <StatsCard
-              title="Hamjamiyat postlari"
-              value={<AnimatedNumber value={stats?.communityPosts || 0} />}
-              icon={Globe}
-              iconColor="bg-teal-500/10 text-teal-600"
-            />
-            <StatsCard
-              title="Maqolalar"
-              value={<AnimatedNumber value={stats?.articles || 0} />}
-              icon={FileText}
-              iconColor="bg-orange-500/10 text-orange-600"
-              description="Nashr etilgan maqolalar"
-            />
-            <StatsCard
-              title="Tizim holati"
-              value="Barqaror"
-              icon={ShieldCheck}
-              iconColor="bg-green-500/10 text-green-600"
-              description="Barcha xizmatlar ishlayapti"
-            />
-          </>
-        )}
-      </StatsGrid>
-
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden shadow-sm">
+          <CardHeader className="border-b bg-muted/20">
             <CardTitle className="text-base">Tezkor havolalar</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <div className="grid gap-3 sm:grid-cols-2">
               {[
-                { label: "Yangi foydalanuvchi", icon: Users, desc: "Foydalanuvchi qo'shish" },
-                { label: "Yangi maqola", icon: FileText, desc: "Maqola yaratish" },
-                { label: "Yangi e'lon", icon: Globe, desc: "E'lon e'lon qilish" },
-                { label: "Uchrashuvlar", icon: Calendar, desc: "Uchrashuvlarni boshqarish" },
+                { label: "Foydalanuvchilar", icon: Users, desc: "Ro'yxat va rollar" },
+                { label: "Maqolalar", icon: FileText, desc: "Kontent" },
+                { label: "Hamjamiyat", icon: Globe, desc: "Postlar" },
+                { label: "Uchrashuvlar", icon: Calendar, desc: "Rejalashtirish" },
               ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-all duration-200 hover:shadow-sm hover:scale-[1.01]">
+                <div
+                  key={item.label}
+                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                >
                   <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <item.icon className="size-4" />
                   </div>
@@ -386,12 +234,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden shadow-sm">
+          <CardHeader className="border-b bg-muted/20">
             <CardTitle className="text-base">So'nggi faollik</CardTitle>
-            <CardDescription>Tizim auditi</CardDescription>
+            <CardDescription>Audit jurnali (qisqacha)</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             {loading ? (
               <div className="space-y-3">
                 {Array.from({ length: 4 }).map((_, i) => (
@@ -410,7 +258,10 @@ export default function DashboardPage() {
                   const iconConfig = actionIcons[item.action] || actionIcons.DEFAULT
                   const IconComponent = iconConfig.icon
                   return (
-                    <div key={item.id} className="flex items-center gap-3 py-1.5 border-b border-dashed last:border-0 transition-colors hover:bg-muted/30 rounded px-1">
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-3 py-1.5 border-b border-dashed last:border-0 rounded px-1 hover:bg-muted/30"
+                    >
                       <IconComponent className={`size-4 shrink-0 ${iconConfig.color}`} />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm truncate">
@@ -428,9 +279,7 @@ export default function DashboardPage() {
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 text-sm text-muted-foreground">
-                Hali faollik yo'q
-              </div>
+              <div className="text-center py-8 text-sm text-muted-foreground">Hali yozuvlar yo'q</div>
             )}
           </CardContent>
         </Card>

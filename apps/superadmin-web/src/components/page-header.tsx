@@ -7,10 +7,12 @@ import { Separator } from "@/components/ui/separator"
 import { Plus, Download, Filter } from "lucide-react"
 
 interface PageHeaderAction {
-  label: string
+  label?: string
   onClick?: () => void
   icon?: LucideIcon
   variant?: "default" | "outline" | "ghost" | "secondary"
+  element?: React.ReactNode
+  disabled?: boolean
 }
 
 interface PageHeaderProps {
@@ -55,15 +57,20 @@ export function PageHeader({
           Array.isArray(actions) ? (
             <div className="flex items-center gap-2 shrink-0">
               {(actions as PageHeaderAction[]).map((action, i) => (
-                <Button
-                  key={i}
-                  variant={action.variant || "default"}
-                  size="sm"
-                  onClick={action.onClick}
-                >
-                  {action.icon && <action.icon className="size-4 mr-1.5" />}
-                  {action.label}
-                </Button>
+                action.element ? (
+                  <div key={i}>{action.element}</div>
+                ) : (
+                  <Button
+                    key={i}
+                    variant={action.variant || "default"}
+                    size="sm"
+                    onClick={action.onClick}
+                    disabled={action.disabled}
+                  >
+                    {action.icon && <action.icon className="size-4 mr-1.5" />}
+                    {action.label}
+                  </Button>
+                )
               ))}
             </div>
           ) : (

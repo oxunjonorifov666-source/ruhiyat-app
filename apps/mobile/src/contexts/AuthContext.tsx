@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { TOKEN_KEYS } from '@ruhiyat/config';
+import { TOKEN_KEYS } from '../config';
 import { apiClient } from '../services/api';
 import { authService, type AuthUser } from '../services/auth';
+import { setTelemetryOptIn } from '../services/telemetry';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -11,6 +12,7 @@ interface AuthContextType {
   login: (accessToken: string, refreshToken: string, user: AuthUser) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  resetInactivityTimer: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -20,11 +22,35 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   logout: async () => {},
   refreshProfile: async () => {},
+  resetInactivityTimer: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  /** Foydalanuvchi hech narsa tegmasa — 10 daqiqadan keyin chiqish */
+  const INACTIVITY_TIMEOUT = 10 * 60 * 1000;
+
+  const logout = useCallback(async () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const refreshToken = await SecureStore.getItemAsync(TOKEN_KEYS.REFRESH_TOKEN);
+    if (refreshToken) await authService.logout(refreshToken);
+    await clearTokens();
+    setUser(null);
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (!user) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      if (__DEV__) {
+        console.log('Inactivity timeout reached. Logging out...');
+      }
+      logout();
+    }, INACTIVITY_TIMEOUT);
+  }, [user, logout]);
 
   const saveTokens = async (accessToken: string, refreshToken: string) => {
     await SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, accessToken);
@@ -41,16 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (accessToken: string, refreshToken: string, userData: AuthUser) => {
     await saveTokens(accessToken, refreshToken);
     setUser(userData);
-  }, []);
-
-  const logout = useCallback(async () => {
-    const refreshToken = await SecureStore.getItemAsync(TOKEN_KEYS.REFRESH_TOKEN);
-    if (refreshToken) {
-      await authService.logout(refreshToken);
-    }
-    await clearTokens();
-    setUser(null);
-  }, []);
+    resetInactivityTimer();
+  }, [resetInactivityTimer]);
 
   const refreshProfile = useCallback(async () => {
     try {
@@ -58,6 +76,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(data.user);
     } catch {}
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      resetInactivityTimer();
+    } else if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+  }, [user, resetInactivityTimer]);
+
+  useEffect(() => {
+    setTelemetryOptIn(!!user?.analyticsOptIn);
+  }, [user?.analyticsOptIn]);
 
   useEffect(() => {
     apiClient.setCallbacks(
@@ -74,40 +104,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const accessToken = await SecureStore.getItemAsync(TOKEN_KEYS.ACCESS_TOKEN);
         const refreshToken = await SecureStore.getItemAsync(TOKEN_KEYS.REFRESH_TOKEN);
-
-        if (!accessToken || !refreshToken) {
-          setIsLoading(false);
-          return;
-        }
-
+        if (!accessToken || !refreshToken) { setIsLoading(false); return; }
         apiClient.setTokens(accessToken, refreshToken);
-
         const data = await authService.getProfile();
         setUser(data.user);
       } catch {
         await clearTokens();
       }
-
       setIsLoading(false);
     }
 
     initAuth();
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, []);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        isAuthenticated: !!user,
-        login,
-        logout,
-        refreshProfile,
-      }}
-    >
+    <AuthContext.Provider value={{ 
+      user, 
+      isLoading, 
+      isAuthenticated: !!user, 
+      login, 
+      logout, 
+      refreshProfile,
+      resetInactivityTimer 
+    }}>
       {children}
     </AuthContext.Provider>
   );
 }
+
 
 export const useAuth = () => useContext(AuthContext);

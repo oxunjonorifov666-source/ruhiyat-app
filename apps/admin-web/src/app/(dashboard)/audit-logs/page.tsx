@@ -1,21 +1,26 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { ScrollText, User, Shield, Clock } from "lucide-react"
+import { Activity } from "lucide-react"
 import { apiClient, PaginatedResponse } from "@/lib/api-client"
 import { DataTable } from "@/components/data-table"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import type { FilterField } from "@/components/filter-bar"
 
 interface AuditLog {
   id: number
   action: string
   resource: string
   resourceId: string | null
-  details: string | null
+  details: unknown
   ipAddress: string | null
   createdAt: string
   user: { id: number; email: string | null; firstName: string | null; lastName: string | null } | null
+  center?: { name: string } | null
 }
 
 const actionLabels: Record<string, string> = {
@@ -33,23 +38,68 @@ export default function AuditLogsPage() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
+  const [filters, setFilters] = useState<{ action: string; userId: string; dateFrom: string; dateTo: string }>({
+    action: "all",
+    userId: "",
+    dateFrom: "",
+    dateTo: "",
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const res = await apiClient<PaginatedResponse<AuditLog>>("/audit-logs", {
-        params: { page, limit: 20, search },
+      const res = await apiClient<any>("/audit-logs", {
+        params: {
+          page,
+          limit: 20,
+          search,
+          action: filters.action === "all" ? undefined : filters.action,
+          userId: filters.userId || undefined,
+          dateFrom: filters.dateFrom || undefined,
+          dateTo: filters.dateTo || undefined,
+        },
       })
-      setData(res.data); setTotal(res.total)
+      setData(res.data)
+      setTotal(res.total)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
-  }, [page, search])
+  }, [page, search, filters])
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  const filterFields: FilterField[] = [
+    {
+      id: "action",
+      placeholder: "Amal",
+      options: [
+        { label: "CREATE", value: "CREATE" },
+        { label: "UPDATE", value: "UPDATE" },
+        { label: "DELETE", value: "DELETE" },
+      ],
+    },
+  ]
+
+  function formatDetails(d: unknown): string {
+    if (d == null) return "—"
+    if (typeof d === "string") return d
+    try {
+      return JSON.stringify(d, null, 2)
+    } catch {
+      return String(d)
+    }
+  }
+
   const columns = [
+    {
+      key: "center",
+      title: "Markaz",
+      render: (log: AuditLog) => (
+        <span className="text-sm text-muted-foreground">{log.center?.name || "—"}</span>
+      ),
+    },
     {
       key: "user", title: "Foydalanuvchi",
       render: (log: AuditLog) => (
@@ -73,7 +123,21 @@ export default function AuditLogsPage() {
       </div>
     )},
     { key: "details", title: "Tafsilotlar", render: (log: AuditLog) => (
-      <span className="text-sm text-muted-foreground line-clamp-1">{log.details || "—"}</span>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-xs"
+        onClick={async () => {
+          try {
+            const full = await apiClient<AuditLog>(`/audit-logs/${log.id}`)
+            setSelectedLog(full)
+          } catch (e: any) {
+            setError(e.message || "Log tafsilotlarini yuklab bo'lmadi")
+          }
+        }}
+      >
+        Ko'rish
+      </Button>
     )},
     { key: "ipAddress", title: "IP", render: (log: AuditLog) => (
       <span className="text-xs font-mono text-muted-foreground">{log.ipAddress || "—"}</span>
@@ -85,14 +149,87 @@ export default function AuditLogsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Audit loglari" subtitle="Tizimdagi barcha o'zgarishlar jurnali" icon={ScrollText} />
+      <PageHeader
+        title="Faollik jurnali"
+        description="Tizimdagi amallar va o'zgarishlar — real vaqt rejimida bazadan"
+        icon={Activity}
+      />
 
       <DataTable
         title="O'zgarishlar tarixi" description="Barcha amallar qayd etiladi"
         columns={columns} data={data} total={total} page={page} limit={20}
         loading={loading} error={error} searchPlaceholder="Log qidirish..."
-        onPageChange={setPage} onSearch={setSearch}
+        onPageChange={setPage}
+        onSearchChange={(q) => { setSearch(q); setPage(1) }}
+        filterFields={filterFields}
+        activeFilters={{ action: filters.action }}
+        onFilterChange={(id, value) => {
+          if (id === "action") setFilters((p) => ({ ...p, action: value }));
+          setPage(1);
+        }}
+        onResetFilters={() => {
+          setFilters({ action: "all", userId: "", dateFrom: "", dateTo: "" });
+          setSearch("");
+          setPage(1);
+        }}
+        filters={
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="md:col-span-1">
+              <Input
+                placeholder="User ID"
+                value={filters.userId}
+                onChange={(e) => { setFilters((p) => ({ ...p, userId: e.target.value.replace(/[^\d]/g, "") })); setPage(1) }}
+              />
+            </div>
+            <div className="md:col-span-1">
+              <Input
+                type="date"
+                value={filters.dateFrom}
+                onChange={(e) => { setFilters((p) => ({ ...p, dateFrom: e.target.value })); setPage(1) }}
+              />
+            </div>
+            <div className="md:col-span-1">
+              <Input
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) => { setFilters((p) => ({ ...p, dateTo: e.target.value })); setPage(1) }}
+              />
+            </div>
+            <div className="md:col-span-1 flex items-center justify-end">
+              <Button variant="outline" size="sm" onClick={fetchData}>Yangilash</Button>
+            </div>
+          </div>
+        }
       />
+
+      <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Log tafsilotlari</DialogTitle>
+            <DialogDescription>Amal ID: #{selectedLog?.id}</DialogDescription>
+          </DialogHeader>
+          {selectedLog && (
+            <div className="flex-1 overflow-auto space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg border bg-muted/30">
+                  <div className="text-xs text-muted-foreground mb-1">IP</div>
+                  <div className="font-mono text-sm">{selectedLog.ipAddress || "—"}</div>
+                </div>
+                <div className="p-3 rounded-lg border bg-muted/30">
+                  <div className="text-xs text-muted-foreground mb-1">Vaqt</div>
+                  <div className="text-sm">{new Date(selectedLog.createdAt).toLocaleString("uz-UZ")}</div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Tafsilotlar</div>
+                <pre className="p-4 rounded-lg bg-slate-950 text-slate-200 text-xs overflow-auto whitespace-pre-wrap">
+                  {formatDetails(selectedLog.details)}
+                </pre>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

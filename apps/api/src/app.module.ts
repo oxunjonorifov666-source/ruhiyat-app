@@ -9,6 +9,9 @@ import { RolesModule } from './roles/roles.module';
 import { PsychologistsModule } from './psychologists/psychologists.module';
 import { EducationCentersModule } from './education-centers/education-centers.module';
 import { CoursesModule } from './courses/courses.module';
+import { GroupsModule } from './groups/groups.module';
+import { EnrollmentsModule } from './enrollments/enrollments.module';
+import { PaymentsModule } from './payments/payments.module';
 import { AssessmentsModule } from './assessments/assessments.module';
 import { CommunicationModule } from './communication/communication.module';
 import { CommunityModule } from './community/community.module';
@@ -22,10 +25,16 @@ import { ModerationModule } from './moderation/moderation.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { HealthModule } from './health/health.module';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
+import { SecurityModule } from './security/security.module';
+import { MonetizationModule } from './monetization/monetization.module';
+import { MobileModule } from './mobile/mobile.module';
+import { ClickModule } from './integrations/click/click.module';
+import { PushModule } from './push/push.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    PushModule,
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     PrismaModule,
     HealthModule,
@@ -35,6 +44,9 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     PsychologistsModule,
     EducationCentersModule,
     CoursesModule,
+    GroupsModule,
+    EnrollmentsModule,
+    PaymentsModule,
     AssessmentsModule,
     CommunicationModule,
     CommunityModule,
@@ -46,6 +58,10 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     AdministratorsModule,
     ModerationModule,
     SessionsModule,
+    SecurityModule,
+    MonetizationModule,
+    MobileModule,
+    ClickModule,
   ],
   providers: [
     {

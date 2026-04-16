@@ -84,9 +84,9 @@ export function AppFooter() {
 
       <Separator />
 
-      <div className="px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-          <span>&copy; {new Date().getFullYear()} Ruhiyat. Barcha huquqlar himoyalangan.</span>
+      <div className="px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-2 border-t mt-4 border-muted">
+        <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-medium">
+          <span>Ruhiyat Superadmin &copy; 2026 Barcha huquqlar to'liq himoyalangan</span>
         </div>
         <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
           {user && (

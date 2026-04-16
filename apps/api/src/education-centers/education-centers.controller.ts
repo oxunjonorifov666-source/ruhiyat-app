@@ -1,37 +1,26 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { EducationCentersService } from './education-centers.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { TenantGuard } from '../auth/guards/tenant.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { PrismaService } from '../prisma/prisma.service';
+import { AuthUser } from '@ruhiyat/types';
 
 @Controller('education-centers')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, TenantGuard)
 export class EducationCentersController {
-  constructor(
-    private readonly service: EducationCentersService,
-    private readonly prisma: PrismaService,
-  ) {}
-
-  private async verifyCenterAccess(userId: number, role: string, centerId: number): Promise<void> {
-    if (role === 'SUPERADMIN') return;
-    if (role === 'ADMINISTRATOR') {
-      const admin = await this.prisma.administrator.findFirst({
-        where: { userId, centerId },
-      });
-      if (!admin) throw new ForbiddenException("Siz ushbu markazga kirishga ruxsatingiz yo'q");
-    }
-  }
+  constructor(private readonly service: EducationCentersService) {}
 
   @Get()
   @Permissions('centers.read')
   findAll(
+    @CurrentUser() requester: AuthUser,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
   ) {
-    return this.service.findAll({
+    return this.service.findAll(requester, {
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
       search,
@@ -40,90 +29,103 @@ export class EducationCentersController {
 
   @Get(':id')
   @Permissions('centers.read')
-  findOne(@Param('id', ParseIntPipe) id: number) { return this.service.findOne(id); }
+  findOne(
+    @CurrentUser() requester: AuthUser,
+    @Param('id', ParseIntPipe) id: number
+  ) { 
+    return this.service.findOne(requester, id); 
+  }
 
   @Post()
   @Permissions('centers.write')
-  create(@Body() data: any) { return this.service.create(data); }
+  create(
+    @CurrentUser() requester: AuthUser,
+    @Body() data: any
+  ) { 
+    return this.service.create(requester, data); 
+  }
 
   @Patch(':id')
   @Permissions('centers.write')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: any,
-    @CurrentUser() currentUser: { userId: number; role: string },
+    @CurrentUser() requester: AuthUser,
   ) {
-    await this.verifyCenterAccess(currentUser.userId, currentUser.role, id);
-    return this.service.update(id, data);
+    return this.service.update(requester, id, data);
   }
 
   @Delete(':id')
   @Permissions('centers.delete')
-  remove(@Param('id', ParseIntPipe) id: number) { return this.service.remove(id); }
+  remove(
+    @CurrentUser() requester: AuthUser,
+    @Param('id', ParseIntPipe) id: number
+  ) { 
+    return this.service.remove(requester, id); 
+  }
 
   @Get(':id/staff')
   @Permissions('centers.read')
   async getStaff(
     @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() requester: AuthUser,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
-    @CurrentUser() currentUser?: { userId: number; role: string },
   ) {
-    if (currentUser) await this.verifyCenterAccess(currentUser.userId, currentUser.role, id);
-    return this.service.getStaff(id, { page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
+    return this.service.getStaff(requester, id, { 
+      page: page ? parseInt(page) : undefined, 
+      limit: limit ? parseInt(limit) : undefined, 
+      search 
+    });
   }
 
   @Get(':id/students')
   @Permissions('centers.read')
   async getStudents(
     @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() requester: AuthUser,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
-    @CurrentUser() currentUser?: { userId: number; role: string },
   ) {
-    if (currentUser) await this.verifyCenterAccess(currentUser.userId, currentUser.role, id);
-    return this.service.getStudents(id, { page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
+    return this.service.getStudents(requester, id, { 
+      page: page ? parseInt(page) : undefined, 
+      limit: limit ? parseInt(limit) : undefined, 
+      search 
+    });
   }
 
   @Get(':id/teachers')
   @Permissions('centers.read')
   async getTeachers(
     @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() requester: AuthUser,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
-    @CurrentUser() currentUser?: { userId: number; role: string },
   ) {
-    if (currentUser) await this.verifyCenterAccess(currentUser.userId, currentUser.role, id);
-    return this.service.getTeachers(id, { page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
+    return this.service.getTeachers(requester, id, { 
+      page: page ? parseInt(page) : undefined, 
+      limit: limit ? parseInt(limit) : undefined, 
+      search 
+    });
   }
 
   @Get(':id/courses')
   @Permissions('centers.read')
   async getCourses(
     @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() requester: AuthUser,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
-    @CurrentUser() currentUser?: { userId: number; role: string },
   ) {
-    if (currentUser) await this.verifyCenterAccess(currentUser.userId, currentUser.role, id);
-    return this.service.getCourses(id, { page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
-  }
-
-  @Get(':id/groups')
-  @Permissions('centers.read')
-  async getGroups(
-    @Param('id', ParseIntPipe) id: number,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('search') search?: string,
-    @CurrentUser() currentUser?: { userId: number; role: string },
-  ) {
-    if (currentUser) await this.verifyCenterAccess(currentUser.userId, currentUser.role, id);
-    return this.service.getGroups(id, { page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
+    return this.service.getCourses(requester, id, { 
+      page: page ? parseInt(page) : undefined, 
+      limit: limit ? parseInt(limit) : undefined, 
+      search 
+    });
   }
 
   @Post(':id/students')
@@ -131,10 +133,30 @@ export class EducationCentersController {
   async createStudent(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: any,
-    @CurrentUser() currentUser: { userId: number; role: string },
+    @CurrentUser() requester: AuthUser,
   ) {
-    await this.verifyCenterAccess(currentUser.userId, currentUser.role, id);
-    return this.service.createStudent(id, data);
+    return this.service.createStudent(requester, id, data);
+  }
+
+  @Patch(':id/students/:sid')
+  @Permissions('centers.write')
+  async updateStudent(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('sid', ParseIntPipe) sid: number,
+    @Body() data: any,
+    @CurrentUser() requester: AuthUser,
+  ) {
+    return this.service.updateStudent(requester, id, sid, data);
+  }
+
+  @Delete(':id/students/:sid')
+  @Permissions('centers.delete')
+  async deleteStudent(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('sid', ParseIntPipe) sid: number,
+    @CurrentUser() requester: AuthUser,
+  ) {
+    return this.service.deleteStudent(requester, id, sid);
   }
 
   @Post(':id/teachers')
@@ -142,10 +164,30 @@ export class EducationCentersController {
   async createTeacher(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: any,
-    @CurrentUser() currentUser: { userId: number; role: string },
+    @CurrentUser() requester: AuthUser,
   ) {
-    await this.verifyCenterAccess(currentUser.userId, currentUser.role, id);
-    return this.service.createTeacher(id, data);
+    return this.service.createTeacher(requester, id, data);
+  }
+
+  @Patch(':id/teachers/:tid')
+  @Permissions('centers.write')
+  async updateTeacher(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('tid', ParseIntPipe) tid: number,
+    @Body() data: any,
+    @CurrentUser() requester: AuthUser,
+  ) {
+    return this.service.updateTeacher(requester, id, tid, data);
+  }
+
+  @Delete(':id/teachers/:tid')
+  @Permissions('centers.delete')
+  async deleteTeacher(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('tid', ParseIntPipe) tid: number,
+    @CurrentUser() requester: AuthUser,
+  ) {
+    return this.service.deleteTeacher(requester, id, tid);
   }
 
   @Post(':id/courses')
@@ -153,20 +195,8 @@ export class EducationCentersController {
   async createCourse(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: any,
-    @CurrentUser() currentUser: { userId: number; role: string },
+    @CurrentUser() requester: AuthUser,
   ) {
-    await this.verifyCenterAccess(currentUser.userId, currentUser.role, id);
-    return this.service.createCourse(id, data);
-  }
-
-  @Post(':id/groups')
-  @Permissions('centers.write')
-  async createGroup(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() data: any,
-    @CurrentUser() currentUser: { userId: number; role: string },
-  ) {
-    await this.verifyCenterAccess(currentUser.userId, currentUser.role, id);
-    return this.service.createGroup(id, data);
+    return this.service.createCourse(requester, id, data);
   }
 }

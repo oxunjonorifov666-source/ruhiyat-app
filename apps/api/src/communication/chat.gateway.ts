@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { Logger } from '@nestjs/common';
+import { PushNotificationService } from '../push/push-notification.service';
 
 interface AuthSocket extends Socket {
   userId?: number;
@@ -33,6 +34,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly jwt: JwtService,
     private readonly prisma: PrismaService,
+    private readonly pushNotification: PushNotificationService,
   ) {}
 
   async handleConnection(client: AuthSocket) {
@@ -52,7 +54,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         where: { userId: payload.sub },
         select: { chatId: true },
       });
-      chats.forEach((c) => client.join(`chat:${c.chatId}`));
+      chats.forEach((c: any) => client.join(`chat:${c.chatId}`));
       this.server.emit('userOnline', { userId: payload.sub });
       this.logger.log(`User ${payload.sub} connected`);
     } catch {
@@ -107,6 +109,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data: { updatedAt: new Date() },
     });
 
+    void this.pushNotification
+      .notifyAfterChatMessage({
+        chatId: data.chatId,
+        senderId: client.userId,
+        content: message.content,
+        type: message.type,
+        attachmentUrl: message.attachmentUrl,
+        sender: message.sender,
+      })
+      .catch(() => undefined);
+
     this.server.to(`chat:${data.chatId}`).emit('newMessage', message);
     return message;
   }
@@ -144,13 +157,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     if (!client.userId) return;
     if (!(await this.isParticipantOrAdmin(data.chatId, client))) return;
-    await this.prisma.message.updateMany({
-      where: {
-        chatId: data.chatId,
-        senderId: { not: client.userId },
-        isRead: false,
-      },
-      data: { isRead: true },
+    const row = await this.prisma.chatParticipant.findUnique({
+      where: { chatId_userId: { chatId: data.chatId, userId: client.userId } },
+    });
+    if (!row) return;
+    await this.prisma.chatParticipant.update({
+      where: { chatId_userId: { chatId: data.chatId, userId: client.userId } },
+      data: { lastReadAt: new Date() },
     });
     this.server.to(`chat:${data.chatId}`).emit('messagesRead', {
       chatId: data.chatId,

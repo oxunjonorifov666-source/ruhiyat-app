@@ -13,8 +13,16 @@ export class ContentController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('published') published?: string,
+    @Query('category') category?: string,
   ) {
-    return this.service.findAllArticles({ page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
+    return this.service.findAllArticles({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+      publishedOnly: published === 'true',
+      category,
+    });
   }
   @Get('articles/:id')
   findArticle(@Param('id', ParseIntPipe) id: number) { return this.service.findArticle(id); }
@@ -32,7 +40,9 @@ export class ContentController {
   removeArticle(@Param('id', ParseIntPipe) id: number) { return this.service.removeArticle(id); }
 
   @Get('banners')
-  findAllBanners() { return this.service.findAllBanners(); }
+  findAllBanners(@Query('activeOnly') activeOnly?: string) {
+    return this.service.findAllBanners({ activeOnly: activeOnly === 'true' });
+  }
   @Post('banners')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('content.write')
@@ -51,8 +61,14 @@ export class ContentController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('published') published?: string,
   ) {
-    return this.service.findAllAudio({ page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
+    return this.service.findAllAudio({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+      publishedOnly: published === 'true',
+    });
   }
   @Get('audio/:id')
   findAudio(@Param('id', ParseIntPipe) id: number) { return this.service.findAudio(id); }
@@ -74,8 +90,14 @@ export class ContentController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('published') published?: string,
   ) {
-    return this.service.findAllVideos({ page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined, search });
+    return this.service.findAllVideos({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+      publishedOnly: published === 'true',
+    });
   }
   @Get('videos/:id')
   findVideo(@Param('id', ParseIntPipe) id: number) { return this.service.findVideo(id); }
@@ -125,7 +147,9 @@ export class ContentController {
   removeProjectiveMethod(@Param('id', ParseIntPipe) id: number) { return this.service.removeProjectiveMethod(id); }
 
   @Get('trainings')
-  findAllTrainings() { return this.service.findAllTrainings(); }
+  findAllTrainings(@Query('published') published?: string) {
+    return this.service.findAllTrainings({ publishedOnly: published === 'true' });
+  }
   @Get('trainings/:id')
   findTraining(@Param('id', ParseIntPipe) id: number) { return this.service.findTraining(id); }
   @Post('trainings')

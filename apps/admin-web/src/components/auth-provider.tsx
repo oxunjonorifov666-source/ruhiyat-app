@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const data = await fetchMe(tokens.accessToken)
-        if (data.user.role !== 'ADMINISTRATOR') {
+        if (data.user.role !== 'ADMINISTRATOR' && data.user.role !== 'SUPERADMIN') {
           clearTokens()
           setIsLoading(false)
           return
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const newTokens = await refreshTokenApi(tokens.refreshToken)
           storeTokens(newTokens.accessToken, newTokens.refreshToken)
           const data = await fetchMe(newTokens.accessToken)
-          if (data.user.role !== 'ADMINISTRATOR') {
+          if (data.user.role !== 'ADMINISTRATOR' && data.user.role !== 'SUPERADMIN') {
             clearTokens()
             setIsLoading(false)
             return

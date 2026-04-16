@@ -345,7 +345,7 @@ export default function AdministratorsPage() {
       <PageHeader
         title="Administratorlar"
         description="Ta'lim markaz administratorlarini boshqarish"
-        action={
+        actions={
           <Button onClick={() => { setCreateOpen(true); setActionError(null) }}>
             <UserPlus className="mr-2 size-4" />Yangi administrator
           </Button>
@@ -354,9 +354,9 @@ export default function AdministratorsPage() {
 
       <StatsGrid>
         <StatsCard title="Jami markazlar" value={stats?.total ?? "—"} icon={Building2} />
-        <StatsCard title="Faol markazlar" value={stats?.active ?? "—"} icon={CheckCircle2} variant="success" />
-        <StatsCard title="Nofaol markazlar" value={stats?.inactive ?? "—"} icon={XCircle} variant="warning" />
-        <StatsCard title="Premium markazlar" value={stats?.premium ?? "—"} icon={Crown} variant="info" />
+        <StatsCard title="Faol markazlar" value={stats?.active ?? "—"} icon={CheckCircle2} iconColor="bg-emerald-500/10 text-emerald-600" />
+        <StatsCard title="Nofaol markazlar" value={stats?.inactive ?? "—"} icon={XCircle} iconColor="bg-amber-500/10 text-amber-600" />
+        <StatsCard title="Premium markazlar" value={stats?.premium ?? "—"} icon={Crown} iconColor="bg-sky-500/10 text-sky-600" />
       </StatsGrid>
 
       <Card>

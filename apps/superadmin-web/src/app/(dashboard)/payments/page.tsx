@@ -24,6 +24,10 @@ interface Payment {
   currency: string
   status: string
   method: string
+  kind?: string
+  platformFeePercent?: number | null
+  platformFeeAmount?: number | null
+  netAmount?: number | null
   provider: string | null
   providerPaymentId: string | null
   description: string | null
@@ -67,17 +71,27 @@ const methodLabels: Record<string, string> = {
   TRANSFER: "O'tkazma",
 }
 
+const kindLabels: Record<string, string> = {
+  SESSION: "Seans",
+  MOBILE_PREMIUM: "Mobil Premium",
+  CENTER_SUBSCRIPTION: "Markaz obunasi",
+  OTHER: "Boshqa",
+}
+
 function formatMoney(amount: number, currency = "UZS") {
   return `${amount.toLocaleString("uz-UZ")} ${currency}`
 }
 
 function exportCSV(data: Payment[]) {
-  const headers = ["ID", "Foydalanuvchi", "Summa", "Valyuta", "Holat", "Usul", "Tavsif", "Sana"]
+  const headers = ["ID", "Foydalanuvchi", "Summa", "Valyuta", "Turi", "Komissiya", "Sof tushum", "Holat", "Usul", "Tavsif", "Sana"]
   const rows = data.map(p => [
     p.id,
     p.user?.firstName ? `${p.user.firstName} ${p.user.lastName || ""}` : p.user?.email || "",
     p.amount,
     p.currency,
+    kindLabels[p.kind || ""] || p.kind || "",
+    p.platformFeeAmount ?? "",
+    p.netAmount ?? "",
     statusLabels[p.status] || p.status,
     methodLabels[p.method] || p.method,
     p.description || "",
@@ -173,6 +187,40 @@ export default function PaymentsPage() {
       key: "amount",
       title: "Summa",
       render: (p: Payment) => <span className="font-medium">{formatMoney(p.amount, p.currency)}</span>,
+    },
+    {
+      key: "kind",
+      title: "Turi",
+      render: (p: Payment) => (
+        <Badge variant="outline" className="font-normal">
+          {kindLabels[p.kind || ""] || p.kind || "—"}
+        </Badge>
+      ),
+    },
+    {
+      key: "platformFeeAmount",
+      title: "Komissiya",
+      render: (p: Payment) =>
+        p.platformFeeAmount != null && p.platformFeeAmount > 0 ? (
+          <span className="text-sm tabular-nums text-emerald-700 dark:text-emerald-400">
+            {formatMoney(p.platformFeeAmount, p.currency)}
+            {p.platformFeePercent != null ? (
+              <span className="text-muted-foreground ml-1">({p.platformFeePercent}%)</span>
+            ) : null}
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-sm">—</span>
+        ),
+    },
+    {
+      key: "netAmount",
+      title: "Sof",
+      render: (p: Payment) =>
+        p.netAmount != null ? (
+          <span className="text-sm tabular-nums">{formatMoney(p.netAmount, p.currency)}</span>
+        ) : (
+          <span className="text-muted-foreground text-sm">—</span>
+        ),
     },
     {
       key: "method",
@@ -344,6 +392,9 @@ export default function PaymentsPage() {
                   <div><p className="text-xs text-muted-foreground">Holat</p><Badge variant={statusColors[selectedPayment.status] || "secondary"}>{statusLabels[selectedPayment.status] || selectedPayment.status}</Badge></div>
                   <div><p className="text-xs text-muted-foreground">Summa</p><p className="font-medium text-lg">{formatMoney(selectedPayment.amount, selectedPayment.currency)}</p></div>
                   <div><p className="text-xs text-muted-foreground">Usul</p><p className="font-medium">{methodLabels[selectedPayment.method] || selectedPayment.method}</p></div>
+                  <div><p className="text-xs text-muted-foreground">To‘lov turi</p><p className="font-medium">{kindLabels[selectedPayment.kind || ""] || selectedPayment.kind || "—"}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Platforma komissiyasi</p><p className="font-medium">{selectedPayment.platformFeeAmount != null ? formatMoney(selectedPayment.platformFeeAmount, selectedPayment.currency) : "—"}{selectedPayment.platformFeePercent != null ? ` (${selectedPayment.platformFeePercent}%)` : ""}</p></div>
+                  <div className="col-span-2"><p className="text-xs text-muted-foreground">Sof tushum (markaz / qabul qiluvchi)</p><p className="font-medium">{selectedPayment.netAmount != null ? formatMoney(selectedPayment.netAmount, selectedPayment.currency) : "—"}</p></div>
                 </div>
               </div>
               <Separator />

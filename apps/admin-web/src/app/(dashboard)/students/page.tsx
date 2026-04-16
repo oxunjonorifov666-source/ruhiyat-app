@@ -1,15 +1,28 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { apiClient, PaginatedResponse } from "@/lib/api-client"
 import { DataTable } from "@/components/data-table"
+import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { Plus, MoreHorizontal, Edit, Eye, Trash2, UserPlus, Mail, Phone, Calendar, ShieldCheck, ShieldAlert, Loader2, Users } from "lucide-react"
+import { RoleGuard } from "@/components/role-guard"
+import { buildCenterEndpoint } from "@/lib/endpoints"
+import { PageHeader } from "@/components/page-header"
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetDescription, 
+  SheetHeader, 
+  SheetTitle,
+  SheetFooter
+} from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 
 interface Student {
   id: number
@@ -19,87 +32,300 @@ interface Student {
   phone: string | null
   isActive: boolean
   createdAt: string
-  enrollments?: { id: number; course: { name: string } }[]
+  dateOfBirth: string | null
+  enrollments?: { id: number; course: { title: string } }[]
 }
 
 export default function StudentsPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const centerId = user?.administrator?.centerId
+  
   const [data, setData] = useState<Student[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  
+  // Form state
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    dateOfBirth: "",
+    isActive: true
+  })
 
   const fetchData = useCallback(async () => {
-    if (!centerId) return
+    if (!centerId && user?.role !== "SUPERADMIN") return
     setLoading(true); setError(null)
     try {
-      const res = await apiClient<PaginatedResponse<Student>>(`/education-centers/${centerId}/students`, {
-        params: { page, limit: 20, search },
+      const endpoint = buildCenterEndpoint("students", centerId)
+      const res = await apiClient<any>(endpoint, {
+        params: { page, limit: 15, search }
       })
-      setData(res.data); setTotal(res.total)
+      const respData = res.data || (Array.isArray(res) ? res : [])
+      const respTotal = res.total ?? (Array.isArray(res) ? res.length : 0)
+      setData(respData); setTotal(respTotal)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
   }, [centerId, page, search])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); setSaving(true)
-    const fd = new FormData(e.currentTarget)
-    try {
-      await apiClient(`/education-centers/${centerId}/students`, {
-        method: "POST",
-        body: { firstName: fd.get("firstName"), lastName: fd.get("lastName"), email: fd.get("email") || null, phone: fd.get("phone") || null },
+  const openForm = (student: Student | null = null) => {
+    if (student) {
+      setSelectedStudent(student)
+      setForm({
+        firstName: student.firstName || "",
+        lastName: student.lastName || "",
+        email: student.email || "",
+        phone: student.phone || "",
+        dateOfBirth: student.dateOfBirth ? student.dateOfBirth.split('T')[0] : "",
+        isActive: student.isActive
       })
-      setDialogOpen(false); fetchData()
-    } catch (e: any) { alert(e.message) }
-    finally { setSaving(false) }
+    } else {
+      setSelectedStudent(null)
+      setForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        dateOfBirth: "",
+        isActive: true
+      })
+    }
+    setIsSheetOpen(true)
   }
 
-  if (!centerId) return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!centerId) return
+    setSaving(true)
+    try {
+      const endpoint = buildCenterEndpoint("students", centerId)
+      if (selectedStudent) {
+        await apiClient(`${endpoint}/${selectedStudent.id}`, {
+          method: "PATCH",
+          body: form
+        })
+      } else {
+        await apiClient(endpoint, {
+          method: "POST",
+          body: form
+        })
+      }
+      setIsSheetOpen(false)
+      fetchData()
+    } catch (e: any) {
+      alert(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: number) => {
+    if (!centerId || !confirm("Haqiqatan ham ushbu o'quvchini o'chirmoqchimisiz?")) return
+    try {
+      const endpoint = buildCenterEndpoint("students", centerId)
+      await apiClient(`${endpoint}/${id}`, { method: "DELETE" })
+      fetchData()
+    } catch (e: any) {
+      alert(e.message)
+    }
+  }
 
   const columns = [
     {
-      key: "name", title: "Ism",
+      key: "name", 
+      title: "O'quvchi",
       render: (s: Student) => (
-        <div>
-          <span className="font-medium">{s.firstName && s.lastName ? `${s.firstName} ${s.lastName}` : s.email || s.phone || `#${s.id}`}</span>
-          <div className="text-xs text-muted-foreground">{s.email || s.phone || ""}</div>
+        <div className="flex flex-col">
+          <span className="font-medium text-sm">
+            {s.firstName || s.lastName ? `${s.firstName || ''} ${s.lastName || ''}`.trim() : "Ismsiz"}
+          </span>
+          <div className="flex items-center gap-2 mt-1">
+            {s.email && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Mail size={10} />{s.email}</span>}
+            {s.phone && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Phone size={10} />{s.phone}</span>}
+          </div>
         </div>
       ),
     },
-    { key: "isActive", title: "Holat", render: (s: Student) => <Badge variant={s.isActive ? "default" : "secondary"}>{s.isActive ? "Faol" : "Nofaol"}</Badge> },
-    { key: "createdAt", title: "Qo'shilgan sana", render: (s: Student) => new Date(s.createdAt).toLocaleDateString("uz-UZ") },
+    { 
+      key: "courses", 
+      title: "Kurslar", 
+      render: (s: Student) => (
+        <div className="flex flex-wrap gap-1">
+          {s.enrollments && s.enrollments.length > 0 ? (
+            s.enrollments.map((e, i) => (
+              <Badge key={i} variant="outline" className="text-[10px] py-0 h-5 font-normal">
+                {e.course.title}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-xs text-muted-foreground">Kurslar yo'q</span>
+          )}
+        </div>
+      )
+    },
+    { 
+      key: "isActive", 
+      title: "Holat", 
+      render: (s: Student) => (
+        <Badge 
+          variant="outline" 
+          className={s.isActive ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-slate-50 text-slate-600 border-slate-200"}
+        >
+          {s.isActive ? "Faol" : "Nofaol"}
+        </Badge>
+      ) 
+    },
+    { 
+      key: "createdAt", 
+      title: "Qo'shilgan", 
+      render: (s: Student) => (
+        <span className="text-xs text-muted-foreground flex items-center gap-1">
+          <Calendar size={12} />
+          {new Date(s.createdAt).toLocaleDateString("uz-UZ")}
+        </span>
+      )
+    },
+    { 
+      key: "actions", 
+      title: "", 
+      render: (s: Student) => (
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="size-8 p-0"><MoreHorizontal className="size-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => openForm(s)}><Edit className="mr-2 size-4" /> Tahrirlash</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push(`/students/${s.id}`)}><Eye className="mr-2 size-4" /> Ma'lumotlar</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleDelete(s.id)} className="text-red-600"><Trash2 className="mr-2 size-4" /> O'chirish</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )
+    }
   ]
 
+  if (!centerId && user?.role !== "SUPERADMIN") return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+
   return (
-    <DataTable
-      title="O'quvchilar" description="Markaz o'quvchilarini boshqarish"
-      columns={columns} data={data} total={total} page={page} limit={20}
-      loading={loading} error={error} searchPlaceholder="O'quvchi qidirish..."
-      onPageChange={setPage} onSearch={setSearch}
-      headerAction={
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild><Button><Plus className="size-4 mr-2" />Yangi o'quvchi</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Yangi o'quvchi qo'shish</DialogTitle></DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label>Ism</Label><Input name="firstName" required /></div>
-                <div><Label>Familiya</Label><Input name="lastName" required /></div>
+    <div className="space-y-6">
+      <PageHeader
+        title="O'quvchilar"
+        description="Markaz o'quvchilari va ularning kurslardagi ishtirokini boshqaring"
+        icon={Users}
+        actions={[
+          { label: "Yangi o'quvchi", icon: UserPlus, onClick: () => openForm() }
+        ]}
+      />
+
+      <DataTable
+        columns={columns}
+        data={data}
+        total={total}
+        page={page}
+        limit={15}
+        loading={loading}
+        error={error}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        searchPlaceholder="Ism, telefon yoki email bo'yicha qidirish..."
+      />
+
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{selectedStudent ? "O'quvchini tahrirlash" : "Yangi o'quvchi qo'shish"}</SheetTitle>
+            <SheetDescription>
+              O'quvchining shaxsiy ma'lumotlarini kiriting.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleSave} className="space-y-5 mt-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Ism</Label>
+                <Input 
+                  id="firstName" 
+                  value={form.firstName} 
+                  onChange={(e) => setForm({...form, firstName: e.target.value})} 
+                  required 
+                />
               </div>
-              <div><Label>Email</Label><Input name="email" type="email" /></div>
-              <div><Label>Telefon</Label><Input name="phone" placeholder="+998..." /></div>
-              <Button type="submit" disabled={saving} className="w-full">{saving ? "Saqlanmoqda..." : "Saqlash"}</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      }
-    />
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Familiya</Label>
+                <Input 
+                  id="lastName" 
+                  value={form.lastName} 
+                  onChange={(e) => setForm({...form, lastName: e.target.value})} 
+                  required 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email manzili</Label>
+              <Input 
+                id="email" 
+                type="email"
+                value={form.email} 
+                onChange={(e) => setForm({...form, email: e.target.value})} 
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefon raqami</Label>
+              <Input 
+                id="phone" 
+                value={form.phone} 
+                onChange={(e) => setForm({...form, phone: e.target.value})} 
+                placeholder="+998"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dob">Tug'ilgan sana</Label>
+              <Input 
+                id="dob" 
+                type="date"
+                value={form.dateOfBirth} 
+                onChange={(e) => setForm({...form, dateOfBirth: e.target.value})} 
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+              <div className="space-y-0.5">
+                <Label>Faollik holati</Label>
+                <p className="text-[10px] text-muted-foreground">O'quvchi tizimda faolmi?</p>
+              </div>
+              <Switch 
+                checked={form.isActive} 
+                onCheckedChange={(v: boolean) => setForm({...form, isActive: v})} 
+              />
+            </div>
+
+            <SheetFooter className="mt-8">
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)} className="flex-1">
+                Bekor qilish
+              </Button>
+              <Button type="submit" disabled={saving} className="flex-1">
+                {saving && <Loader2 className="size-4 animate-spin mr-2" />}
+                {selectedStudent ? "Yangilash" : "Qo'shish"}
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
+    </div>
   )
 }

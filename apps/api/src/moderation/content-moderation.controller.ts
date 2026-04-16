@@ -48,4 +48,14 @@ export class ContentModerationController {
   hide(@Param('id', ParseIntPipe) id: number, @Body() data: ModerationActionDto, @CurrentUser() user: any) {
     return this.service.hide(id, user.userId, data.moderatorNote);
   }
+
+  @Patch(':id/delete')
+  @Permissions('content.moderate')
+  delete(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: ModerationActionDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.service.deleteContent(id, user.userId, data.moderatorNote);
+  }
 }

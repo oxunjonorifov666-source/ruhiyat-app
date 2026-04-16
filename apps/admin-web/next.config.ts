@@ -1,7 +1,8 @@
 import type { NextConfig } from 'next';
 
 const isReplit = !!process.env.REPLIT_DEV_DOMAIN;
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// `apps/api/.env` PORT bilan mos (odatda 3001)
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 const nextConfig: NextConfig = {
   ...(isReplit ? { basePath: '/admin' } : {}),
@@ -25,6 +26,10 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
+      },
+      {
+        source: '/admin/api/:path*',
         destination: `${apiUrl}/api/:path*`,
       },
     ];

@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { Building2, Eye, EyeOff, AlertCircle } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,7 +14,6 @@ export default function LoginPage() {
   const [error, setError] = React.useState("")
   const [identifier, setIdentifier] = React.useState("")
   const [password, setPassword] = React.useState("")
-  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -25,14 +23,15 @@ export default function LoginPage() {
     try {
       const data = await loginApi(identifier, password)
 
-      if (data.user.role !== "ADMINISTRATOR") {
+      if (data.user.role !== "ADMINISTRATOR" && data.user.role !== "SUPERADMIN") {
         setError("Faqat administratorlar kirishi mumkin")
         setLoading(false)
         return
       }
 
       storeTokens(data.accessToken, data.refreshToken)
-      router.push("/dashboard")
+      // To‘liq sahifa o‘tishi kerak: middleware cookie’ni keyingi so‘rovda ko‘radi (client-side router.push ba’zan yetishmaydi)
+      window.location.assign("/dashboard")
     } catch (err: any) {
       setError(err.message || "Kirish xatoligi yuz berdi")
       setLoading(false)

@@ -9,6 +9,8 @@ import { StatsCard, StatsGrid } from "@/components/stats-card"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Separator } from "@/components/ui/separator"
+import { useAuth } from "@/components/auth-provider"
+import { buildCenterEndpoint } from "@/lib/endpoints"
 
 interface Test {
   id: number
@@ -27,6 +29,8 @@ const difficultyLabels: Record<string, string> = {
 }
 
 export default function TestsPage() {
+  const { user } = useAuth()
+  const centerId = user?.administrator?.centerId
   const [data, setData] = useState<Test[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -34,22 +38,26 @@ export default function TestsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Test | null>(null)
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({})
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const res = await apiClient<PaginatedResponse<Test>>("/tests", {
-        params: { page, limit: 20, search },
+      const endpoint = buildCenterEndpoint("tests", centerId, false)
+      const res = await apiClient<any>(endpoint, {
+        params: { page, limit: 20, search, difficulty: activeFilters.difficulty !== "all" ? activeFilters.difficulty : undefined },
       })
-      setData(res.data); setTotal(res.total)
+      const respData = res.data || (Array.isArray(res) ? res : [])
+      const respTotal = res.total ?? (Array.isArray(res) ? res.length : 0)
+      setData(respData); setTotal(respTotal)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
-  }, [page, search])
+  }, [centerId, page, search, activeFilters])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   const totalTests = total
-  const publishedTests = data.filter(t => t.isPublished).length
+  const publishedTests = (data || []).filter(t => t.isPublished).length
   const totalQuestions = data.reduce((sum, t) => sum + (t._count?.questions || 0), 0)
   const totalResults = data.reduce((sum, t) => sum + (t._count?.results || 0), 0)
 
@@ -90,7 +98,12 @@ export default function TestsPage() {
         title="Testlar ro'yxati" description="Barcha psixologik testlar"
         columns={columns} data={data} total={total} page={page} limit={20}
         loading={loading} error={error} searchPlaceholder="Test qidirish..."
-        onPageChange={setPage} onSearch={setSearch}
+        onPageChange={setPage} onSearchChange={setSearch}
+        activeFilters={activeFilters}
+        onFilterChange={(f, v) => setActiveFilters(prev => ({ ...prev, [f]: v }))}
+        filterFields={[
+          { id: "difficulty", placeholder: "Qiyinlik", options: [{ label: "Oson", value: "EASY" }, { label: "O'rta", value: "MEDIUM" }, { label: "Qiyin", value: "HARD" }] }
+        ]}
       />
 
       <Sheet open={!!selected} onOpenChange={() => setSelected(null)}>

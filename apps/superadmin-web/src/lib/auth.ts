@@ -1,6 +1,7 @@
 import { TOKEN_KEYS } from '@ruhiyat/config';
 
-const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/superadmin/api';
+// Relativ `/api`: Next rewrites → NEXT_PUBLIC_API_URL (default next.config da API origin bilan mos)
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
 const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl.replace(/\/+$/, '')}/api`;
 
 export interface AuthUser {
@@ -20,15 +21,41 @@ export interface LoginResponse {
 }
 
 export async function loginApi(email: string, password: string): Promise<LoginResponse> {
-  const res = await fetch(`${API_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
+  const path = `${API_URL}/auth/login`;
+  const url =
+    typeof window !== "undefined" && !path.startsWith("http")
+      ? new URL(path, window.location.origin).toString()
+      : path;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    const hint =
+      "Tarmoq xatosi: NestJS API ishlamayapti yoki noto‘g‘ri port. " +
+      "Terminalda `Asset-Linker/apps/api` ichida `pnpm dev` ni ishga tushiring (`.env` dagi PORT, odatda 3001). " +
+      "Keyin superadmin (`pnpm dev`, port 18344) ni qayta tekshiring.";
+    throw new Error(hint);
+  }
 
+  const ct = res.headers.get("content-type") || "";
   if (!res.ok) {
+    if (!ct.includes("application/json")) {
+      const snippet = await res.text().then((t) => t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180)).catch(() => "");
+      throw new Error(
+        `API ${res.status} (JSON emas — odatda Next → Nest proksi yoki API ishlamayapti). ` +
+          `1) Alohida terminalda: pnpm api:dev (PORT=3001). 2) Brauzerda tekshiring: http://127.0.0.1:3001/api/healthz ` +
+          `3) Superadminni qayta ishga tushiring. ` +
+          (snippet ? ` (${snippet}…)` : ""),
+      );
+    }
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.message || 'Kirish xatoligi');
+    const msg = error.message;
+    const text = Array.isArray(msg) ? msg[0] : typeof msg === 'string' ? msg : null;
+    throw new Error(text || 'Kirish xatoligi');
   }
 
   return res.json();

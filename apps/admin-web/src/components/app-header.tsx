@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Moon, Sun, RefreshCw, LogOut, User, Bell, Heart } from "lucide-react"
+import { Moon, Sun, RefreshCw, LogOut, User, Bell, Heart, CloudRain } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -43,7 +43,43 @@ function DateTime() {
     second: "2-digit",
   }).format(now)
 
-  return <span className="text-sm text-muted-foreground hidden md:block">{formatted}</span>
+  const datePart = new Intl.DateTimeFormat("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", weekday: "long" }).format(now)
+  const timePart = new Intl.DateTimeFormat("uz-UZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(now)
+
+  return (
+    <div className="flex flex-col md:flex-row md:gap-3 items-end md:items-center text-sm text-muted-foreground mr-4">
+      <span className="font-medium whitespace-nowrap capitalize">{datePart}</span>
+      <span className="text-xs md:text-sm font-bold whitespace-nowrap">{timePart}</span>
+    </div>
+  )
+}
+
+function WeatherWidget() {
+  const [temp, setTemp] = React.useState<number | null>(null)
+
+  React.useEffect(() => {
+    async function fetchWeather() {
+      try {
+        const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=41.2646&longitude=69.2163&current=temperature_2m")
+        const data = await res.json()
+        if (data?.current?.temperature_2m) {
+          setTemp(data.current.temperature_2m)
+        }
+      } catch (err) {
+        setTemp(22) // Mock fallback temp
+      }
+    }
+    fetchWeather()
+    const interval = setInterval(fetchWeather, 600000) // 10 minutes
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <div className="hidden lg:flex items-center gap-1.5 text-sm text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border">
+      <CloudRain className="size-4 text-blue-500" />
+      <span>Toshkent: {temp !== null ? `${temp}°C` : "--°C"}</span>
+    </div>
+  )
 }
 
 function getInitials(user: { firstName?: string | null; lastName?: string | null; email?: string | null } | null) {
@@ -147,6 +183,7 @@ export function AppHeader() {
       </div>
       <Separator orientation="vertical" className="mr-2 !h-4 hidden lg:block" />
       <DateTime />
+      <WeatherWidget />
       <div className="ml-auto flex items-center gap-1">
         <NotificationBell />
         <Button variant="ghost" size="icon" onClick={() => window.location.reload()}>

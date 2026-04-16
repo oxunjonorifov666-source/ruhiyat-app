@@ -14,6 +14,7 @@ interface PageHeaderAction {
 interface PageHeaderProps {
   title: string
   description?: string
+  subtitle?: string
   icon?: LucideIcon
   badge?: string
   badgeVariant?: "default" | "secondary" | "outline" | "destructive"
@@ -24,6 +25,7 @@ interface PageHeaderProps {
 export function PageHeader({
   title,
   description,
+  subtitle,
   icon: Icon,
   badge: badgeText,
   badgeVariant = "secondary",
@@ -44,8 +46,8 @@ export function PageHeader({
               <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
               {badgeText && <Badge variant={badgeVariant}>{badgeText}</Badge>}
             </div>
-            {description && (
-              <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+            {(description || subtitle) && (
+              <p className="text-sm text-muted-foreground mt-0.5">{description || subtitle}</p>
             )}
           </div>
         </div>

@@ -33,4 +33,12 @@ export class VerifyOtpDto {
   @IsString()
   @IsIn(OTP_PURPOSES, { message: "Noto'g'ri maqsad turi" })
   purpose: string;
+
+  @IsOptional()
+  @IsString()
+  ipAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  deviceInfo?: string;
 }

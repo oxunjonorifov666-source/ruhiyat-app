@@ -5,7 +5,7 @@ import {
   GraduationCap, Calendar, CalendarCheck, History, Activity, AlertTriangle, CreditCard,
   DollarSign, ArrowLeftRight, PieChart, Settings, Smartphone, Lock,
   ScrollText, Plug, Monitor, Key, UserCheck, Flag, Ban, Eye,
-  TrendingUp, type LucideIcon
+  TrendingUp, Wallet, type LucideIcon
 } from 'lucide-react';
 
 export interface NavItem {
@@ -62,7 +62,9 @@ export const superadminNavGroups: NavGroup[] = [
       { title: 'Affirmatsiyalar', href: '/affirmations', icon: Heart, permission: 'content.write' },
       { title: 'Proyektiv metodikalar', href: '/projective-methods', icon: Puzzle, permission: 'content.write' },
       { title: 'Psixologik testlar', href: '/tests', icon: ClipboardList, permission: 'assessments.read' },
+      { title: 'Test natijalari', href: '/tests/results', icon: BarChart3, permission: 'assessments.read' },
       { title: 'Treninglar', href: '/trainings', icon: GraduationCap, permission: 'content.read' },
+      { title: 'AI Dilosh', href: '/ai-dilosh', icon: Brain, permission: 'system.settings' },
     ],
   },
   {
@@ -90,6 +92,7 @@ export const superadminNavGroups: NavGroup[] = [
       { title: 'Daromadlar', href: '/revenue', icon: DollarSign, permission: 'finance.read' },
       { title: 'Tranzaksiyalar', href: '/transactions', icon: ArrowLeftRight, permission: 'finance.read' },
       { title: 'Statistika', href: '/finance-statistics', icon: TrendingUp, permission: 'finance.read' },
+      { title: 'Monetizatsiya', href: '/monetization', icon: Wallet, permission: 'system.settings' },
     ],
   },
   {

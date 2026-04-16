@@ -2,8 +2,8 @@ import {
   LayoutDashboard, Users, GraduationCap, Brain, UserCog,
   BookOpen, UsersRound, CreditCard, FileText, PieChart,
   DollarSign, ArrowLeftRight, ClipboardList, BarChart3,
-  MessageSquare, Bell, CalendarCheck, History, Megaphone,
-  Settings, Shield, Lock, ScrollText, Plug,
+  MessageSquare, MessageSquareWarning, Bell, CalendarCheck, History, Megaphone,
+  Settings, Shield, Lock, Plug, Ban, EyeOff, Video, Activity, Layers,
   type LucideIcon
 } from 'lucide-react';
 
@@ -45,6 +45,7 @@ export const adminNavGroups: NavGroup[] = [
     label: 'MOLIYA',
     items: [
       { title: "To'lovlar", href: '/payments', icon: CreditCard },
+      { title: 'Tarif va limitlar', href: '/center-tariff', icon: Layers },
       { title: 'Hisobotlar', href: '/reports', icon: FileText },
       { title: 'Statistika', href: '/statistics', icon: PieChart },
       { title: 'Daromadlar', href: '/revenue', icon: DollarSign },
@@ -63,19 +64,23 @@ export const adminNavGroups: NavGroup[] = [
     items: [
       { title: 'Chat', href: '/chat', icon: MessageSquare },
       { title: 'Bildirishnomalar', href: '/notifications', icon: Bell },
+      { title: 'Shikoyatlar', href: '/complaints', icon: MessageSquareWarning },
     ],
   },
   {
     label: 'FAOLIYAT',
     items: [
+      { title: 'Seanslar', href: '/sessions', icon: Video },
+      { title: 'Seanslar tarixi', href: '/sessions/history', icon: History },
       { title: 'Uchrashuvlar', href: '/meetings', icon: CalendarCheck },
-      { title: 'Seanslar tarixi', href: '/sessions', icon: History },
+      { title: 'Faollik jurnali', href: '/audit-logs', icon: Activity },
     ],
   },
   {
     label: 'KONTENT',
     items: [
       { title: "E'lonlar", href: '/announcements', icon: Megaphone },
+      { title: 'Kontent nazorati', href: '/content-moderation', icon: EyeOff },
     ],
   },
   {
@@ -84,7 +89,7 @@ export const adminNavGroups: NavGroup[] = [
       { title: 'Markaz sozlamalari', href: '/center-settings', icon: Settings },
       { title: 'Xodim rollari', href: '/staff-roles', icon: Shield },
       { title: 'Xavfsizlik', href: '/security', icon: Lock },
-      { title: 'Audit loglari', href: '/audit-logs', icon: ScrollText },
+      { title: 'Bloklash', href: '/blocking', icon: Ban },
       { title: 'Integratsiyalar', href: '/integrations', icon: Plug },
     ],
   },

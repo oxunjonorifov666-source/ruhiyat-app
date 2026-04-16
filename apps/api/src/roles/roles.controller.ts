@@ -3,6 +3,8 @@ import { RolesService } from './roles.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser } from '@ruhiyat/types';
 
 @Controller('roles')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -11,23 +13,54 @@ export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Get()
-  findAll() { return this.rolesService.findAll(); }
+  @Permissions('centers.read')
+  findAll(@CurrentUser() user: AuthUser) { 
+    return this.rolesService.findAll(user); 
+  }
 
   @Post()
-  create(@Body() data: any) { return this.rolesService.create(data); }
+  @Permissions('centers.write')
+  create(@Body() data: any, @CurrentUser() user: AuthUser) { 
+    return this.rolesService.create(data, user); 
+  }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) { return this.rolesService.findOne(id); }
+  @Permissions('centers.read')
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) { 
+    return this.rolesService.findOne(id, user); 
+  }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.rolesService.update(id, data); }
+  @Permissions('centers.write')
+  update(@Param('id', ParseIntPipe) id: number, @Body() data: any, @CurrentUser() user: AuthUser) { 
+    return this.rolesService.update(id, data, user); 
+  }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) { return this.rolesService.remove(id); }
+  @Permissions('centers.delete')
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) { 
+    return this.rolesService.remove(id, user); 
+  }
 
   @Get(':id/permissions')
-  getPermissions(@Param('id', ParseIntPipe) id: number) { return this.rolesService.getPermissions(id); }
+  @Permissions('centers.read')
+  getPermissions(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) { 
+    return this.rolesService.getPermissions(id, user); 
+  }
 
   @Post(':id/permissions')
-  addPermission(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.rolesService.addPermission(id, data); }
+  @Permissions('centers.write')
+  addPermission(@Param('id', ParseIntPipe) id: number, @Body() data: any, @CurrentUser() user: AuthUser) { 
+    return this.rolesService.addPermission(id, data, user); 
+  }
+
+  @Delete(':id/permissions/:permissionId')
+  @Permissions('centers.write')
+  removePermission(
+    @Param('id', ParseIntPipe) id: number, 
+    @Param('permissionId', ParseIntPipe) permissionId: number,
+    @CurrentUser() user: AuthUser
+  ) { 
+    return this.rolesService.removePermission(id, permissionId, user); 
+  }
 }

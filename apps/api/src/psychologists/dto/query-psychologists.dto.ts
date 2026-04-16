@@ -18,6 +18,10 @@ export class QueryPsychologistsDto {
   specialization?: string;
 
   @IsOptional()
+  @IsNumberString()
+  centerId?: string;
+
+  @IsOptional()
   @IsIn(['PENDING', 'APPROVED', 'REJECTED'])
   status?: string;
 

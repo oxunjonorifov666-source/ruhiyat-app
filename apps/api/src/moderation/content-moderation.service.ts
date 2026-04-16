@@ -100,4 +100,43 @@ export class ContentModerationService {
       },
     });
   }
+
+  async deleteContent(id: number, userId: number, moderatorNote?: string) {
+    const item = await this.prisma.contentModeration.findUnique({ where: { id } });
+    if (!item) throw new NotFoundException('Kontent moderatsiya elementi topilmadi');
+
+    // Best-effort soft delete for known content types
+    await this.prisma.$transaction(async (tx) => {
+      const ct = (item.contentType || '').toLowerCase();
+      const cid = item.contentId;
+
+      if (ct === 'article') {
+        await tx.article.update({ where: { id: cid }, data: { isPublished: false } }).catch(() => {});
+      } else if (ct === 'banner') {
+        await tx.banner.update({ where: { id: cid }, data: { isActive: false } }).catch(() => {});
+      } else if (ct === 'video') {
+        await tx.videoContent.update({ where: { id: cid }, data: { isPublished: false } }).catch(() => {});
+      } else if (ct === 'audio') {
+        await tx.audioContent.update({ where: { id: cid }, data: { isPublished: false } }).catch(() => {});
+      } else if (ct === 'affirmation') {
+        await tx.affirmation.update({ where: { id: cid }, data: { isActive: false } }).catch(() => {});
+      } else if (ct === 'test') {
+        await tx.test.update({ where: { id: cid }, data: { isPublished: false } }).catch(() => {});
+      } else if (ct === 'training') {
+        await tx.training.update({ where: { id: cid }, data: { isPublished: false } }).catch(() => {});
+      }
+
+      await tx.contentModeration.update({
+        where: { id },
+        data: {
+          status: 'HIDDEN',
+          moderatorId: userId,
+          moderatorNote: moderatorNote ? `[DELETE] ${moderatorNote}` : '[DELETE]',
+          reviewedAt: new Date(),
+        },
+      });
+    });
+
+    return this.prisma.contentModeration.findUnique({ where: { id } });
+  }
 }

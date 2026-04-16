@@ -5,13 +5,16 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MeetingsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: { page?: number; limit?: number; search?: string } = {}) {
+  async findAll(query: { page?: number; limit?: number; search?: string; status?: string } = {}) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
     const where: any = {};
     if (query.search) {
       where.title = { contains: query.search, mode: 'insensitive' };
+    }
+    if (query.status) {
+      where.status = query.status;
     }
     const [data, total] = await Promise.all([
       this.prisma.meeting.findMany({

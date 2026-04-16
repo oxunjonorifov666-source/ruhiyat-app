@@ -1,116 +1,153 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import {
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, KeyboardAvoidingView, Platform,
+  ScrollView, ActivityIndicator, Alert,
+} from 'react-native';
 import { Colors } from '../../constants/colors';
 import { authService } from '../../services/auth';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function LoginScreen({ navigation }: any) {
+  const { login } = useAuth();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
 
   const handleLogin = async () => {
-    if (!phone.trim()) {
-      Alert.alert('Xatolik', 'Telefon raqamni kiriting');
+    if (!phone || !password) {
+      Alert.alert('Xatolik', 'Telefon raqam va parolni kiriting');
       return;
     }
-    if (!password.trim()) {
-      Alert.alert('Xatolik', 'Parolni kiriting');
-      return;
-    }
-
     setLoading(true);
     try {
-      const data = await authService.login(phone.trim(), password);
-      await login(data.accessToken, data.refreshToken, data.user);
-    } catch (err: any) {
-      Alert.alert('Kirish xatoligi', err.message || 'Noto\'g\'ri ma\'lumotlar');
+      const res = await authService.loginWithPhone(phone, password);
+      await login(res.accessToken, res.refreshToken, res.user);
+    } catch (e: any) {
+      Alert.alert('Kirish xatoligi', e.message || 'Telefon yoki parol noto\'g\'ri');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={styles.content}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.logo}>Ruhiyat</Text>
-          <Text style={styles.subtitle}>Ruhiy salomatlik platformasi</Text>
+          <View style={styles.logo}>
+            <Text style={styles.logoText}>🧠</Text>
+          </View>
+          <Text style={styles.title}>Ruhiyat</Text>
+          <Text style={styles.subtitle}>Raqamli ruhiy salomatlik platformasi</Text>
         </View>
 
-        <View style={styles.form}>
-          <Text style={styles.label}>Telefon raqam</Text>
-          <TextInput
-            style={styles.input}
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="+998901234567"
-            placeholderTextColor={Colors.light.textSecondary}
-            keyboardType="phone-pad"
-            autoCapitalize="none"
-          />
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Kirish</Text>
 
-          <Text style={styles.label}>Parol</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Parolni kiriting"
-            placeholderTextColor={Colors.light.textSecondary}
-            secureTextEntry
-          />
+          <View style={styles.field}>
+            <Text style={styles.label}>Telefon raqam</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="+998 90 123 45 67"
+              placeholderTextColor={Colors.textMuted}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Parol</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Parolingizni kiriting"
+              placeholderTextColor={Colors.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+          </View>
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={styles.forgotBtn}
+            onPress={() => navigation.navigate('ForgotPassword')}
+          >
+            <Text style={styles.forgotText}>Parolni unutdingizmi?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.btn, loading && styles.btnDisabled]}
             onPress={handleLogin}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>{loading ? 'Kirish...' : 'Kirish'}</Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Kirish</Text>
+            )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.linkButton}>
-            <Text style={styles.linkText}>
-              Hisobingiz yo'qmi? <Text style={styles.linkBold}>Ro'yxatdan o'ting</Text>
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.divider}>
+            <View style={styles.line} />
+            <Text style={styles.dividerText}>yoki</Text>
+            <View style={styles.line} />
+          </View>
 
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.linkButton}>
-            <Text style={styles.linkText}>Parolni unutdingizmi?</Text>
+          <TouchableOpacity
+            style={styles.registerBtn}
+            onPress={() => navigation.navigate('Register')}
+          >
+            <Text style={styles.registerText}>Yangi hisob yaratish</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.light.background },
-  content: { flex: 1, justifyContent: 'center', padding: 24 },
-  header: { alignItems: 'center', marginBottom: 48 },
-  logo: { fontSize: 36, fontWeight: 'bold', color: Colors.light.primary },
-  subtitle: { fontSize: 16, color: Colors.light.textSecondary, marginTop: 8 },
-  form: { gap: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: Colors.light.text, marginBottom: 4 },
+  container: { flex: 1, backgroundColor: Colors.background },
+  scroll: { flexGrow: 1, padding: 24, justifyContent: 'center' },
+  header: { alignItems: 'center', marginBottom: 32 },
+  logo: {
+    width: 80, height: 80, borderRadius: 24,
+    backgroundColor: Colors.primary, alignItems: 'center',
+    justifyContent: 'center', marginBottom: 16,
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
+  },
+  logoText: { fontSize: 36 },
+  title: { fontSize: 32, fontWeight: '700', color: Colors.text, marginBottom: 8 },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
+  card: {
+    backgroundColor: Colors.surface, borderRadius: 24, padding: 24,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 16, elevation: 4,
+  },
+  cardTitle: { fontSize: 22, fontWeight: '700', color: Colors.text, marginBottom: 24 },
+  field: { marginBottom: 16 },
+  label: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginBottom: 8 },
   input: {
-    backgroundColor: Colors.light.surface,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    color: Colors.light.text,
+    borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12,
+    padding: 14, fontSize: 15, color: Colors.text, backgroundColor: Colors.background,
   },
-  button: {
-    backgroundColor: Colors.light.primary,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
+  forgotBtn: { alignSelf: 'flex-end', marginBottom: 24 },
+  forgotText: { fontSize: 13, color: Colors.primary, fontWeight: '500' },
+  btn: {
+    backgroundColor: Colors.primary, borderRadius: 14,
+    padding: 16, alignItems: 'center',
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  linkButton: { alignItems: 'center', marginTop: 8 },
-  linkText: { fontSize: 14, color: Colors.light.textSecondary },
-  linkBold: { color: Colors.light.primary, fontWeight: '600' },
+  btnDisabled: { opacity: 0.6 },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
+  line: { flex: 1, height: 1, backgroundColor: Colors.border },
+  dividerText: { marginHorizontal: 12, color: Colors.textMuted, fontSize: 13 },
+  registerBtn: {
+    borderWidth: 1.5, borderColor: Colors.primary, borderRadius: 14,
+    padding: 16, alignItems: 'center',
+  },
+  registerText: { color: Colors.primary, fontSize: 16, fontWeight: '600' },
 });

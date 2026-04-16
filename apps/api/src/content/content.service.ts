@@ -1,15 +1,31 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PushNotificationService } from '../push/push-notification.service';
 
 @Injectable()
 export class ContentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pushNotification: PushNotificationService,
+  ) {}
 
-  async findAllArticles(query: { page?: number; limit?: number; search?: string } = {}) {
+  async findAllArticles(query: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    publishedOnly?: boolean;
+    category?: string;
+  } = {}) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
     const where: any = {};
+    if (query.publishedOnly) {
+      where.isPublished = true;
+    }
+    if (query.category?.trim()) {
+      where.category = { equals: query.category.trim(), mode: 'insensitive' };
+    }
     if (query.search) {
       where.OR = [
         { title: { contains: query.search, mode: 'insensitive' } },
@@ -28,20 +44,52 @@ export class ContentService {
     if (!a) throw new NotFoundException('Maqola topilmadi');
     return a;
   }
-  async createArticle(data: any) { return this.prisma.article.create({ data }); }
-  async updateArticle(id: number, data: any) { return this.prisma.article.update({ where: { id }, data }); }
+  async createArticle(data: any) {
+    const article = await this.prisma.article.create({ data });
+    if (article.isPublished) {
+      void this.pushNotification
+        .notifyNewPublishedContent({ articleId: article.id, title: article.title })
+        .catch(() => undefined);
+    }
+    return article;
+  }
+  async updateArticle(id: number, data: any) {
+    const prev = await this.prisma.article.findUnique({ where: { id } });
+    const article = await this.prisma.article.update({ where: { id }, data });
+    const becamePublished = article.isPublished && !prev?.isPublished;
+    if (becamePublished) {
+      void this.pushNotification
+        .notifyNewPublishedContent({ articleId: article.id, title: article.title })
+        .catch(() => undefined);
+    }
+    return article;
+  }
   async removeArticle(id: number) { await this.prisma.article.delete({ where: { id } }); return { message: "Maqola o'chirildi" }; }
 
-  async findAllBanners() { return this.prisma.banner.findMany({ orderBy: { orderIndex: 'asc' } }); }
+  async findAllBanners(opts?: { activeOnly?: boolean }) {
+    const where: any = {};
+    if (opts?.activeOnly) {
+      where.isActive = true;
+      const now = new Date();
+      where.AND = [
+        { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+        { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
+      ];
+    }
+    return this.prisma.banner.findMany({ where, orderBy: { orderIndex: 'asc' } });
+  }
   async createBanner(data: any) { return this.prisma.banner.create({ data }); }
   async updateBanner(id: number, data: any) { return this.prisma.banner.update({ where: { id }, data }); }
   async removeBanner(id: number) { await this.prisma.banner.delete({ where: { id } }); return { message: "Banner o'chirildi" }; }
 
-  async findAllAudio(query: { page?: number; limit?: number; search?: string } = {}) {
+  async findAllAudio(query: { page?: number; limit?: number; search?: string; publishedOnly?: boolean } = {}) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
     const where: any = {};
+    if (query.publishedOnly) {
+      where.isPublished = true;
+    }
     if (query.search) {
       where.title = { contains: query.search, mode: 'insensitive' };
     }
@@ -60,11 +108,14 @@ export class ContentService {
   async updateAudio(id: number, data: any) { return this.prisma.audioContent.update({ where: { id }, data }); }
   async removeAudio(id: number) { await this.prisma.audioContent.delete({ where: { id } }); return { message: "Audio o'chirildi" }; }
 
-  async findAllVideos(query: { page?: number; limit?: number; search?: string } = {}) {
+  async findAllVideos(query: { page?: number; limit?: number; search?: string; publishedOnly?: boolean } = {}) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
     const where: any = {};
+    if (query.publishedOnly) {
+      where.isPublished = true;
+    }
     if (query.search) {
       where.title = { contains: query.search, mode: 'insensitive' };
     }
@@ -98,7 +149,13 @@ export class ContentService {
   async updateProjectiveMethod(id: number, data: any) { return this.prisma.projectiveMethod.update({ where: { id }, data }); }
   async removeProjectiveMethod(id: number) { await this.prisma.projectiveMethod.delete({ where: { id } }); return { message: "Proektiv metod o'chirildi" }; }
 
-  async findAllTrainings() { return this.prisma.training.findMany(); }
+  async findAllTrainings(opts?: { publishedOnly?: boolean }) {
+    const where: any = {};
+    if (opts?.publishedOnly) {
+      where.isPublished = true;
+    }
+    return this.prisma.training.findMany({ where, orderBy: { createdAt: 'desc' } });
+  }
   async findTraining(id: number) {
     const t = await this.prisma.training.findUnique({ where: { id } });
     if (!t) throw new NotFoundException('Trening topilmadi');

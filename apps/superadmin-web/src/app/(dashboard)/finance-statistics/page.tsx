@@ -7,11 +7,19 @@ import { PageHeader } from "@/components/page-header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { TrendingUp, DollarSign, CreditCard, ArrowUpDown, BarChart3, PieChart as PieChartIcon, Loader2, Download, Filter, X } from "lucide-react"
+import { TrendingUp, DollarSign, CreditCard, ArrowUpDown, BarChart3, PieChart as PieChartIcon, Loader2, Download, Filter, X, FileSpreadsheet, FileText } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell,
 } from "recharts"
+import * as XLSX from "xlsx"
+import { exportFinanceStatisticsPdf } from "@/lib/export-utils"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface FinanceStats {
   totalPayments: number
@@ -55,6 +63,43 @@ const typeLabels: Record<string, string> = {
 
 function formatMoney(amount: number, currency = "UZS") {
   return `${amount.toLocaleString("uz-UZ")} ${currency}`
+}
+
+function exportFinanceExcel(stats: FinanceStats, monthlyData: MonthlyData[], typeData: TypeData[]) {
+  const wb = XLSX.utils.book_new()
+  const summary = [
+    { Ko_rsatkich: "Umumiy daromad", Qiymat: stats.totalRevenue },
+    { Ko_rsatkich: "Oylik daromad", Qiymat: stats.monthlyRevenue },
+    { Ko_rsatkich: "To'lovlar soni", Qiymat: stats.totalPayments },
+    { Ko_rsatkich: "Muvaffaqiyatli", Qiymat: stats.completedPayments },
+    { Ko_rsatkich: "Xatoliklar", Qiymat: stats.failedPayments },
+    { Ko_rsatkich: "Qaytarilgan", Qiymat: stats.refundedPayments },
+  ]
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), "Xulosa")
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.json_to_sheet(
+      monthlyData.map((m) => ({
+        Oy: m.month,
+        Daromad: m.revenue,
+        Tolovlar: m.payments,
+        Qaytarishlar: m.refunds,
+      })),
+    ),
+    "Oylar",
+  )
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.json_to_sheet(
+      typeData.map((t) => ({
+        Tur: typeLabels[t.type] || t.type,
+        Soni: t.count,
+        Jami: t.total,
+      })),
+    ),
+    "Tranzaksiya_turlari",
+  )
+  XLSX.writeFile(wb, `moliya_statistika_${new Date().toISOString().split("T")[0]}.xlsx`)
 }
 
 function exportStatsCSV(stats: FinanceStats, monthlyData: MonthlyData[], typeData: TypeData[]) {
@@ -135,8 +180,66 @@ export default function FinanceStatisticsPage() {
         description="Moliyaviy ko'rsatkichlar va tahlillar"
         icon={TrendingUp}
         actions={[
-          { label: "CSV yuklash", icon: Download, variant: "outline", onClick: () => stats && exportStatsCSV(stats, monthlyData, typeData) },
-          { label: showFilters ? "Filtrni yopish" : "Filtr", icon: showFilters ? X : Filter, variant: "outline", onClick: () => setShowFilters(!showFilters) },
+          {
+            element: (
+              <DropdownMenu key="export-dd">
+                <DropdownMenuTrigger asChild>
+                  <Button variant="default" size="sm" className="gap-2">
+                    <Download className="size-4" />
+                    Eksport
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() =>
+                      stats && exportFinanceExcel(stats, monthlyData, typeData)
+                    }
+                  >
+                    <FileSpreadsheet className="size-4 text-emerald-600" />
+                    Excel (.xlsx)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() => {
+                      if (!stats) return
+                      const kpis: [string, string][] = [
+                        ["Umumiy daromad", String(stats.totalRevenue)],
+                        ["Oylik daromad", String(stats.monthlyRevenue)],
+                        ["To'lovlar soni", String(stats.totalPayments)],
+                        ["Muvaffaqiyatli", String(stats.completedPayments)],
+                        ["Xatoliklar", String(stats.failedPayments)],
+                        ["Qaytarilgan", String(stats.refundedPayments)],
+                      ]
+                      exportFinanceStatisticsPdf(
+                        kpis,
+                        monthlyData,
+                        `moliya_statistika_${new Date().toISOString().split("T")[0]}`,
+                      )
+                    }}
+                  >
+                    <FileText className="size-4 text-rose-600" />
+                    PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() =>
+                      stats && exportStatsCSV(stats, monthlyData, typeData)
+                    }
+                  >
+                    <Download className="size-4 text-slate-600" />
+                    CSV
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ),
+          },
+          {
+            label: showFilters ? "Filtrni yopish" : "Filtr",
+            icon: showFilters ? X : Filter,
+            variant: "outline",
+            onClick: () => setShowFilters(!showFilters),
+          },
         ]}
       />
 
@@ -160,7 +263,7 @@ export default function FinanceStatisticsPage() {
             </div>
           </CardContent>
         </Card>
-      )
+      )}
 
       {stats && (
         <StatsGrid columns={4}>

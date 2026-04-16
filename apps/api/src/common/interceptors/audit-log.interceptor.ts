@@ -1,6 +1,7 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Observable, tap } from 'rxjs';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthUser } from '@ruhiyat/types';
 
 const WRITE_METHODS = ['POST', 'PATCH', 'PUT', 'DELETE'];
 
@@ -16,7 +17,9 @@ export class AuditLogInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const userId = request.user?.userId || null;
+    const user: AuthUser = request.user;
+    const userId = user?.id || null;
+    const centerId = user?.centerId || null;
     const action = this.getAction(method);
     const resource = this.getResource(request.url);
     const resourceId = this.extractResourceId(request.params);
@@ -29,6 +32,7 @@ export class AuditLogInterceptor implements NestInterceptor {
           this.prisma.auditLog.create({
             data: {
               userId,
+              centerId,
               action,
               resource,
               resourceId,
@@ -40,7 +44,9 @@ export class AuditLogInterceptor implements NestInterceptor {
               ipAddress,
               userAgent,
             },
-          }).catch(() => {});
+          }).catch((err) => {
+            console.error('AuditLogInterceptor Error:', err);
+          });
         },
         error: () => {},
       }),
@@ -60,12 +66,13 @@ export class AuditLogInterceptor implements NestInterceptor {
   private getResource(url: string): string {
     const path = url.replace(/^\/api\//, '').split('?')[0];
     const parts = path.split('/');
-    return parts.filter(p => !/^\d+$/.test(p)).join('/');
+    return parts.filter(p => p && !/^\d+$/.test(p)).join('.');
   }
 
   private extractResourceId(params: Record<string, any>): number | null {
-    if (params?.id && !isNaN(Number(params.id))) {
-      return Number(params.id);
+    const id = params?.id || params?.sid || params?.tid || params?.cid;
+    if (id && !isNaN(Number(id))) {
+      return Number(id);
     }
     return null;
   }
@@ -73,7 +80,17 @@ export class AuditLogInterceptor implements NestInterceptor {
   private sanitizeBody(body: any): any {
     if (!body || typeof body !== 'object') return body;
     const sanitized = { ...body };
-    const sensitiveFields = ['password', 'passwordHash', 'refreshToken', 'token', 'code', 'otp', 'secret'];
+    const sensitiveFields = [
+      'password',
+      'passwordHash',
+      'refreshToken',
+      'token',
+      'code',
+      'otp',
+      'secret',
+      'pin',
+      'sign_string',
+    ];
     for (const field of sensitiveFields) {
       if (field in sanitized) {
         sanitized[field] = '[REDACTED]';

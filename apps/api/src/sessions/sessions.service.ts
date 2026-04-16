@@ -22,8 +22,23 @@ export class SessionsService {
       select: { id: true },
     });
     return psychologists.length > 0
-      ? { psychologistId: { in: psychologists.map((p) => p.id) } }
-      : { id: -1 };
+      ? { psychologistId: { in: psychologists.map((p: any) => p.id) } }
+      : { id: -1 }; // Return no results if center has no psychologists
+  }
+
+  private async enforceCenterIsolation(id: number, centerId?: number) {
+    if (!centerId) return;
+    
+    const session = await this.prisma.bookingSession.findFirst({
+      where: {
+        id,
+        psychologist: { centerId }
+      }
+    });
+
+    if (!session) {
+      throw new ForbiddenException('Ushbu seans ma\'lumotlariga kirish huquqi yo\'q');
+    }
   }
 
   async getStats(centerId?: number) {
@@ -76,6 +91,7 @@ export class SessionsService {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
+    
     const centerFilter = await this.getCenterPsychologistFilter(query.centerId);
     const where: any = { ...centerFilter };
 
@@ -118,7 +134,9 @@ export class SessionsService {
     return { data, total, page, limit };
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, centerId?: number) {
+    if (centerId) await this.enforceCenterIsolation(id, centerId);
+
     const session = await this.prisma.bookingSession.findUnique({
       where: { id },
       include: {
@@ -151,7 +169,7 @@ export class SessionsService {
     scheduledAt: string;
     duration?: number;
     notes?: string;
-    administratorId?: number;
+    centerId?: number;
   }) {
     const psychologist = await this.prisma.psychologist.findUnique({
       where: { id: data.psychologistId },
@@ -159,13 +177,17 @@ export class SessionsService {
     if (!psychologist) throw new NotFoundException("Psixolog topilmadi");
     if (!psychologist.isAvailable) throw new BadRequestException("Psixolog hozirda mavjud emas");
 
+    // Enforce center match if provided
+    if (data.centerId && psychologist.centerId !== data.centerId) {
+      throw new ForbiddenException('Psixolog ushbu markazga tegishli emas');
+    }
+
     const price = (psychologist.hourlyRate || 0) * ((data.duration || 60) / 60);
 
     return this.prisma.bookingSession.create({
       data: {
         userId: data.userId,
         psychologistId: data.psychologistId,
-        administratorId: data.administratorId,
         scheduledAt: new Date(data.scheduledAt),
         duration: data.duration || 60,
         price: Math.round(price),
@@ -178,11 +200,13 @@ export class SessionsService {
     });
   }
 
-  async accept(id: number) {
+  async accept(id: number, centerId?: number) {
+    if (centerId) await this.enforceCenterIsolation(id, centerId);
+    
     const session = await this.getSessionOrThrow(id);
     this.validateTransition(session.status, 'ACCEPTED');
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: any) => {
       const meeting = await tx.meeting.create({
         data: {
           title: `Seans #${session.id}`,
@@ -228,7 +252,9 @@ export class SessionsService {
     });
   }
 
-  async reject(id: number) {
+  async reject(id: number, centerId?: number) {
+    if (centerId) await this.enforceCenterIsolation(id, centerId);
+
     const session = await this.getSessionOrThrow(id);
     this.validateTransition(session.status, 'REJECTED');
 
@@ -242,13 +268,15 @@ export class SessionsService {
     });
   }
 
-  async cancel(id: number, cancelledBy?: number, cancelReason?: string) {
+  async cancel(id: number, userId: number, cancelReason?: string, centerId?: number) {
+    if (centerId) await this.enforceCenterIsolation(id, centerId);
+
     const session = await this.getSessionOrThrow(id);
     this.validateTransition(session.status, 'CANCELLED');
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: any) => {
       const updateData: any = { status: 'CANCELLED' };
-      if (cancelledBy) updateData.cancelledBy = cancelledBy;
+      updateData.cancelledBy = userId;
       if (cancelReason) updateData.cancelReason = cancelReason;
 
       if (session.paymentStatus === 'PAID') {
@@ -277,11 +305,13 @@ export class SessionsService {
     });
   }
 
-  async complete(id: number) {
+  async complete(id: number, centerId?: number) {
+    if (centerId) await this.enforceCenterIsolation(id, centerId);
+
     const session = await this.getSessionOrThrow(id);
     this.validateTransition(session.status, 'COMPLETED');
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: any) => {
       if (session.meetingId) {
         await tx.meeting.update({
           where: { id: session.meetingId },

@@ -15,6 +15,7 @@ export function middleware(request: NextRequest) {
   const isPublicRoute =
     pathname.includes('/login') ||
     pathname.startsWith('/api') ||
+    pathname.startsWith('/admin/api') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico'
 

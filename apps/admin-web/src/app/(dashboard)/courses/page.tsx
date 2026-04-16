@@ -4,103 +4,547 @@ import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { apiClient, PaginatedResponse } from "@/lib/api-client"
 import { DataTable } from "@/components/data-table"
+import { PageHeader } from "@/components/page-header"
+import { StatsCard, StatsGrid } from "@/components/stats-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useRouter } from "next/navigation"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Plus } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  BookOpen,
+  Plus,
+  MoreHorizontal,
+  Edit,
+  Archive,
+  Eye,
+  Loader2,
+  PlayCircle,
+  FileText,
+  FolderArchive,
+  BarChart2,
+} from "lucide-react"
+import { toast } from "sonner"
+
+// ─── Types ─────────────────────────────────────────────────────────────────
+
+type CourseStatus = "DRAFT" | "ACTIVE" | "ARCHIVED"
 
 interface Course {
   id: number
-  title: string
+  centerId: number
+  name: string
+  code: string | null
   description: string | null
-  duration: number | null
-  price: number | null
-  isActive: boolean
+  status: CourseStatus
+  durationWeeks: number | null
   createdAt: string
-  _count?: { enrollments: number; groups: number }
+  updatedAt: string
+  _count?: { groups: number; enrollments: number }
 }
+
+interface CourseStats {
+  total: number
+  active: number
+  draft: number
+  archived: number
+}
+
+interface CourseForm {
+  name: string
+  code: string
+  description: string
+  status: CourseStatus
+  durationWeeks: string
+}
+
+const DEFAULT_FORM: CourseForm = {
+  name: "",
+  code: "",
+  description: "",
+  status: "DRAFT",
+  durationWeeks: "",
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<
+  CourseStatus,
+  { label: string; variant: "default" | "secondary" | "outline"; className: string }
+> = {
+  ACTIVE: {
+    label: "Faol",
+    variant: "default",
+    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  DRAFT: {
+    label: "Qoralama",
+    variant: "outline",
+    className: "bg-amber-50 text-amber-700 border-amber-200",
+  },
+  ARCHIVED: {
+    label: "Arxivlangan",
+    variant: "secondary",
+    className: "bg-slate-100 text-slate-600",
+  },
+}
+
+function StatusBadge({ status }: { status: CourseStatus }) {
+  const cfg = STATUS_CONFIG[status]
+  return (
+    <Badge variant={cfg.variant} className={`text-[10px] h-5 ${cfg.className}`}>
+      {cfg.label}
+    </Badge>
+  )
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function CoursesPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const centerId = user?.administrator?.centerId
+
+  // List state
   const [data, setData] = useState<Course[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
+
+  // Stats state
+  const [stats, setStats] = useState<CourseStats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(true)
+
+  // Sheet state
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [selected, setSelected] = useState<Course | null>(null)
   const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<CourseForm>(DEFAULT_FORM)
+
+  // ── Data fetching ─────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
     if (!centerId) return
-    setLoading(true); setError(null)
+    setLoading(true)
+    setError(null)
     try {
-      const res = await apiClient<PaginatedResponse<Course>>(`/education-centers/${centerId}/courses`, {
-        params: { page, limit: 20, search },
-      })
-      setData(res.data); setTotal(res.total)
-    } catch (e: any) { setError(e.message) }
-    finally { setLoading(false) }
-  }, [centerId, page, search])
-
-  useEffect(() => { fetchData() }, [fetchData])
-
-  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); setSaving(true)
-    const fd = new FormData(e.currentTarget)
-    try {
-      await apiClient(`/education-centers/${centerId}/courses`, {
-        method: "POST",
-        body: {
-          title: fd.get("title"),
-          description: fd.get("description") || null,
-          duration: fd.get("duration") ? parseInt(fd.get("duration") as string) : null,
-          price: fd.get("price") ? parseInt(fd.get("price") as string) : null,
+      const res = await apiClient<PaginatedResponse<Course>>("/courses", {
+        params: {
+          centerId,
+          page,
+          limit: 15,
+          search: search || undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
         },
       })
-      setDialogOpen(false); fetchData()
-    } catch (e: any) { alert(e.message) }
-    finally { setSaving(false) }
+      setData(res.data)
+      setTotal(res.total)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [centerId, page, search, statusFilter])
+
+  const fetchStats = useCallback(async () => {
+    if (!centerId) return
+    setStatsLoading(true)
+    try {
+      const res = await apiClient<CourseStats>(`/courses/stats?centerId=${centerId}`)
+      setStats(res)
+    } catch {
+      setStats(null)
+    } finally {
+      setStatsLoading(false)
+    }
+  }, [centerId])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  useEffect(() => {
+    fetchStats()
+  }, [fetchStats])
+
+  // ── Form helpers ──────────────────────────────────────────────────────────
+
+  const openCreate = () => {
+    setSelected(null)
+    setForm(DEFAULT_FORM)
+    setSheetOpen(true)
   }
 
-  if (!centerId) return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+  const openEdit = (course: Course) => {
+    setSelected(course)
+    setForm({
+      name: course.name,
+      code: course.code ?? "",
+      description: course.description ?? "",
+      status: course.status,
+      durationWeeks: course.durationWeeks?.toString() ?? "",
+    })
+    setSheetOpen(true)
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!centerId) return
+    setSaving(true)
+    try {
+      const payload: any = {
+        name: form.name,
+        code: form.code || undefined,
+        description: form.description || undefined,
+        status: form.status,
+        durationWeeks: form.durationWeeks ? parseInt(form.durationWeeks) : undefined,
+        centerId,
+      }
+
+      if (selected) {
+        await apiClient(`/courses/${selected.id}`, { method: "PATCH", body: payload })
+        toast.success("Kurs yangilandi")
+      } else {
+        await apiClient("/courses", { method: "POST", body: payload })
+        toast.success("Kurs yaratildi")
+      }
+
+      setSheetOpen(false)
+      fetchData()
+      fetchStats()
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleArchive = async (course: Course) => {
+    if (!centerId) return
+    try {
+      await apiClient(`/courses/${course.id}/archive?centerId=${centerId}`, { method: "PATCH" })
+      toast.success(`"${course.name}" arxivlandi`)
+      fetchData()
+      fetchStats()
+    } catch (e: any) {
+      toast.error(e.message)
+    }
+  }
+
+  // ── Columns ───────────────────────────────────────────────────────────────
 
   const columns = [
-    { key: "title", title: "Nomi", render: (c: Course) => <span className="font-medium">{c.title}</span> },
-    { key: "description", title: "Tavsif", render: (c: Course) => <span className="text-sm text-muted-foreground line-clamp-1">{c.description || "—"}</span> },
-    { key: "duration", title: "Davomiyligi", render: (c: Course) => c.duration ? `${c.duration} soat` : "—" },
-    { key: "price", title: "Narxi", render: (c: Course) => c.price ? `${c.price.toLocaleString()} so'm` : "Bepul" },
-    { key: "enrollments", title: "O'quvchilar", render: (c: Course) => c._count?.enrollments ?? 0 },
-    { key: "isActive", title: "Holat", render: (c: Course) => <Badge variant={c.isActive ? "default" : "secondary"}>{c.isActive ? "Faol" : "Nofaol"}</Badge> },
+    {
+      key: "name",
+      title: "Kurs nomi",
+      render: (c: Course) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-sm">{c.name}</span>
+          {c.code && (
+            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded mt-0.5 w-fit">
+              {c.code}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "description",
+      title: "Tavsif",
+      render: (c: Course) => (
+        <span className="text-xs text-muted-foreground line-clamp-2 max-w-[220px]">
+          {c.description || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      title: "Holat",
+      render: (c: Course) => <StatusBadge status={c.status} />,
+    },
+    {
+      key: "durationWeeks",
+      title: "Davomiyligi",
+      render: (c: Course) =>
+        c.durationWeeks ? (
+          <span className="text-xs">{c.durationWeeks} hafta</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
+    },
+    {
+      key: "groups",
+      title: "Guruhlar",
+      render: (c: Course) => (
+        <span className="text-xs font-medium">{c._count?.groups ?? 0}</span>
+      ),
+    },
+    {
+      key: "enrollments",
+      title: "O'quvchilar",
+      render: (c: Course) => (
+        <span className="text-xs font-medium">{c._count?.enrollments ?? 0}</span>
+      ),
+    },
+    {
+      key: "createdAt",
+      title: "Yaratilgan",
+      render: (c: Course) => (
+        <span className="text-[10px] text-muted-foreground font-mono">
+          {new Date(c.createdAt).toLocaleDateString("uz-UZ")}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      title: "",
+      render: (c: Course) => (
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="size-8 p-0">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={() => router.push(`/courses/${c.id}`)}>
+                <BarChart2 className="mr-2 size-4" /> Tahlillar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openEdit(c)}>
+                <Edit className="mr-2 size-4" /> Tahrirlash
+              </DropdownMenuItem>
+              {c.status !== "ARCHIVED" && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-amber-600 focus:text-amber-600"
+                    onClick={() => handleArchive(c)}
+                  >
+                    <Archive className="mr-2 size-4" /> Arxivlash
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
   ]
 
+  if (!centerId) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+    )
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
-    <DataTable
-      title="Kurslar" description="Markaz kurslarini boshqarish"
-      columns={columns} data={data} total={total} page={page} limit={20}
-      loading={loading} error={error} searchPlaceholder="Kurs qidirish..."
-      onPageChange={setPage} onSearch={setSearch}
-      headerAction={
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild><Button><Plus className="size-4 mr-2" />Yangi kurs</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Yangi kurs yaratish</DialogTitle></DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div><Label>Nomi</Label><Input name="title" required /></div>
-              <div><Label>Tavsif</Label><Textarea name="description" rows={3} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label>Davomiyligi (soat)</Label><Input name="duration" type="number" /></div>
-                <div><Label>Narxi (so'm)</Label><Input name="price" type="number" /></div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Kurslar"
+        description="Markaz ta'lim kurslarini boshqarish"
+        icon={BookOpen}
+        actions={[{ label: "Yangi kurs", icon: Plus, onClick: openCreate }]}
+      />
+
+      {/* Stats */}
+      <StatsGrid columns={4}>
+        <StatsCard
+          title="Jami kurslar"
+          value={stats?.total ?? "—"}
+          icon={BookOpen}
+          loading={statsLoading}
+          iconColor="bg-blue-500/10 text-blue-600"
+        />
+        <StatsCard
+          title="Faol kurslar"
+          value={stats?.active ?? "—"}
+          icon={PlayCircle}
+          loading={statsLoading}
+          iconColor="bg-emerald-500/10 text-emerald-600"
+        />
+        <StatsCard
+          title="Qolamalar"
+          value={stats?.draft ?? "—"}
+          icon={FileText}
+          loading={statsLoading}
+          iconColor="bg-amber-500/10 text-amber-600"
+        />
+        <StatsCard
+          title="Arxivlangan"
+          value={stats?.archived ?? "—"}
+          icon={FolderArchive}
+          loading={statsLoading}
+          iconColor="bg-slate-500/10 text-slate-600"
+        />
+      </StatsGrid>
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-3">
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+          <SelectTrigger className="w-40 h-9 text-sm">
+            <SelectValue placeholder="Holat" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Barcha holatlar</SelectItem>
+            <SelectItem value="ACTIVE">Faol</SelectItem>
+            <SelectItem value="DRAFT">Qoralama</SelectItem>
+            <SelectItem value="ARCHIVED">Arxivlangan</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Table */}
+      <DataTable
+        columns={columns}
+        data={data}
+        total={total}
+        page={page}
+        limit={15}
+        loading={loading}
+        error={error}
+        onPageChange={setPage}
+        onSearchChange={(s) => { setSearch(s); setPage(1) }}
+        searchPlaceholder="Kurs nomi yoki kodi bo'yicha qidirish..."
+      />
+
+      {/* Create / Edit Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>
+              {selected ? "Kursni tahrirlash" : "Yangi kurs yaratish"}
+            </SheetTitle>
+            <SheetDescription>
+              {selected
+                ? "Kurs ma'lumotlarini yangilang."
+                : "Yangi ta'lim kursini qo'shing."}
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleSave} className="space-y-5 mt-6">
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="name">
+                Kurs nomi <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Masalan: Python asoslari"
+                required
+              />
+            </div>
+
+            {/* Code */}
+            <div className="space-y-2">
+              <Label htmlFor="code">
+                Kurs kodi{" "}
+                <span className="text-muted-foreground text-[10px] font-normal">(ixtiyoriy)</span>
+              </Label>
+              <Input
+                id="code"
+                value={form.code}
+                onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                placeholder="Masalan: PY-101"
+                className="font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Har bir markaz ichida yagona kod. Faqat harf, raqam, _ yoki -.
+              </p>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">
+                Tavsif{" "}
+                <span className="text-muted-foreground text-[10px] font-normal">(ixtiyoriy)</span>
+              </Label>
+              <Textarea
+                id="description"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Kurs haqida qisqacha ma'lumot..."
+                rows={3}
+              />
+            </div>
+
+            {/* Status & Duration */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="status">Holat</Label>
+                <Select
+                  value={form.status}
+                  onValueChange={(v) => setForm({ ...form, status: v as CourseStatus })}
+                >
+                  <SelectTrigger id="status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DRAFT">Qoralama</SelectItem>
+                    <SelectItem value="ACTIVE">Faol</SelectItem>
+                    <SelectItem value="ARCHIVED">Arxivlangan</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <Button type="submit" disabled={saving} className="w-full">{saving ? "Saqlanmoqda..." : "Saqlash"}</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      }
-    />
+              <div className="space-y-2">
+                <Label htmlFor="durationWeeks">Davomiyligi (hafta)</Label>
+                <Input
+                  id="durationWeeks"
+                  type="number"
+                  min={1}
+                  value={form.durationWeeks}
+                  onChange={(e) => setForm({ ...form, durationWeeks: e.target.value })}
+                  placeholder="12"
+                />
+              </div>
+            </div>
+
+            <SheetFooter className="mt-8">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSheetOpen(false)}
+                className="flex-1"
+              >
+                Bekor qilish
+              </Button>
+              <Button type="submit" disabled={saving} className="flex-1">
+                {saving && <Loader2 className="size-4 animate-spin mr-2" />}
+                {selected ? "Yangilash" : "Yaratish"}
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
+    </div>
   )
 }

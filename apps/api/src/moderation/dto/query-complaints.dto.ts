@@ -9,4 +9,6 @@ export class QueryComplaintsDto {
   @IsOptional() @IsString() targetType?: string;
   @IsOptional() @IsString() sortBy?: string;
   @IsOptional() @IsString() sortOrder?: string;
+  /** Superadmin: filter by education center */
+  @IsOptional() @IsString() centerId?: string;
 }

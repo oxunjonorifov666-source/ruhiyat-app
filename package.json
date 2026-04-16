@@ -3,17 +3,27 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "dev": "pnpm --filter @ruhiyat/mobile dev",
+    "dev:clear": "pnpm --filter @ruhiyat/mobile dev:clear",
+    "api:dev": "pnpm --filter @ruhiyat/api dev",
+    "superadmin:dev": "pnpm --filter @ruhiyat/superadmin-web dev",
+    "superadmin:stack": "pnpm --filter @ruhiyat/superadmin-web run dev:stack",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "prisma": "pnpm --filter @ruhiyat/api exec prisma"
   },
   "private": true,
   "devDependencies": {
-    "typescript": "~5.9.2",
-    "prettier": "^3.8.1"
+    "expo": "~54.0.33",
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
   },
   "pnpm": {
+    "overrides": {
+      "react": "19.1.0",
+      "react-dom": "19.1.0"
+    },
     "onlyBuiltDependencies": [
       "@swc/core",
       "esbuild",
@@ -22,7 +32,13 @@
       "@nestjs/core",
       "@prisma/client",
       "@prisma/engines",
-      "prisma"
+      "prisma",
+      "lightningcss"
     ]
+  },
+  "dependencies": {
+    "lightningcss-win32-x64-msvc": "1.32.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   }
 }

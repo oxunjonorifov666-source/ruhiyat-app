@@ -7,6 +7,7 @@ export class QueryReportsDto {
   @IsOptional() @IsString() status?: string;
   @IsOptional() @IsString() severity?: string;
   @IsOptional() @IsString() type?: string;
+  @IsOptional() @IsString() centerId?: string;
   @IsOptional() @IsString() sortBy?: string;
   @IsOptional() @IsString() sortOrder?: string;
 }

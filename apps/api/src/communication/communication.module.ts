@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CommunicationController } from './communication.controller';
 import { CommunicationService } from './communication.service';
 import { ChatGateway } from './chat.gateway';
+import { MobileChatController } from './mobile-chat.controller';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { ChatGateway } from './chat.gateway';
       }),
     }),
   ],
-  controllers: [CommunicationController],
+  controllers: [CommunicationController, MobileChatController],
   providers: [CommunicationService, ChatGateway],
   exports: [CommunicationService, ChatGateway],
 })

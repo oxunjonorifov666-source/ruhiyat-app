@@ -13,4 +13,11 @@ export class LoginDto {
   @MinLength(6)
   @MaxLength(128)
   password: string;
+  @IsOptional()
+  @IsString()
+  ipAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  deviceInfo?: string;
 }

@@ -1,53 +1,84 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { WellnessService } from './wellness.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser } from '@ruhiyat/types';
 
-@Controller()
+@Controller('wellness')
 @UseGuards(JwtAuthGuard)
 export class WellnessController {
   constructor(private readonly service: WellnessService) {}
 
+  @Get('mood/weekly')
+  moodWeeklySummary(@CurrentUser() user: AuthUser) {
+    return this.service.getMoodWeeklySummary(user.id);
+  }
+
   @Get('mood')
-  findMoodEntries() { return this.service.findMoodEntries(); }
+  findMoodEntries(@CurrentUser() user: AuthUser) { 
+    return this.service.findMoodEntries(user.id); 
+  }
+  
   @Post('mood')
-  createMoodEntry(@Body() data: any) { return this.service.createMoodEntry(data); }
+  createMoodEntry(@CurrentUser() user: AuthUser, @Body() data: { mood?: unknown; note?: string; factors?: string[] }) {
+    return this.service.createMoodEntry(user.id, data);
+  }
+
+  @Get('breathing-scenarios')
+  findBreathingScenarios() {
+    return this.service.findBreathingScenarios();
+  }
 
   @Get('diary')
-  findDiaryEntries() { return this.service.findDiaryEntries(); }
+  findDiaryEntries(@CurrentUser() user: AuthUser) { 
+    return this.service.findDiaryEntries(user.id); 
+  }
+  
   @Post('diary')
-  createDiaryEntry(@Body() data: any) { return this.service.createDiaryEntry(data); }
+  createDiaryEntry(@CurrentUser() user: AuthUser, @Body() data: any) { 
+    return this.service.createDiaryEntry(user.id, data); 
+  }
+  
   @Get('diary/:id')
-  findDiaryEntry(@Param('id', ParseIntPipe) id: number) { return this.service.findDiaryEntry(id); }
+  findDiaryEntry(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) { 
+    return this.service.findDiaryEntry(user.id, id); 
+  }
+  
   @Patch('diary/:id')
-  updateDiaryEntry(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateDiaryEntry(id, data); }
+  updateDiaryEntry(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number, @Body() data: any) { 
+    return this.service.updateDiaryEntry(user.id, id, data); 
+  }
+  
   @Delete('diary/:id')
-  removeDiaryEntry(@Param('id', ParseIntPipe) id: number) { return this.service.removeDiaryEntry(id); }
+  removeDiaryEntry(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) { 
+    return this.service.removeDiaryEntry(user.id, id); 
+  }
 
   @Get('habits')
-  findHabits() { return this.service.findHabits(); }
+  findHabits(@CurrentUser() user: AuthUser) { return this.service.findHabits(user.id); }
   @Post('habits')
-  createHabit(@Body() data: any) { return this.service.createHabit(data); }
+  createHabit(@CurrentUser() user: AuthUser, @Body() data: any) { return this.service.createHabit(user.id, data); }
   @Patch('habits/:id')
-  updateHabit(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateHabit(id, data); }
+  updateHabit(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateHabit(user.id, id, data); }
   @Delete('habits/:id')
-  removeHabit(@Param('id', ParseIntPipe) id: number) { return this.service.removeHabit(id); }
+  removeHabit(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) { return this.service.removeHabit(user.id, id); }
   @Post('habits/:id/log')
-  logHabit(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.logHabit(id, data); }
+  logHabit(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.logHabit(user.id, id, data); }
 
   @Get('sleep')
-  findSleepRecords() { return this.service.findSleepRecords(); }
+  findSleepRecords(@CurrentUser() user: AuthUser) { return this.service.findSleepRecords(user.id); }
   @Post('sleep')
-  createSleepRecord(@Body() data: any) { return this.service.createSleepRecord(data); }
+  createSleepRecord(@CurrentUser() user: AuthUser, @Body() data: any) { return this.service.createSleepRecord(user.id, data); }
 
   @Get('breathing')
-  findBreathingSessions() { return this.service.findBreathingSessions(); }
+  findBreathingSessions(@CurrentUser() user: AuthUser) { return this.service.findBreathingSessions(user.id); }
   @Post('breathing')
-  createBreathingSession(@Body() data: any) { return this.service.createBreathingSession(data); }
+  createBreathingSession(@CurrentUser() user: AuthUser, @Body() data: any) { return this.service.createBreathingSession(user.id, data); }
 
   @Get('saved-items')
-  findSavedItems() { return this.service.findSavedItems(); }
+  findSavedItems(@CurrentUser() user: AuthUser) { return this.service.findSavedItems(user.id); }
   @Post('saved-items')
-  createSavedItem(@Body() data: any) { return this.service.createSavedItem(data); }
+  createSavedItem(@CurrentUser() user: AuthUser, @Body() data: any) { return this.service.createSavedItem(user.id, data); }
   @Delete('saved-items/:id')
-  removeSavedItem(@Param('id', ParseIntPipe) id: number) { return this.service.removeSavedItem(id); }
+  removeSavedItem(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) { return this.service.removeSavedItem(user.id, id); }
 }
