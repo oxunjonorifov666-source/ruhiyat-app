@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "pnpm --filter @ruhiyat/mobile dev",
+    "expo-go": "pnpm --filter @ruhiyat/mobile start",
     "dev:clear": "pnpm --filter @ruhiyat/mobile dev:clear",
     "api:dev": "pnpm --filter @ruhiyat/api dev",
     "superadmin:dev": "pnpm --filter @ruhiyat/superadmin-web dev",
