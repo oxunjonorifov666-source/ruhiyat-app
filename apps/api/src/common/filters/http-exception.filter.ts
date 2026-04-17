@@ -9,6 +9,7 @@ import {
 import {
   PrismaClientInitializationError,
   PrismaClientKnownRequestError,
+  PrismaClientValidationError,
 } from '@prisma/client/runtime/library';
 import { ApiResponse } from '@ruhiyat/types';
 
@@ -51,14 +52,25 @@ export class HttpExceptionFilter implements ExceptionFilter {
         : "PostgreSQL ishlamayapti yoki DATABASE_URL noto‘g‘ri.";
       this.logger.error(`Prisma init: ${exception.message}`);
     } else if (exception instanceof PrismaClientKnownRequestError) {
+      const meta =
+        exception.meta && typeof exception.meta === 'object'
+          ? JSON.stringify(exception.meta)
+          : '';
       this.logger.error(
-        `Prisma ${exception.code} on ${request.method} ${request.url}: ${exception.message}`,
+        `Prisma ${exception.code} ${request.method} ${request.url}: ${exception.message}${meta ? ` | meta: ${meta}` : ''}`,
       );
       status = HttpStatus.BAD_REQUEST;
       errorCode = `PRISMA_${exception.code}`;
       userMessage = isProd()
-        ? "Ma'lumotlarni saqlab bo'lmadi. Kiritilgan ma'lumotlarni tekshiring."
+        ? "Serverda ma'lumotlar bazasiga yozishda xatolik yuz berdi. Bir ozdan keyin qayta urinib ko'ring. Muammo davom etsa, texnik qo'llab-quvvatlashga murojaat qiling."
         : `Ma'lumotlar bazasi xatosi (${exception.code})`;
+    } else if (exception instanceof PrismaClientValidationError) {
+      this.logger.error(`Prisma validation ${request.method} ${request.url}: ${exception.message}`);
+      status = HttpStatus.BAD_REQUEST;
+      errorCode = 'PRISMA_VALIDATION';
+      userMessage = isProd()
+        ? "So'rov ma'lumotlari server sxemasi bilan mos emas. Ilovani yangilang yoki qo'llab-quvvatlashga murojaat qiling."
+        : exception.message;
     } else {
       this.logger.error(
         `Critical: ${request.method} ${request.url} — ${exception instanceof Error ? exception.stack : exception}`,

@@ -9,28 +9,51 @@ import { authService } from '../../services/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { normalizeUzbekPhone, isValidUzbekMobile } from '../../lib/phone';
 
+function isValidEmail(s: string) {
+  const t = s.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+}
+
 export function LoginScreen({ navigation }: any) {
   const { login } = useAuth();
+  const [mode, setMode] = useState<'phone' | 'email'>('phone');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!phone?.trim() || !password) {
-      Alert.alert('Xatolik', 'Telefon raqam va parolni kiriting');
+    if (!password) {
+      Alert.alert('Xatolik', 'Parolni kiriting');
       return;
     }
-    const normalized = normalizeUzbekPhone(phone.trim());
-    if (!isValidUzbekMobile(normalized)) {
-      Alert.alert('Telefon', '+998901234567 ko‘rinishida to‘g‘ri raqam kiriting');
-      return;
+    if (mode === 'phone') {
+      if (!phone?.trim()) {
+        Alert.alert('Xatolik', 'Telefon raqamni kiriting');
+        return;
+      }
+      const normalized = normalizeUzbekPhone(phone.trim());
+      if (!isValidUzbekMobile(normalized)) {
+        Alert.alert('Telefon', '+998901234567 ko‘rinishida to‘g‘ri raqam kiriting');
+        return;
+      }
+    } else {
+      const em = email.trim().toLowerCase();
+      if (!isValidEmail(em)) {
+        Alert.alert('Email', 'To‘g‘ri email manzilini kiriting');
+        return;
+      }
     }
+
     setLoading(true);
     try {
-      const res = await authService.loginWithPhone(normalized, password);
+      const res =
+        mode === 'phone'
+          ? await authService.loginWithPhone(normalizeUzbekPhone(phone.trim()), password)
+          : await authService.loginWithEmail(email.trim().toLowerCase(), password);
       await login(res.accessToken, res.refreshToken, res.user);
     } catch (e: any) {
-      Alert.alert('Kirish xatoligi', e.message || 'Telefon yoki parol noto\'g\'ri');
+      Alert.alert('Kirish xatoligi', e.message || 'Telefon/email yoki parol noto\'g\'ri');
     } finally {
       setLoading(false);
     }
@@ -50,18 +73,49 @@ export function LoginScreen({ navigation }: any) {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Kirish</Text>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Telefon raqam</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="+998 90 123 45 67"
-              placeholderTextColor={Colors.textMuted}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              autoCapitalize="none"
-            />
+          <View style={styles.modeRow}>
+            <TouchableOpacity
+              style={[styles.modeBtn, mode === 'phone' && styles.modeBtnActive]}
+              onPress={() => setMode('phone')}
+            >
+              <Text style={[styles.modeBtnText, mode === 'phone' && styles.modeBtnTextActive]}>Telefon</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeBtn, mode === 'email' && styles.modeBtnActive]}
+              onPress={() => setMode('email')}
+            >
+              <Text style={[styles.modeBtnText, mode === 'email' && styles.modeBtnTextActive]}>Email</Text>
+            </TouchableOpacity>
           </View>
+
+          {mode === 'phone' ? (
+            <View style={styles.field}>
+              <Text style={styles.label}>Telefon raqam</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="+998 90 123 45 67"
+                placeholderTextColor={Colors.textMuted}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                autoCapitalize="none"
+              />
+            </View>
+          ) : (
+            <View style={styles.field}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="you@example.com"
+                placeholderTextColor={Colors.textMuted}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          )}
 
           <View style={styles.field}>
             <Text style={styles.label}>Parol</Text>
@@ -131,7 +185,20 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08, shadowRadius: 16, elevation: 4,
   },
-  cardTitle: { fontSize: 22, fontWeight: '700', color: Colors.text, marginBottom: 24 },
+  cardTitle: { fontSize: 22, fontWeight: '700', color: Colors.text, marginBottom: 16 },
+  modeRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modeBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  modeBtnActive: { backgroundColor: Colors.primary },
+  modeBtnText: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
+  modeBtnTextActive: { color: '#fff' },
   field: { marginBottom: 16 },
   label: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginBottom: 8 },
   input: {

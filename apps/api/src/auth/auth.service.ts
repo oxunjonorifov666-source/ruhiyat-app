@@ -9,7 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
-import { createHash } from 'crypto';
+import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser, UserRole } from '@ruhiyat/types';
 import {
@@ -23,6 +23,7 @@ import {
   VerifyPasswordResetOtpDto,
 } from './dto';
 import { DeliveryService } from '../notifications/delivery.service';
+import { isValidUzbekMobileE164, normalizeUzbekPhoneE164 } from '../common/uzbek-phone.util';
 
 @Injectable()
 export class AuthService {
@@ -50,7 +51,16 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
-    const { email, phone, password, firstName, lastName, code } = dto as RegisterDto & { code?: string };
+    let { email, phone, password, firstName, lastName, code } = dto as RegisterDto & { code?: string };
+    if (email) {
+      email = email.trim().toLowerCase();
+    }
+    if (phone) {
+      phone = normalizeUzbekPhoneE164(phone);
+      if (!isValidUzbekMobileE164(phone)) {
+        throw new BadRequestException("Telefon raqam formati noto'g'ri (+998XXXXXXXXX)");
+      }
+    }
     if (password) {
       await this.enforcePasswordPolicy(password);
     }
@@ -132,7 +142,21 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const { email, phone, password } = dto;
+    const password = dto.password;
+    let email = dto.email?.trim() ? dto.email.trim().toLowerCase() : undefined;
+    let phone = dto.phone?.trim() ? dto.phone.trim() : undefined;
+    if (phone) {
+      phone = normalizeUzbekPhoneE164(phone);
+      if (!isValidUzbekMobileE164(phone)) {
+        throw new BadRequestException("Telefon raqam formati noto'g'ri (+998XXXXXXXXX)");
+      }
+    }
+    if (!email && !phone) {
+      throw new BadRequestException('Email yoki telefon kiriting');
+    }
+    if (email && phone) {
+      throw new BadRequestException('Faqat email yoki telefon — ikkalasini birga yubormang');
+    }
 
     const user = email
       ? await this.prisma.user.findUnique({ where: { email } })
@@ -270,28 +294,43 @@ export class AuthService {
   }
 
   async sendOtp(dto: SendOtpDto) {
-    if (!dto.phone && !dto.email) {
+    let phone: string | undefined;
+    let email: string | undefined;
+
+    if (dto.phone) {
+      phone = normalizeUzbekPhoneE164(dto.phone);
+      if (!isValidUzbekMobileE164(phone)) {
+        throw new BadRequestException("Telefon raqam formati noto'g'ri (+998XXXXXXXXX)");
+      }
+    }
+    if (dto.email) {
+      email = dto.email.trim().toLowerCase();
+    }
+    if (!phone && !email) {
       throw new BadRequestException('Telefon yoki email kiriting');
+    }
+    if (phone && email) {
+      throw new BadRequestException('Bir vaqtning o‘zida telefon va email yuborilmaydi');
     }
 
     if (dto.purpose === 'registration') {
-      if (dto.phone) {
-        const taken = await this.prisma.user.findUnique({ where: { phone: dto.phone }, select: { id: true } });
+      if (phone) {
+        const taken = await this.prisma.user.findUnique({ where: { phone }, select: { id: true } });
         if (taken) throw new ConflictException('Bu telefon raqam allaqachon ro‘yxatdan o‘tgan');
       }
-      if (dto.email) {
-        const taken = await this.prisma.user.findUnique({ where: { email: dto.email }, select: { id: true } });
+      if (email) {
+        const taken = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
         if (taken) throw new ConflictException('Bu email allaqachon ro‘yxatdan o‘tgan');
       }
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = String(randomInt(100_000, 1_000_000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     const otp = await this.prisma.otpVerification.create({
       data: {
-        phone: dto.phone,
-        email: dto.email,
+        phone,
+        email,
         code,
         purpose: dto.purpose,
         expiresAt,
@@ -300,14 +339,16 @@ export class AuthService {
     });
 
     try {
-      if (dto.phone) {
-        await this.delivery.sendOtpSms(dto.phone, code, dto.purpose);
-      } else if (dto.email) {
-        await this.delivery.sendOtpEmail(dto.email, code, dto.purpose);
+      if (phone) {
+        await this.delivery.sendOtpSms(phone, code, dto.purpose);
+      } else if (email) {
+        await this.delivery.sendOtpEmail(email, code, dto.purpose);
       }
     } catch (e) {
       await this.prisma.otpVerification.delete({ where: { id: otp.id } }).catch(() => undefined);
-      this.logger.error(`OTP yuborilmadi (${dto.purpose})`, e);
+      const detail = e instanceof Error ? e.message : String(e);
+      const channel = phone ? 'sms' : 'email';
+      this.logger.error(`OTP yuborilmadi purpose=${dto.purpose} channel=${channel}: ${detail}`, e instanceof Error ? e.stack : undefined);
       throw new BadRequestException("Kod yuborilmadi. Keyinroq qayta urinib ko'ring.");
     }
 
@@ -321,9 +362,21 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
+    let phone: string | undefined;
+    let email: string | undefined;
+    if (dto.phone) {
+      phone = normalizeUzbekPhoneE164(dto.phone);
+      if (!isValidUzbekMobileE164(phone)) {
+        throw new BadRequestException("Telefon raqam formati noto'g'ri (+998XXXXXXXXX)");
+      }
+    }
+    if (dto.email) {
+      email = dto.email.trim().toLowerCase();
+    }
+
     const where: any = { purpose: dto.purpose, isUsed: false };
-    if (dto.phone) where.phone = dto.phone;
-    if (dto.email) where.email = dto.email;
+    if (phone) where.phone = phone;
+    if (email) where.email = email;
 
     const otp = await this.prisma.otpVerification.findFirst({
       where,
@@ -351,8 +404,8 @@ export class AuthService {
       data: { isUsed: true },
     });
 
-    if (dto.purpose === 'login' && dto.phone) {
-      const user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+    if (dto.purpose === 'login' && phone) {
+      const user = await this.prisma.user.findUnique({ where: { phone } });
       if (user) {
         const authUser = await this.getAuthUserContext(user.id);
         const tokens = await this.generateTokens(authUser);
@@ -371,8 +424,11 @@ export class AuthService {
   }
 
   async requestPasswordReset(dto: { email?: string; phone?: string }) {
-    const email = dto.email?.trim();
-    const phone = dto.phone?.trim();
+    let email = dto.email?.trim() ? dto.email.trim().toLowerCase() : undefined;
+    let phone = dto.phone?.trim() ? normalizeUzbekPhoneE164(dto.phone) : undefined;
+    if (phone && !isValidUzbekMobileE164(phone)) {
+      throw new BadRequestException("Telefon raqam formati noto'g'ri (+998XXXXXXXXX)");
+    }
     if (!email && !phone) {
       throw new BadRequestException('Email yoki telefon kiriting');
     }
@@ -385,7 +441,7 @@ export class AuthService {
       return { message: 'Agar akkaunt mavjud bo\'lsa, tiklash kodi yuboriladi' };
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = String(randomInt(100_000, 1_000_000));
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     const otpRecord = await this.prisma.otpVerification.create({
@@ -408,7 +464,8 @@ export class AuthService {
       }
     } catch (e) {
       await this.prisma.otpVerification.delete({ where: { id: otpRecord.id } }).catch(() => undefined);
-      this.logger.error(`Parol tiklash OTP yuborilmadi (user ${user.id})`, e);
+      const detail = e instanceof Error ? e.message : String(e);
+      this.logger.error(`Parol tiklash OTP yuborilmadi userId=${user.id}: ${detail}`, e instanceof Error ? e.stack : undefined);
       throw new BadRequestException("Kod yuborilmadi. Keyinroq qayta urinib ko'ring.");
     }
 
@@ -416,8 +473,11 @@ export class AuthService {
   }
 
   async verifyPasswordResetOtp(dto: VerifyPasswordResetOtpDto) {
-    const email = dto.email?.trim();
-    const phone = dto.phone?.trim();
+    let email = dto.email?.trim() ? dto.email.trim().toLowerCase() : undefined;
+    let phone = dto.phone?.trim() ? normalizeUzbekPhoneE164(dto.phone) : undefined;
+    if (phone && !isValidUzbekMobileE164(phone)) {
+      throw new BadRequestException("Telefon raqam formati noto'g'ri (+998XXXXXXXXX)");
+    }
     if (!email && !phone) {
       throw new BadRequestException('Email yoki telefon kiriting');
     }
@@ -593,23 +653,27 @@ export class AuthService {
       throw new UnauthorizedException('Foydalanuvchi topilmadi');
     }
 
-    // Auto-create MobileUser if missing for MOBILE_USER role
+    // Auto-create MobileUser if missing for MOBILE_USER role (upsert — parallel login/register P2002 dan saqlaydi)
     if (!user.mobileUser && user.role === 'MOBILE_USER') {
-      user = await this.prisma.user.update({
-        where: { id: userId },
-        data: {
-          mobileUser: {
-            create: {
-              firstName: user.firstName,
-              lastName: user.lastName,
-            }
-          }
+      await this.prisma.mobileUser.upsert({
+        where: { userId },
+        create: {
+          userId,
+          firstName: user.firstName,
+          lastName: user.lastName,
         },
+        update: {},
+      });
+      user = await this.prisma.user.findUnique({
+        where: { id: userId },
         include: {
           administrator: { select: { centerId: true } },
-          mobileUser: true
-        }
+          mobileUser: true,
+        },
       });
+      if (!user) {
+        throw new UnauthorizedException('Foydalanuvchi topilmadi');
+      }
     }
 
     const permissions = await this.getUserPermissions(userId);
