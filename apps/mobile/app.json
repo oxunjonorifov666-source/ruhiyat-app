@@ -6,7 +6,10 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
+    "experiments": {
+      "autolinkingModuleResolution": true
+    },
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
@@ -23,7 +26,7 @@
     },
     "android": {
       "package": "com.ruhiyat.app",
-      "usesCleartextTraffic": true,
+      "usesCleartextTraffic": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#6366f1"
@@ -35,7 +38,7 @@
     },
     "scheme": "ruhiyat",
     "extra": {
-      "apiUrl": "http://192.168.137.157:3001/api",
+      "apiUrl": "https://ruhiyat-app.onrender.com/api",
       "startupEnableNotifications": true,
       "startupEnableQueryPersist": false,
       "eas": {

@@ -1,19 +1,30 @@
 import Constants from "expo-constants";
 
-/** Lokal backend (LAN). `app.json` → `expo.extra.apiUrl` bilan almashtirish mumkin; buildda `EXPO_PUBLIC_API_URL` ham `app.config.js` orqali keladi. */
-export const DEFAULT_API_BASE_URL = "http://192.168.137.157:3001/api";
+/** Production backend (Render). Oxirgi fallback — EAS `EXPO_PUBLIC_API_URL` yoki `extra.apiUrl` bo‘lmasa. */
+export const DEFAULT_API_BASE_URL = "https://ruhiyat-app.onrender.com/api";
+
+function normalizeBaseUrl(u: string): string {
+  return u.replace(/\/+$/, "");
+}
 
 /**
- * Bitta manzil: avvalo `expo.extra.apiUrl` (app.json / EAS env), bo‘lmasa DEFAULT_API_BASE_URL.
- * Release APK va dev bir xil mantiq — localhost / 127.0.0.1 ishlatilmaydi.
+ * 1) EXPO_PUBLIC_API_URL — EAS/Metro release buildda inline (eas.json env)
+ * 2) expo.extra.apiUrl — app.config.js (process.env.EXPO_PUBLIC_API_URL || app.json)
+ * 3) DEFAULT_API_BASE_URL
  */
 function pickApiBaseUrl(): string {
-  const extra = Constants.expoConfig?.extra as { apiUrl?: string; apiPort?: number } | undefined;
+  const fromPublic =
+    typeof process.env.EXPO_PUBLIC_API_URL === "string" ? process.env.EXPO_PUBLIC_API_URL.trim() : "";
+  if (fromPublic) {
+    return normalizeBaseUrl(fromPublic);
+  }
+
+  const extra = Constants.expoConfig?.extra as { apiUrl?: string } | undefined;
   const fromExtra = typeof extra?.apiUrl === "string" ? extra.apiUrl.trim() : "";
   if (fromExtra) {
-    return fromExtra;
+    return normalizeBaseUrl(fromExtra);
   }
-  return DEFAULT_API_BASE_URL;
+  return normalizeBaseUrl(DEFAULT_API_BASE_URL);
 }
 
 export const API_BASE_URL = pickApiBaseUrl();

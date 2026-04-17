@@ -69,7 +69,10 @@ if (!host) {
   process.exit(1);
 }
 
-console.log(`[expo] LAN manzil: ${host} (Expo Go shu IP orqali ulanadi)\n`);
+console.log(`[expo] LAN manzil: ${host} (Expo Go shu IP orqali ulanadi)`);
+console.log(
+  "[expo] Expo Go: telefonda Play Store / App Store → “Expo Go” → “Scan QR code” (kompyuter va telefon bir Wi‑Fi da bo‘lsin).\n",
+);
 
 const env = {
   ...process.env,

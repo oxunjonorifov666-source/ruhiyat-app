@@ -7,6 +7,7 @@ import {
 import { Colors } from '../../constants/colors';
 import { authService } from '../../services/auth';
 import { useAuth } from '../../contexts/AuthContext';
+import { normalizeUzbekPhone, isValidUzbekMobile } from '../../lib/phone';
 
 export function LoginScreen({ navigation }: any) {
   const { login } = useAuth();
@@ -15,13 +16,18 @@ export function LoginScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!phone || !password) {
+    if (!phone?.trim() || !password) {
       Alert.alert('Xatolik', 'Telefon raqam va parolni kiriting');
+      return;
+    }
+    const normalized = normalizeUzbekPhone(phone.trim());
+    if (!isValidUzbekMobile(normalized)) {
+      Alert.alert('Telefon', '+998901234567 ko‘rinishida to‘g‘ri raqam kiriting');
       return;
     }
     setLoading(true);
     try {
-      const res = await authService.loginWithPhone(phone, password);
+      const res = await authService.loginWithPhone(normalized, password);
       await login(res.accessToken, res.refreshToken, res.user);
     } catch (e: any) {
       Alert.alert('Kirish xatoligi', e.message || 'Telefon yoki parol noto\'g\'ri');

@@ -7,6 +7,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
+        "NODE_ENV": "development",
         "EXPO_PUBLIC_APP_ENV": "development"
       }
     },
@@ -16,7 +17,10 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "staging"
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_API_URL": "https://ruhiyat-app.onrender.com/api",
+        "EXPO_PUBLIC_ALLOW_CLEARTEXT": "false"
       }
     },
     "production": {
@@ -24,7 +28,10 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "production"
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://ruhiyat-app.onrender.com/api",
+        "EXPO_PUBLIC_ALLOW_CLEARTEXT": "false"
       }
     }
   },

@@ -53,9 +53,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, logout]);
 
   const saveTokens = async (accessToken: string, refreshToken: string) => {
-    await SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, accessToken);
-    await SecureStore.setItemAsync(TOKEN_KEYS.REFRESH_TOKEN, refreshToken);
-    apiClient.setTokens(accessToken, refreshToken);
+    try {
+      await SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, accessToken);
+      await SecureStore.setItemAsync(TOKEN_KEYS.REFRESH_TOKEN, refreshToken);
+      apiClient.setTokens(accessToken, refreshToken);
+    } catch (e) {
+      if (__DEV__) {
+        console.error('[Auth] SecureStore.saveTokens', e);
+      }
+      throw new Error(
+        "Tokenlarni qurilmada xavfsiz saqlab bo‘lmadi. Ilova huquqlari / ekran qulflash sozlamalarini tekshiring.",
+      );
+    }
   };
 
   const clearTokens = async () => {

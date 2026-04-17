@@ -3,8 +3,9 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      // Reanimated 4 / worklets — oxirgi plugin bo‘lishi shart
-      'react-native-reanimated/plugin',
+      // Reanimated 4.x: worklets Babel plugin oxirida (RN CLI / EAS); reanimated/plugin o‘rniga
+      // @see https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started/
+      'react-native-worklets/plugin',
     ],
   };
 };
