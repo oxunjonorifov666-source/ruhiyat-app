@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "prisma generate && nest build",
+    "db:push:prod": "prisma db push",
     "build:prod": "nest build && prisma db push && node dist/seed.js",
     "seed": "pnpm dlx ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" src/seed.ts",
+    "bootstrap:superadmin": "pnpm dlx ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" src/bootstrap-superadmin.ts",
     "start": "node dist/main",
     "start:prod": "node dist/main",
     "typecheck": "tsc -p tsconfig.json --noEmit",
