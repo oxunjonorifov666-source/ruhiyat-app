@@ -24,3 +24,16 @@ export function buildCenterEndpoint(
   const base = `/${cleanResource}`;
   return `${base}?centerId=${centerId}`;
 }
+
+/** Query for flat `StudentsController` routes: GET/POST/PATCH/DELETE `/students` and `/students/:id`. */
+export function centerIdQuery(centerId: number | undefined | null): Record<string, number> | undefined {
+  if (centerId == null) return undefined;
+  return { centerId };
+}
+
+/** Preserve superadmin center context in client navigations (e.g. /students/12?centerId=3). */
+export function withCenterQuery(path: string, centerId: number | null | undefined): string {
+  if (centerId == null) return path;
+  const q = `centerId=${centerId}`;
+  return path.includes("?") ? `${path}&${q}` : `${path}?${q}`;
+}

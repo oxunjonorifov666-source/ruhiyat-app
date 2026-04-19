@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
 import { apiClient } from "@/lib/api-client"
+import { safeDevError } from "@/lib/safe-log"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -71,8 +72,8 @@ export default function RolesPage() {
           if (updated) setSelectedRole(updated)
         }
       }
-    } catch (e: any) {
-      console.error(e)
+    } catch (e: unknown) {
+      safeDevError("roles/fetch", e)
     } finally {
       setLoading(false)
     }

@@ -1,14 +1,16 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo } from "react"
-import { Users, GraduationCap, Brain, BookOpen, CalendarCheck, DollarSign, Clock, TrendingUp, Activity, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react"
+import { Users, GraduationCap, CalendarCheck, DollarSign, Clock, TrendingUp, Activity, Loader2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
 import { StatsCard, StatsGrid } from "@/components/stats-card"
 import { useApiData } from "@/hooks/use-api-data"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
 import { useAuth } from "@/components/auth-provider"
+import { SuperadminCenterEmptyState, SuperadminCenterSelect } from "@/components/superadmin-center-select"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
 import { Badge } from "@/components/ui/badge"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 
 interface AdminStats {
   stats: {
@@ -22,8 +24,15 @@ interface AdminStats {
     completedSessions: number
     totalRevenue: number
     monthlyRevenue: number
+    /** Yakunlangan / jami yozilishlar (%) — backend */
     completionRate: number
     activeEnrollments: number
+    /** Backend: yakunlangan seanslar / (psixologlar × 40) × 100, max 100 */
+    psychologistLoad?: number
+    /** Backend: faol yozilishlar / (guruhlar × 15) × 100, max 100 */
+    groupOccupancy?: number
+    /** Backend: 50+ ball testlar / jami testlar × 100, max 100 */
+    testSuccessRate?: number
   }
   sessions: {
     upcoming: { id: number; scheduledAt: string; status: string; duration: number; psychologist: string; client: string }[]
@@ -42,11 +51,16 @@ const statusColors: Record<string, string> = {
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const centerName = user?.administrator?.center?.name || "Markaz"
-  const centerId = user?.administrator?.centerId
+  const centerCtx = useSuperadminCenter(user)
+  const centerName = centerCtx.centerDisplayName
+  const centerId = centerCtx.effectiveCenterId
 
-  const { data, loading, error } = useApiData<AdminStats>({
+  const statsEnabled = !centerCtx.needsCenterSelection
+
+  const { data, loading, error, permissionDenied } = useApiData<AdminStats>({
     path: "/dashboard/admin/stats",
+    params: centerId != null ? { centerId } : undefined,
+    enabled: statsEnabled,
     refreshInterval: 30000,
   })
 
@@ -58,16 +72,78 @@ export default function DashboardPage() {
     }).format(amount)
   }
 
-  const { data: financeData, loading: financeLoading } = useApiData<any>({
+  const {
+    data: financeData,
+    loading: financeLoading,
+    error: financeError,
+    permissionDenied: financePermissionDenied,
+  } = useApiData<{
+    totalRevenue: number
+    revenuePerCourse: { name: string; value: number }[]
+    revenuePerGroup: { name: string; value: number }[]
+  }>({
     path: "/payments/analytics",
-    params: { centerId },
+    params: centerId != null ? { centerId } : undefined,
     refreshInterval: 60000,
+    enabled: centerId != null && statsEnabled,
   })
 
-  if (loading && !data && financeLoading) {
+  if (centerCtx.needsCenterSelection) {
+    return (
+      <div className="space-y-6 pb-12">
+        <PageHeader
+          title="Boshqaruv paneli"
+          description="Markaz bo'yicha faoliyat va asosiy ko'rsatkichlar"
+          icon={TrendingUp}
+          actions={
+            <SuperadminCenterSelect
+              centers={centerCtx.centers}
+              centersLoading={centerCtx.centersLoading}
+              value={centerCtx.effectiveCenterId}
+              onChange={centerCtx.setCenterId}
+            />
+          }
+        />
+        <SuperadminCenterEmptyState
+          centers={centerCtx.centers}
+          centersLoading={centerCtx.centersLoading}
+          onSelect={centerCtx.setCenterId}
+        />
+      </div>
+    )
+  }
+
+  if (loading && !data) {
     return (
       <div className="flex h-[450px] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6 pb-12">
+        <PageHeader
+          title="Boshqaruv paneli"
+          description={`${centerName} faoliyati va asosiy ko'rsatkichlari`}
+          icon={TrendingUp}
+          actions={
+            centerCtx.isSuperadmin ? (
+              <SuperadminCenterSelect
+                centers={centerCtx.centers}
+                centersLoading={centerCtx.centersLoading}
+                value={centerCtx.effectiveCenterId}
+                onChange={centerCtx.setCenterId}
+              />
+            ) : undefined
+          }
+        />
+        <AccessDeniedPlaceholder
+          title="Dashboard statistikalariga ruxsat yo'q"
+          description="Markaz boshqaruv panelidagi yig'ma ko'rsatkichlar odatda markaz administratori yoki kengaytirilgan statistika ruxsatini talab qiladi."
+          detail={error}
+        />
       </div>
     )
   }
@@ -80,9 +156,23 @@ export default function DashboardPage() {
         title="Boshqaruv paneli"
         description={`${centerName} faoliyati va asosiy ko'rsatkichlari`}
         icon={TrendingUp}
-        badge="Enterprise"
-        badgeVariant="outline"
+        actions={
+          centerCtx.isSuperadmin ? (
+            <SuperadminCenterSelect
+              centers={centerCtx.centers}
+              centersLoading={centerCtx.centersLoading}
+              value={centerCtx.effectiveCenterId}
+              onChange={centerCtx.setCenterId}
+            />
+          ) : undefined
+        }
       />
+
+      {error && !data && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       <StatsGrid columns={4}>
         <StatsCard
@@ -90,7 +180,6 @@ export default function DashboardPage() {
           value={stats?.totalStudents || 0}
           icon={Users}
           iconColor="bg-blue-500/10 text-blue-600"
-          trend={{ value: 12, label: "o'sish" }}
         />
         <StatsCard
           title="O'qituvchilar"
@@ -103,14 +192,14 @@ export default function DashboardPage() {
           value={stats?.totalSessions || 0}
           icon={CalendarCheck}
           iconColor="bg-sky-500/10 text-sky-600"
-          description={`Bugun: ${stats?.pendingSessions || 0} ta kutilmoqda`}
+          description={`Kutilayotgan: ${stats?.pendingSessions || 0} · Yakunlangan: ${stats?.completedSessions || 0}`}
         />
         <StatsCard
-          title="Umumiy tushum"
+          title="Seans tushumi (to'langan)"
           value={formatCurrency(stats?.totalRevenue || 0)}
           icon={DollarSign}
           iconColor="bg-amber-500/10 text-amber-600"
-          description={`Shu oy: ${formatCurrency(stats?.monthlyRevenue || 0)}`}
+          description={`Joriy oy (seanslar): ${formatCurrency(stats?.monthlyRevenue || 0)}`}
         />
       </StatsGrid>
 
@@ -118,14 +207,17 @@ export default function DashboardPage() {
         <Card className="col-span-1 md:col-span-4 bg-primary text-primary-foreground border-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-xl font-bold flex items-center">
-              <GraduationCap className="mr-2 size-5" /> Akademik Samaradorlik ko'rsatkichlari (Faza 2.3)
+              <GraduationCap className="mr-2 size-5" /> Ta&apos;lim va yozilishlar
             </CardTitle>
-            <CardDescription className="text-primary-foreground/70">Markazning o'zlashtirish va guruhlar bo'yicha integrallashgan analitikasi</CardDescription>
+            <CardDescription className="text-primary-foreground/70">
+              Yozilishlarni yakunlash ulushi va faol yozilishlar — backend ma&apos;lumotlari
+            </CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
             <div className="space-y-1 p-4 rounded-lg bg-primary-foreground/10">
-              <p className="text-sm font-medium text-primary-foreground/80">O'zlashtirish (Bitirganlar)</p>
-              <p className="text-3xl font-bold">{stats?.completionRate || 0}%</p>
+              <p className="text-sm font-medium text-primary-foreground/80">Yozilishlarni yakunlash</p>
+              <p className="text-3xl font-bold">{stats?.completionRate ?? 0}%</p>
+              <p className="text-xs text-primary-foreground/60">Yakunlangan / jami yozilishlar</p>
             </div>
             <div className="space-y-1 p-4 rounded-lg bg-primary-foreground/10">
               <p className="text-sm font-medium text-primary-foreground/80">Faol Yozilishlar</p>
@@ -145,50 +237,84 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {financeData && (
+      {centerId != null && (
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 mb-6">
+          {financePermissionDenied ? (
+            <div className="lg:col-span-2">
+              <AccessDeniedPlaceholder
+                title="To'lovlar tahliliga ruxsat yo'q"
+                description="Kurs va guruh bo'yicha to'lov diagrammalari odatda finance.read yoki to'lovlar/analitika ruxsatini talab qiladi. Boshqa dashboard bo'limlari ko'rinishi mumkin."
+                detail={financeError}
+              />
+            </div>
+          ) : (
+            <>
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold flex items-center">
-                <DollarSign className="mr-2 size-5 text-amber-500" /> Moliyaviy Tushum (Faza 2.4)
+                <DollarSign className="mr-2 size-5 text-amber-500" /> Markaz to&apos;lovlari — kurs bo&apos;yicha
               </CardTitle>
-              <CardDescription>Kurslar bo'yicha tushumlar</CardDescription>
+              <CardDescription>
+                To&apos;langan markaz to&apos;lovlari (kurs nomi bo&apos;yicha yig&apos;indilar)
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[250px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={financeData.revenuePerCourse || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                    <Tooltip cursor={{ fill: 'transparent' }} formatter={(value: number) => [formatCurrency(value), "Tushum"]} />
-                    <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {financeError ? (
+                <p className="py-12 text-center text-sm text-destructive">{financeError}</p>
+              ) : financeLoading && !financeData ? (
+                <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">Yuklanmoqda...</div>
+              ) : (financeData?.revenuePerCourse?.length ?? 0) === 0 ? (
+                <p className="py-12 text-center text-sm text-muted-foreground">
+                  Kurs bo&apos;yicha to&apos;lovlar hozircha yo&apos;q
+                </p>
+              ) : (
+                <div className="h-[250px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={financeData!.revenuePerCourse} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                      <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                      <Tooltip cursor={{ fill: "transparent" }} formatter={(value: number) => [formatCurrency(value), "Tushum"]} />
+                      <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold flex items-center">
-                <Users className="mr-2 size-5 text-indigo-500" /> Guruhlar bo'yicha daromad
+                <Users className="mr-2 size-5 text-indigo-500" /> Markaz to&apos;lovlari — guruh bo&apos;yicha
               </CardTitle>
-              <CardDescription>Aktiv guruhlar tushumi</CardDescription>
+              <CardDescription>Guruh nomi bo&apos;yicha yig&apos;indilar</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[250px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={financeData.revenuePerGroup || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                    <Tooltip cursor={{ fill: 'transparent' }} formatter={(value: number) => [formatCurrency(value), "Tushum"]} />
-                    <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {financeError ? (
+                <p className="py-12 text-center text-sm text-destructive">{financeError}</p>
+              ) : financeLoading && !financeData ? (
+                <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">Yuklanmoqda...</div>
+              ) : (financeData?.revenuePerGroup?.length ?? 0) === 0 ? (
+                <p className="py-12 text-center text-sm text-muted-foreground">
+                  Guruh bo&apos;yicha to&apos;lovlar hozircha yo&apos;q
+                </p>
+              ) : (
+                <div className="h-[250px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={financeData!.revenuePerGroup} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                      <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                      <Tooltip cursor={{ fill: "transparent" }} formatter={(value: number) => [formatCurrency(value), "Tushum"]} />
+                      <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </CardContent>
           </Card>
+            </>
+          )}
         </div>
       )}
 
@@ -198,8 +324,8 @@ export default function DashboardPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base font-semibold">O'quvchilar dinamikasi</CardTitle>
-                <CardDescription>Oxirgi 6 oylik qabul ko'rsatkichlari</CardDescription>
+                <CardTitle className="text-base font-semibold">O&apos;quvchilar dinamikasi</CardTitle>
+                <CardDescription>Oxirgi 6 oy: yangi o&apos;quvchilar (ro&apos;yxatdan o&apos;tish)</CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="font-normal">
@@ -296,27 +422,31 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {(data?.sessions?.recent || []).map((s) => (
-                <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 transition-all hover:bg-muted/40">
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 rounded-full bg-background flex items-center justify-center border shadow-sm">
-                      <Activity className="size-3.5 text-primary" />
+              {(!data?.sessions?.recent || data.sessions.recent.length === 0) ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">So&apos;nggi seans yozuvlari yo&apos;q</p>
+              ) : (
+                data.sessions.recent.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 transition-all hover:bg-muted/40">
+                    <div className="flex items-center gap-3">
+                      <div className="size-8 rounded-full bg-background flex items-center justify-center border shadow-sm">
+                        <Activity className="size-3.5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{s.client}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{s.psychologist}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{s.client}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{s.psychologist}</p>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge variant="outline" className={`text-[10px] h-5 ${statusColors[s.status] || "bg-gray-100"}`}>
+                        {s.status}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {new Date(s.createdAt).toLocaleDateString("uz-UZ")}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge variant="outline" className={`text-[10px] h-5 ${statusColors[s.status] || "bg-gray-100"}`}>
-                      {s.status}
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      {new Date(s.createdAt).toLocaleDateString("uz-UZ")}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -328,39 +458,61 @@ export default function DashboardPage() {
               <TrendingUp className="size-32" />
             </div>
             <CardHeader>
-              <CardTitle className="text-lg">Oylik natija</CardTitle>
-              <CardDescription className="text-primary-foreground/70">Markazning joriy oydagi ko'rsatkichlari</CardDescription>
+              <CardTitle className="text-lg">Joriy oy — seans tushumi</CardTitle>
+              <CardDescription className="text-primary-foreground/70">
+                To&apos;langan psixolog seanslari (joriy oy yaratilgan, status PAID)
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-end justify-between">
-                <div className="space-y-1">
-                  <p className="text-3xl font-bold">{formatCurrency(stats?.monthlyRevenue || 0)}</p>
-                  <div className="flex items-center gap-2 text-sm text-primary-foreground/80">
-                    <ArrowUpRight className="size-4 text-emerald-300" />
-                    <span>O'tgan oyga nisbatan +14%</span>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <p className="text-3xl font-bold">{formatCurrency(stats?.monthlyRevenue || 0)}</p>
+                <p className="text-xs text-primary-foreground/65">
+                  Markaz to&apos;lovlari (kurs/guruh) alohida diagrammalarda; bu raqam faqat seanslar asosida.
+                </p>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-semibold">Tizim holati</CardTitle>
+              <CardTitle className="text-sm font-semibold">Yuklama va natijalar (backend)</CardTitle>
+              <CardDescription>
+                Foizlar serverdagi maqsadli formulalar bo&apos;yicha; katta raqam = maqsadga yaqinroq (max 100%).
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {[
-                { label: "O'quvchilar faolligi", value: 92, color: "bg-blue-500" },
-                { label: "Seanslar yakunlanishi", value: 85, color: "bg-emerald-500" },
-                { label: "To'lovlar intizomi", value: 78, color: "bg-amber-500" },
-              ].map((item) => (
+              {(
+                [
+                  {
+                    label: "Psixolog yuklamasi",
+                    sub: "Yakunlangan seanslar / (psixolog × 40)",
+                    value: Math.min(100, stats?.psychologistLoad ?? 0),
+                    color: "bg-blue-500",
+                  },
+                  {
+                    label: "Guruh bandligi",
+                    sub: "Faol yozilishlar / (guruh × 15)",
+                    value: Math.min(100, stats?.groupOccupancy ?? 0),
+                    color: "bg-emerald-500",
+                  },
+                  {
+                    label: "Test natijalari (50+ ball)",
+                    sub: "Ijobiy testlar / jami testlar",
+                    value: Math.min(100, stats?.testSuccessRate ?? 0),
+                    color: "bg-amber-500",
+                  },
+                ] as const
+              ).map((item) => (
                 <div key={item.label} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className="font-semibold">{item.value}%</span>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-muted-foreground">
+                      {item.label}
+                      <span className="block text-[10px] font-normal text-muted-foreground/80">{item.sub}</span>
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums">{item.value}%</span>
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full ${item.color} rounded-full`} style={{ width: `${item.value}%` }} />
+                    <div className={`h-full ${item.color} rounded-full transition-all`} style={{ width: `${item.value}%` }} />
                   </div>
                 </div>
               ))}

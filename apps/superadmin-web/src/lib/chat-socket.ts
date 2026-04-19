@@ -1,28 +1,38 @@
-import { io, type Socket } from 'socket.io-client';
-import { getStoredTokens } from './auth';
+import { io, type Socket } from 'socket.io-client'
+import { fetchSocketAccessToken } from './auth'
 
-let socket: Socket | null = null;
+let socket: Socket | null = null
+let connectInflight: Promise<Socket | null> | null = null
 
-export function getChatSocket(): Socket | null {
-  if (typeof window === 'undefined') return null;
-  const tokens = getStoredTokens();
-  if (!tokens?.accessToken) return null;
+async function connectOnce(): Promise<Socket | null> {
+  const token = await fetchSocketAccessToken()
+  if (!token) return null
 
-  if (socket && socket.connected) return socket;
+  if (socket?.connected) return socket
 
   socket = io('/chat', {
     path: '/api/socket.io',
     transports: ['websocket'],
-    auth: { token: tokens.accessToken },
-  });
+    auth: { token },
+  })
 
-  return socket;
+  return socket
+}
+
+export function getChatSocket(): Promise<Socket | null> {
+  if (typeof window === 'undefined') return Promise.resolve(null)
+  if (socket?.connected) return Promise.resolve(socket)
+  if (!connectInflight) {
+    connectInflight = connectOnce().finally(() => {
+      connectInflight = null
+    })
+  }
+  return connectInflight
 }
 
 export function disconnectChatSocket() {
   if (socket) {
-    socket.disconnect();
-    socket = null;
+    socket.disconnect()
+    socket = null
   }
 }
-

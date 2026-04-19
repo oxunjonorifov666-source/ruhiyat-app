@@ -1,5 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SecurityObservabilityService } from '../observability/security-observability.service';
+import { SECURITY_EVENT_NAME } from '../observability/security-event.model';
 import { AuthUser, UserRole } from '@ruhiyat/types';
 
 const ADMIN_ROLES = [UserRole.SUPERADMIN, UserRole.ADMINISTRATOR] as const;
@@ -12,7 +14,10 @@ function requireAdmin(requester: AuthUser) {
 
 @Injectable()
 export class SecurityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly securityObs: SecurityObservabilityService,
+  ) {}
 
   async getPolicy(requester: AuthUser) {
     requireAdmin(requester);
@@ -38,12 +43,22 @@ export class SecurityService {
     };
   }
 
-  async updatePolicy(requester: AuthUser, body: any) {
+  async updatePolicy(
+    requester: AuthUser,
+    body: {
+      passwordMinLength?: number;
+      passwordRequireUpperLowerDigit?: boolean;
+      passwordRequireSpecial?: boolean;
+    },
+  ) {
     if (requester.role !== UserRole.SUPERADMIN) {
       throw new ForbiddenException('Faqat Superadmin siyosatni o‘zgartira oladi');
     }
 
-    const passwordMinLength = Math.min(64, Math.max(6, Number(body.passwordMinLength || 8)));
+    const passwordMinLength = Math.min(
+      64,
+      Math.max(6, Number(body.passwordMinLength ?? 8)),
+    );
     const passwordRequireUpperLowerDigit = !!body.passwordRequireUpperLowerDigit;
     const passwordRequireSpecial = !!body.passwordRequireSpecial;
 
@@ -61,6 +76,21 @@ export class SecurityService {
       where: { key: 'security.passwordRequireSpecial' },
       update: { value: String(passwordRequireSpecial), updatedBy: requester.id },
       create: { key: 'security.passwordRequireSpecial', value: String(passwordRequireSpecial), category: 'security', updatedBy: requester.id },
+    });
+
+    await this.securityObs.record({
+      event: 'SECURITY_PASSWORD_POLICY_UPDATED',
+      userId: requester.id,
+      success: true,
+      event_name: SECURITY_EVENT_NAME.PRIVILEGE_SECURITY_POLICY_CHANGE,
+      severity: 'high',
+      category: 'privilege',
+      details: {
+        actorRole: requester.role,
+        passwordMinLength,
+        passwordRequireUpperLowerDigit,
+        passwordRequireSpecial,
+      },
     });
 
     return this.getPolicy(requester);
@@ -116,6 +146,21 @@ export class SecurityService {
       data: { isRevoked: true },
     });
 
+    await this.securityObs.record({
+      event: 'SESSION_REVOKED',
+      userId: requester.id,
+      success: true,
+      event_name: SECURITY_EVENT_NAME.PRIVILEGE_SESSION_TERMINATION,
+      severity: 'medium',
+      category: 'privilege',
+      details: {
+        actorRole: requester.role,
+        sessionId: id,
+        sessionOwnerUserId: session.userId,
+        revokedOtherUser: session.userId !== requester.id,
+      },
+    });
+
     return { message: 'Sessiya yopildi' };
   }
 
@@ -124,9 +169,23 @@ export class SecurityService {
     const targetUserId =
       requester.role === UserRole.SUPERADMIN && body?.userId ? parseInt(body.userId, 10) : requester.id;
 
-    await this.prisma.session.updateMany({
+    const result = await this.prisma.session.updateMany({
       where: { userId: targetUserId, isRevoked: false },
       data: { isRevoked: true },
+    });
+
+    await this.securityObs.record({
+      event: 'SESSIONS_LOGOUT_ALL',
+      userId: requester.id,
+      success: true,
+      event_name: SECURITY_EVENT_NAME.PRIVILEGE_SESSIONS_LOGOUT_ALL,
+      severity: 'high',
+      category: 'privilege',
+      details: {
+        actorRole: requester.role,
+        targetUserId,
+        sessionsClosed: result.count,
+      },
     });
 
     return { message: 'Barcha sessiyalar yopildi' };

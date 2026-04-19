@@ -20,6 +20,15 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
+import {
+  classifyApiError,
+  describeEmbeddedApiError,
+  formatEmbeddedApiError,
+  isUserCancelledStepUp,
+} from "@/lib/api-error"
+import { useStepUp } from "@/components/step-up/step-up-provider"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
+import { SuperadminRouteGate } from "@/components/superadmin-route-gate"
 
 type TargetType = "user" | "psychologist"
 
@@ -36,13 +45,15 @@ interface BlockedUserRow {
   psychologist: { id: number; specialization: string | null } | null
 }
 
-export default function BlockingPage() {
+function BlockingPageContent() {
+  const { runWithStepUp } = useStepUp()
   const [data, setData] = useState<BlockedUserRow[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   const [filters, setFilters] = useState<{ targetType: string }>({ targetType: "all" })
 
@@ -70,6 +81,7 @@ export default function BlockingPage() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setPermissionDenied(false)
     try {
       const res = await apiClient<PaginatedResponse<BlockedUserRow>>("/blocks", {
         params: {
@@ -81,8 +93,10 @@ export default function BlockingPage() {
       })
       setData(res.data)
       setTotal(res.total)
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      const { permissionDenied: denied } = classifyApiError(e)
+      if (denied) setPermissionDenied(true)
+      else setError(formatEmbeddedApiError(e))
     } finally {
       setLoading(false)
     }
@@ -105,16 +119,26 @@ export default function BlockingPage() {
     if (!id) return
     setSaving(true)
     try {
-      if (actionType === "user") {
-        await apiClient(`/blocks/users/${id}/block`, { method: "PATCH", body: { reason } })
-      } else {
-        await apiClient(`/blocks/psychologists/${id}/block`, { method: "PATCH", body: { reason } })
-      }
+      await runWithStepUp(
+        async () => {
+          if (actionType === "user") {
+            await apiClient(`/blocks/users/${id}/block`, { method: "PATCH", body: { reason } })
+          } else {
+            await apiClient(`/blocks/psychologists/${id}/block`, { method: "PATCH", body: { reason } })
+          }
+        },
+        {
+          title: "Bloklashni tasdiqlang",
+          description: "Global bloklash uchun akkaunt parolingizni kiriting.",
+        },
+      )
       toast.success("Bloklandi")
       setActionOpen(false)
       fetchData()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      if (isUserCancelledStepUp(e)) return
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     } finally {
       setSaving(false)
     }
@@ -123,15 +147,25 @@ export default function BlockingPage() {
   const doUnblock = async (row: BlockedUserRow) => {
     setSaving(true)
     try {
-      if (row.psychologist) {
-        await apiClient(`/blocks/psychologists/${row.psychologist.id}/unblock`, { method: "PATCH" })
-      } else {
-        await apiClient(`/blocks/users/${row.id}/unblock`, { method: "PATCH" })
-      }
+      await runWithStepUp(
+        async () => {
+          if (row.psychologist) {
+            await apiClient(`/blocks/psychologists/${row.psychologist.id}/unblock`, { method: "PATCH" })
+          } else {
+            await apiClient(`/blocks/users/${row.id}/unblock`, { method: "PATCH" })
+          }
+        },
+        {
+          title: "Blokdan chiqarishni tasdiqlang",
+          description: "Bu foydalanuvchini qayta faollashtirish uchun parolingizni kiriting.",
+        },
+      )
       toast.success("Blokdan chiqarildi")
       fetchData()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      if (isUserCancelledStepUp(e)) return
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     } finally {
       setSaving(false)
     }
@@ -189,6 +223,23 @@ export default function BlockingPage() {
       ),
     },
   ]
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Bloklash"
+          description="Bloklangan foydalanuvchi va psixologlarni real bazadan boshqarish"
+          icon={ShieldAlert}
+        />
+        <AccessDeniedPlaceholder
+          title="Bloklash moduliga ruxsat yo'q"
+          description="Bloklar ro'yxati va boshqaruv odatda moderatsiya yoki maxsus admin ruxsatini talab qiladi."
+          detail={error}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -281,3 +332,10 @@ export default function BlockingPage() {
   )
 }
 
+export default function BlockingPage() {
+  return (
+    <SuperadminRouteGate title="Bloklash">
+      <BlockingPageContent />
+    </SuperadminRouteGate>
+  )
+}

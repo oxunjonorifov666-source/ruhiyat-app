@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import type { Announcement } from '@prisma/client';
+import type { AuthUser } from '@ruhiyat/types';
 import { createHmac, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChatGateway } from './chat.gateway';
@@ -7,7 +9,6 @@ import { PushNotificationService } from '../push/push-notification.service';
 
 const USER_SELECT = { id: true, email: true, firstName: true, lastName: true, role: true } as const;
 const USER_SELECT_PHONE = { ...USER_SELECT, phone: true } as const;
-const ADMIN_ROLES = ['SUPERADMIN', 'ADMINISTRATOR'] as const;
 const VIDEO_ADMIN_ROLES = ['SUPERADMIN', 'ADMINISTRATOR'] as const;
 
 @Injectable()
@@ -87,9 +88,10 @@ export class CommunicationService {
     return this.createOrGetDirectChat(requesterId, other.id);
   }
 
-  private async ensureParticipantOrAdmin(userId: number, chatId: number) {
+  /** Faqat SUPERADMIN global moderatsiya (ishtirokchisiz); boshqa rollar ishtirokchi bo‘lishi shart. */
+  private async ensureParticipantOrSuperadmin(userId: number, chatId: number) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    if (user?.role && ADMIN_ROLES.includes(user.role as any)) return;
+    if (user?.role === 'SUPERADMIN') return;
     const participant = await this.prisma.chatParticipant.findUnique({
       where: { chatId_userId: { chatId, userId } },
     });
@@ -98,7 +100,10 @@ export class CommunicationService {
     }
   }
 
-  async getChatStats() {
+  async getChatStats(requesterRole?: string) {
+    if (requesterRole !== 'SUPERADMIN') {
+      throw new ForbiddenException('Faqat superadmin umumiy chat statistikasini ko‘ra oladi');
+    }
     const [totalChats, activeChats, totalMessages, todayMessages] = await Promise.all([
       this.prisma.chat.count(),
       this.prisma.chat.count({ where: { isActive: true } }),
@@ -175,12 +180,12 @@ export class CommunicationService {
   }
 
   async getMyChatMessages(chatUserId: number, chatId: number, query: { page?: number; limit?: number } = {}) {
-    await this.ensureParticipantOrAdmin(chatUserId, chatId);
+    await this.ensureParticipantOrSuperadmin(chatUserId, chatId);
     return this.getChatMessages(chatId, query);
   }
 
   async sendMyMessage(chatUserId: number, chatId: number, data: { content?: string; type?: string; attachmentUrl?: string }) {
-    await this.ensureParticipantOrAdmin(chatUserId, chatId);
+    await this.ensureParticipantOrSuperadmin(chatUserId, chatId);
     const message = await this.sendMessage(chatId, {
       senderId: chatUserId,
       content: data.content || null,
@@ -194,7 +199,7 @@ export class CommunicationService {
   }
 
   async saveChatAttachment(chatUserId: number, chatId: number, file: Express.Multer.File) {
-    await this.ensureParticipantOrAdmin(chatUserId, chatId);
+    await this.ensureParticipantOrSuperadmin(chatUserId, chatId);
 
     // FileInterceptor already enforced size + mimetype; keep extra hardening here.
     if (!file.filename || file.filename.includes('..') || file.filename.includes('/') || file.filename.includes('\\')) {
@@ -302,6 +307,7 @@ export class CommunicationService {
 
   async findAllChats(query: {
     requesterId?: number;
+    requesterRole?: string;
     page?: number;
     limit?: number;
     search?: string;
@@ -312,6 +318,9 @@ export class CommunicationService {
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
     const where: any = {};
+    if (query.requesterRole !== 'SUPERADMIN' && query.requesterId != null) {
+      where.participants = { some: { userId: query.requesterId } };
+    }
     if (query.type) where.type = query.type;
     if (query.status === 'active') where.isActive = true;
     if (query.status === 'inactive') where.isActive = false;
@@ -421,7 +430,7 @@ export class CommunicationService {
 
   async addParticipants(chatId: number, requesterId: number, data: { emails?: string[]; userIds?: number[] }) {
     // Must be participant or admin to manage members
-    await this.ensureParticipantOrAdmin(requesterId, chatId);
+    await this.ensureParticipantOrSuperadmin(requesterId, chatId);
 
     const chat = await this.prisma.chat.findUnique({ where: { id: chatId }, select: { id: true, type: true, isActive: true } });
     if (!chat) throw new NotFoundException('Chat topilmadi');
@@ -456,7 +465,8 @@ export class CommunicationService {
     return { added: toAdd.length };
   }
 
-  async findChat(id: number) {
+  async findChat(id: number, requesterId: number) {
+    await this.ensureParticipantOrSuperadmin(requesterId, id);
     const chat = await this.prisma.chat.findUnique({
       where: { id },
       include: {
@@ -509,8 +519,12 @@ export class CommunicationService {
   async getChatMessages(
     chatId: number,
     query: { page?: number; limit?: number } = {},
-    opts?: { markReadForUserId?: number },
+    opts?: { markReadForUserId?: number; requesterId?: number },
   ) {
+    if (opts?.requesterId != null) {
+      await this.ensureParticipantOrSuperadmin(opts.requesterId, chatId);
+    }
+
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 50));
     const skip = (page - 1) * limit;
@@ -536,7 +550,7 @@ export class CommunicationService {
   }
 
   async markChatRead(chatId: number, userId: number) {
-    await this.ensureParticipantOrAdmin(userId, chatId);
+    await this.ensureParticipantOrSuperadmin(userId, chatId);
     const existing = await this.prisma.chatParticipant.findUnique({
       where: { chatId_userId: { chatId, userId } },
     });
@@ -555,10 +569,10 @@ export class CommunicationService {
       where: { id: requesterId },
       select: { role: true },
     });
-    if (u?.role === 'SUPERADMIN' || u?.role === 'ADMINISTRATOR') return;
+    if (u?.role === 'SUPERADMIN') return;
     if (chat.type !== 'GROUP') throw new ForbiddenException('Faqat guruh chatlari uchun');
     if (!chat.createdBy || chat.createdBy !== requesterId) {
-      throw new ForbiddenException('Faqat guruh yaratuvchisi yoki administrator');
+      throw new ForbiddenException('Faqat guruh yaratuvchisi yoki superadmin');
     }
   }
 
@@ -572,13 +586,7 @@ export class CommunicationService {
     if (chat.type === 'GROUP') {
       await this.ensureCanManageGroupChat(requesterId, chat);
     } else {
-      const u = await this.prisma.user.findUnique({
-        where: { id: requesterId },
-        select: { role: true },
-      });
-      if (u?.role !== 'SUPERADMIN' && u?.role !== 'ADMINISTRATOR') {
-        throw new ForbiddenException("Direct chatni faqat administrator o'zgartira oladi");
-      }
+      await this.ensureParticipantOrSuperadmin(requesterId, chatId);
     }
     const next: { title?: string | null; imageUrl?: string | null } = {};
     if (data.title !== undefined) next.title = data.title?.trim() || null;
@@ -600,12 +608,21 @@ export class CommunicationService {
       where: { id: requesterId },
       select: { role: true },
     });
-    const isAdmin = u?.role === 'SUPERADMIN' || u?.role === 'ADMINISTRATOR';
-    if (isAdmin) {
+    if (u?.role === 'SUPERADMIN') {
       await this.prisma.chat.delete({ where: { id: chatId } });
       return { ok: true };
     }
-    if (chat.type === 'GROUP' && chat.createdBy === requesterId) {
+    if (chat.type === 'GROUP') {
+      if (chat.createdBy === requesterId) {
+        await this.prisma.chat.delete({ where: { id: chatId } });
+        return { ok: true };
+      }
+      throw new ForbiddenException("Chatni o'chirishga ruxsat yo'q");
+    }
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: { chatId_userId: { chatId, userId: requesterId } },
+    });
+    if (participant) {
       await this.prisma.chat.delete({ where: { id: chatId } });
       return { ok: true };
     }
@@ -621,7 +638,7 @@ export class CommunicationService {
       where: { id: requesterId },
       select: { role: true },
     });
-    const isAdmin = requester?.role === 'SUPERADMIN' || requester?.role === 'ADMINISTRATOR';
+    const isSuperadmin = requester?.role === 'SUPERADMIN';
 
     if (targetUserId === requesterId) {
       const cnt = await this.prisma.chatParticipant.count({ where: { chatId } });
@@ -632,7 +649,7 @@ export class CommunicationService {
       return { ok: true };
     }
 
-    if (targetUserId === chat.createdBy && !isAdmin) {
+    if (targetUserId === chat.createdBy && !isSuperadmin) {
       throw new ForbiddenException("Guruh yaratuvchisini faqat superadmin olib tashlashi mumkin");
     }
 
@@ -665,6 +682,8 @@ export class CommunicationService {
   }
 
   async sendMessage(chatId: number, data: { senderId: number; content: string | null; type?: string; attachmentUrl?: string }) {
+    await this.ensureParticipantOrSuperadmin(data.senderId, chatId);
+
     const message = await this.prisma.message.create({
       data: {
         chatId,
@@ -688,16 +707,24 @@ export class CommunicationService {
     return message;
   }
 
-  async deleteMessage(messageId: number) {
+  async deleteMessage(messageId: number, requesterId: number) {
+    const msg = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      select: { id: true, chatId: true },
+    });
+    if (!msg) throw new NotFoundException('Xabar topilmadi');
+    await this.ensureParticipantOrSuperadmin(requesterId, msg.chatId);
+
     return this.prisma.message.update({
       where: { id: messageId },
       data: { isDeleted: true },
     });
   }
 
-  async toggleChatActive(chatId: number) {
+  async toggleChatActive(chatId: number, requesterId: number) {
     const chat = await this.prisma.chat.findUnique({ where: { id: chatId } });
     if (!chat) throw new NotFoundException('Chat topilmadi');
+    await this.ensureParticipantOrSuperadmin(requesterId, chatId);
     return this.prisma.chat.update({
       where: { id: chatId },
       data: { isActive: !chat.isActive },
@@ -1052,6 +1079,28 @@ export class CommunicationService {
       this.prisma.announcement.count({ where }),
     ]);
     return { data, total, page, limit };
+  }
+
+  /** Same visibility rules as {@link findAllAnnouncements} with `publishedOnly: true` (consumer-safe). */
+  private isAnnouncementConsumerVisible(a: Announcement, now = new Date()): boolean {
+    if (!a.isPublished) return false;
+    if (a.expiresAt != null && a.expiresAt <= now) return false;
+    if (a.publishedAt != null && a.publishedAt > now) return false;
+    return true;
+  }
+
+  private canManageCommunication(user: AuthUser): boolean {
+    const p = user.permissions ?? [];
+    return p.includes('*') || p.includes('communication.read') || p.includes('communication.write');
+  }
+
+  /** One announcement by id: full row for comm-privileged users; otherwise consumer-visible only. */
+  async getAnnouncementForViewer(id: number, user: AuthUser) {
+    const a = await this.prisma.announcement.findUnique({ where: { id } });
+    if (!a) throw new NotFoundException("E'lon topilmadi");
+    if (this.canManageCommunication(user)) return a;
+    if (!this.isAnnouncementConsumerVisible(a)) throw new NotFoundException("E'lon topilmadi");
+    return a;
   }
 
   async createAnnouncement(data: any) { return this.prisma.announcement.create({ data }); }

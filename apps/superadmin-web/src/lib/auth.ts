@@ -1,127 +1,139 @@
-import { TOKEN_KEYS } from '@ruhiyat/config';
+import { TOKEN_KEYS } from '@ruhiyat/config'
+import { LEGACY_TOKEN_KEYS } from '@/lib/session-constants'
+import { getCsrfHeadersForMutations } from '@/lib/api-csrf'
+import { VerifyPasswordError } from '@/lib/verify-password-error'
+import { saUrl } from '@/lib/superadmin-base'
 
-// Relativ `/api`: Next rewrites → NEXT_PUBLIC_API_URL (default next.config da API origin bilan mos)
-const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
-const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl.replace(/\/+$/, '')}/api`;
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/api'
+const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl.replace(/\/+$/, '')}/api`
 
 export interface AuthUser {
-  id: number;
-  email: string | null;
-  phone: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  role: string;
-  permissions: string[];
+  id: number
+  email: string | null
+  phone: string | null
+  firstName: string | null
+  lastName: string | null
+  role: string
+  permissions: string[]
 }
 
-export interface LoginResponse {
-  user: AuthUser;
-  accessToken: string;
-  refreshToken: string;
-}
-
-export async function loginApi(email: string, password: string): Promise<LoginResponse> {
-  const path = `${API_URL}/auth/login`;
-  const url =
-    typeof window !== "undefined" && !path.startsWith("http")
-      ? new URL(path, window.location.origin).toString()
-      : path;
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-  } catch {
-    const hint =
-      "Tarmoq xatosi: NestJS API ishlamayapti yoki noto‘g‘ri port. " +
-      "Terminalda `Asset-Linker/apps/api` ichida `pnpm dev` ni ishga tushiring (`.env` dagi PORT, odatda 3001). " +
-      "Keyin superadmin (`pnpm dev`, port 18344) ni qayta tekshiring.";
-    throw new Error(hint);
-  }
-
-  const ct = res.headers.get("content-type") || "";
-  if (!res.ok) {
-    if (!ct.includes("application/json")) {
-      const snippet = await res.text().then((t) => t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180)).catch(() => "");
-      throw new Error(
-        `API ${res.status} (JSON emas — odatda Next → Nest proksi yoki API ishlamayapti). ` +
-          `1) Alohida terminalda: pnpm api:dev (PORT=3001). 2) Brauzerda tekshiring: http://127.0.0.1:3001/api/healthz ` +
-          `3) Superadminni qayta ishga tushiring. ` +
-          (snippet ? ` (${snippet}…)` : ""),
-      );
-    }
-    const error = await res.json().catch(() => ({}));
-    const msg = error.message;
-    const text = Array.isArray(msg) ? msg[0] : typeof msg === 'string' ? msg : null;
-    throw new Error(text || 'Kirish xatoligi');
-  }
-
-  return res.json();
-}
-
-export async function fetchMe(accessToken: string): Promise<AuthUser> {
-  const res = await fetch(`${API_URL}/auth/me`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!res.ok) {
-    throw new Error('Sessiya yaroqsiz');
-  }
-
-  const data = await res.json();
+function normalizeUser(raw: Record<string, unknown>): AuthUser {
   return {
-    id: data.id ?? data.user?.id,
-    email: data.email ?? data.user?.email ?? null,
-    phone: data.phone ?? data.user?.phone ?? null,
-    firstName: data.firstName ?? data.user?.firstName ?? null,
-    lastName: data.lastName ?? data.user?.lastName ?? null,
-    role: data.role ?? data.user?.role,
-    permissions: data.permissions ?? data.user?.permissions ?? [],
-  };
-}
-
-export async function refreshTokenApi(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
-  const res = await fetch(`${API_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
-
-  if (!res.ok) {
-    throw new Error('Token yangilanmadi');
+    id: Number(raw.id),
+    email: (raw.email as string | null) ?? null,
+    phone: (raw.phone as string | null) ?? null,
+    firstName: (raw.firstName as string | null) ?? null,
+    lastName: (raw.lastName as string | null) ?? null,
+    role: String(raw.role),
+    permissions: Array.isArray(raw.permissions) ? (raw.permissions as string[]) : [],
   }
-
-  return res.json();
 }
 
-export async function logoutApi(refreshToken: string): Promise<void> {
-  await fetch(`${API_URL}/auth/logout`, {
+/** Eski localStorage / ochiq cookie tokenlarini tozalaydi (transitional) */
+export function clearLegacyBrowserTokens() {
+  if (typeof window === 'undefined') return
+  for (const k of LEGACY_TOKEN_KEYS) {
+    try {
+      localStorage.removeItem(k)
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    localStorage.removeItem(TOKEN_KEYS.ACCESS_TOKEN)
+    localStorage.removeItem(TOKEN_KEYS.REFRESH_TOKEN)
+  } catch {
+    /* ignore */
+  }
+  const past = 'Thu, 01 Jan 1970 00:00:00 GMT'
+  document.cookie = `${TOKEN_KEYS.ACCESS_TOKEN}=; path=/; expires=${past}; SameSite=Lax`
+  document.cookie = `${TOKEN_KEYS.REFRESH_TOKEN}=; path=/; expires=${past}; SameSite=Lax`
+}
+
+export async function sessionLogin(email: string, password: string): Promise<{ user: AuthUser }> {
+  const res = await fetch(saUrl('/api/session/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  }).catch(() => {});
+    body: JSON.stringify({ email, password }),
+    credentials: 'include',
+  })
+  const data = (await res.json().catch(() => ({}))) as { success?: boolean; user?: Record<string, unknown>; message?: string }
+  if (!res.ok) {
+    throw new Error(data.message || 'Kirish xatoligi')
+  }
+  if (!data.user) {
+    throw new Error('Server javobi noto‘g‘ri')
+  }
+  clearLegacyBrowserTokens()
+  return { user: normalizeUser(data.user) }
 }
 
-export function getStoredTokens() {
-  if (typeof window === 'undefined') return null;
-  const accessToken = localStorage.getItem(TOKEN_KEYS.ACCESS_TOKEN);
-  const refreshToken = localStorage.getItem(TOKEN_KEYS.REFRESH_TOKEN);
-  if (!accessToken || !refreshToken) return null;
-  return { accessToken, refreshToken };
+export async function sessionMe(): Promise<AuthUser> {
+  const res = await fetch(saUrl('/api/session/me'), { credentials: 'include', cache: 'no-store' })
+  const data = (await res.json().catch(() => ({}))) as { user?: Record<string, unknown>; message?: string }
+  if (!res.ok) {
+    throw new Error(typeof data.message === 'string' ? data.message : 'Sessiya yaroqsiz')
+  }
+  if (!data.user) {
+    throw new Error('Sessiya yaroqsiz')
+  }
+  return normalizeUser(data.user)
 }
 
-export function storeTokens(accessToken: string, refreshToken: string) {
-  localStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, accessToken);
-  localStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, refreshToken);
-  document.cookie = `${TOKEN_KEYS.ACCESS_TOKEN}=${accessToken}; path=/; max-age=${15 * 60}; SameSite=Lax`;
-  document.cookie = `${TOKEN_KEYS.REFRESH_TOKEN}=${refreshToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+export async function sessionLogout(): Promise<void> {
+  await fetch(saUrl('/api/session/logout'), { method: 'POST', credentials: 'include' }).catch(() => undefined)
+  clearLegacyBrowserTokens()
+}
+
+export async function sessionRefresh(): Promise<boolean> {
+  const res = await fetch(saUrl('/api/session/refresh'), { method: 'POST', credentials: 'include' })
+  return res.ok
+}
+
+/** Socket.io uchun qisqa muddatli token (CSP bilan himoyalangan transitional yo‘l) */
+export async function fetchSocketAccessToken(): Promise<string | null> {
+  const res = await fetch(saUrl('/api/session/socket-token'), { credentials: 'include', cache: 'no-store' })
+  const data = (await res.json().catch(() => ({}))) as { accessToken?: string }
+  if (!res.ok || !data.accessToken) return null
+  return data.accessToken
+}
+
+/**
+ * @deprecated Tokenlar HttpOnly cookie’da; bu har doim `null` qaytaradi.
+ * Eski importlarni bosqichma-bosqich olib tashlang.
+ */
+export function getStoredTokens(): null {
+  return null
+}
+
+/** @deprecated — sessiya cookie orqali boshqariladi */
+export function storeTokens(_accessToken: string, _refreshToken: string) {
+  clearLegacyBrowserTokens()
 }
 
 export function clearTokens() {
-  localStorage.removeItem(TOKEN_KEYS.ACCESS_TOKEN);
-  localStorage.removeItem(TOKEN_KEYS.REFRESH_TOKEN);
-  document.cookie = `${TOKEN_KEYS.ACCESS_TOKEN}=; path=/; max-age=0`;
-  document.cookie = `${TOKEN_KEYS.REFRESH_TOKEN}=; path=/; max-age=0`;
+  clearLegacyBrowserTokens()
+}
+
+/** Sets short-lived HttpOnly `ruhiyat_step_up` for StepUpGuard-protected API routes. */
+export async function verifyStepUpApi(password: string): Promise<{ ok: boolean }> {
+  if (typeof window === 'undefined') {
+    throw new Error('verifyStepUpApi: client only')
+  }
+  const url = new URL('/api/auth/verify-password', window.location.origin).toString()
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  Object.assign(headers, await getCsrfHeadersForMutations())
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    credentials: 'include',
+    body: JSON.stringify({ password }),
+  })
+  const data = (await res.json().catch(() => ({}))) as { message?: string }
+  if (!res.ok) {
+    throw new VerifyPasswordError(
+      typeof data.message === 'string' && data.message ? data.message : "Parol noto'g'ri",
+    )
+  }
+  return { ok: true }
 }

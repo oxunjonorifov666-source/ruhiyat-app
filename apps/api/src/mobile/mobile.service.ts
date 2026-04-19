@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { AuthService } from '../auth/auth.service';
+import { LegalService } from '../legal/legal.service';
 
 @Injectable()
 export class MobileService {
@@ -9,7 +10,60 @@ export class MobileService {
     private readonly prisma: PrismaService,
     private readonly sessions: SessionsService,
     private readonly auth: AuthService,
+    private readonly legal: LegalService,
   ) {}
+
+  /** Kunlik AI tavsiyasi (mock + foydalanuvchi konteksti) — keyin LLM bilan almashtirish oson */
+  async getDailyInsight(userId: number) {
+    const [lastMood, stats] = await Promise.all([
+      this.prisma.moodEntry.findFirst({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        select: { mood: true, createdAt: true },
+      }),
+      this.getDashboardStats(userId),
+    ]);
+
+    const moodScore = lastMood?.mood ?? null;
+    const moodBand =
+      moodScore == null ? 'neutral' : moodScore <= 2 ? 'low' : moodScore >= 4 ? 'high' : 'mid';
+
+    const titles: Record<string, string> = {
+      low: 'Bugun o‘zingizga biroz g‘amxo‘r bo‘ling',
+      mid: 'Bugun muvozanatni saqlash — kuch',
+      high: 'Ajoyib kayfiyat — energiyangizni saqlang',
+      neutral: 'Kunlik ruhiy tavsiya',
+    };
+
+    const bodies: Record<string, string> = {
+      low:
+        'Qisqa nafas mashqi (4-4-6) yoki 5 daqiqalik tinch sayr kayfiyatingizni yengillashtirishi mumkin. Professional yordam kerak bo‘lsa, ilovadagi mutaxassislar ro‘yxatidan foydalaning.',
+      mid:
+        'Bugun kundalik yoki qisqa jurnal yozish — o‘ylaringizni tartibga solishga yordam beradi. Saqlangan maqolalaringiz: ' +
+        String(stats.savedArticles) +
+        ' ta.',
+      high:
+        'Yaxshi kayfiyat — ijobiy odatlarni mustahkamlash uchun ideal vaqt. Trening yoki audio darslarni bugun rejalashtiring.',
+      neutral:
+        'Kayfiyatingizni belgilab ko‘ring — shaxsiylashtirilgan tavsiyalar aniqroq bo‘ladi. Ketma-ket faol kunlar: ' +
+        String(stats.days) +
+        ' kun.',
+    };
+
+    const motivational =
+      stats.days >= 7
+        ? 'Siz allaqachon ' + stats.days + ' kun ketma-ket o‘z ustingizda ishlayapsiz — bu katta yutuq.'
+        : 'Har kungi kichik qadamlar — barqaror o‘zgarish kaliti.';
+
+    return {
+      title: titles[moodBand],
+      body: bodies[moodBand],
+      motivational,
+      moodScore,
+      streakDays: stats.days,
+      generatedAt: new Date().toISOString(),
+    };
+  }
 
   async getDashboardStats(userId: number) {
     const [sessionsCount, savedArticles, testsCompleted, moodRows, diaryRows] = await Promise.all([
@@ -105,12 +159,22 @@ export class MobileService {
     for (const r of rows) {
       if (r.value != null) map[r.key] = r.value;
     }
+    const legalBundle = await this.legal.getPublicLegalBundle('GLOBAL');
+
     return {
       privacyPolicyUrl: map.privacy_policy_url ?? null,
       termsOfServiceUrl: map.terms_of_service_url ?? null,
       supportEmail: map.support_email ?? null,
       marketingTagline: map.app_marketing_tagline ?? null,
       helpCenterUrl: map.help_center_url ?? null,
+      /** CMS-backed legal (versions + inline content). URLs may still point to web copies. */
+      legal: {
+        activeTermsVersion: legalBundle.terms?.version ?? null,
+        activePrivacyVersion: legalBundle.privacy?.version ?? null,
+        aiDisclaimerPrimary: legalBundle.aiDisclaimer.primary || null,
+        aiDisclaimerSecondary: legalBundle.aiDisclaimer.secondary || null,
+        accountDeletionGraceDays: legalBundle.accountDeletionGraceDays,
+      },
     };
   }
 

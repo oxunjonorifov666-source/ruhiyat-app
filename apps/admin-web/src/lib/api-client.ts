@@ -1,4 +1,17 @@
-import { getStoredTokens, storeTokens, clearTokens } from './auth';
+import { storeTokens, clearTokens } from './auth';
+import { getCsrfHeadersForMutations } from './api-csrf';
+
+/** Thrown on non-OK responses; includes HTTP status for permission-aware UX. */
+export class ApiHttpError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+    public body?: unknown,
+  ) {
+    super(message)
+    this.name = 'ApiHttpError'
+  }
+}
 
 const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
 const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl.replace(/\/+$/, '')}/api`;
@@ -9,26 +22,24 @@ interface RequestOptions {
   params?: Record<string, string | number | undefined>;
 }
 
-async function refreshAccessToken(): Promise<string | null> {
-  const tokens = getStoredTokens();
-  if (!tokens?.refreshToken) return null;
+async function refreshSessionCookies(): Promise<boolean> {
   try {
     const res = await fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: tokens.refreshToken }),
+      credentials: 'include',
+      body: JSON.stringify({}),
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    storeTokens(data.accessToken, data.refreshToken);
-    return data.accessToken;
+    if (!res.ok) return false;
+    await res.json().catch(() => ({}));
+    storeTokens();
+    return true;
   } catch {
-    return null;
+    return false;
   }
 }
 
 export async function apiClient<T = any>(path: string, options: RequestOptions = {}): Promise<T> {
-  const tokens = getStoredTokens();
   const url = API_URL.startsWith('http')
     ? new URL(`${API_URL}${path}`)
     : new URL(`${API_URL}${path}`, window.location.origin);
@@ -41,25 +52,28 @@ export async function apiClient<T = any>(path: string, options: RequestOptions =
     });
   }
 
+  const method = (options.method || 'GET').toUpperCase();
   const headers: Record<string, string> = {};
-  if (tokens?.accessToken) headers['Authorization'] = `Bearer ${tokens.accessToken}`;
   if (options.body) headers['Content-Type'] = 'application/json';
 
-  let res = await fetch(url.toString(), {
-    method: options.method || 'GET',
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    Object.assign(headers, await getCsrfHeadersForMutations());
+  }
 
-  if (res.status === 401 && tokens?.refreshToken) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      headers['Authorization'] = `Bearer ${newToken}`;
-      res = await fetch(url.toString(), {
-        method: options.method || 'GET',
-        headers,
-        body: options.body ? JSON.stringify(options.body) : undefined,
-      });
+  const doFetch = () =>
+    fetch(url.toString(), {
+      method,
+      headers,
+      credentials: 'include',
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+
+  let res = await doFetch();
+
+  if (res.status === 401) {
+    const ok = await refreshSessionCookies();
+    if (ok) {
+      res = await doFetch();
     } else {
       clearTokens();
       window.location.href = '/login';
@@ -68,8 +82,14 @@ export async function apiClient<T = any>(path: string, options: RequestOptions =
   }
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.message || `Xatolik: ${res.status}`);
+    const body = await res.json().catch(() => ({}));
+    const raw =
+      typeof body === 'object' && body !== null && 'message' in body
+        ? (body as { message?: unknown }).message
+        : undefined;
+    const message =
+      typeof raw === 'string' && raw.trim() ? raw : `Xatolik: ${res.status}`;
+    throw new ApiHttpError(message, res.status, body);
   }
 
   return res.json();
@@ -81,3 +101,5 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
 }
+
+export { getCsrfHeadersForMutations } from './api-csrf';

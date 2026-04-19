@@ -72,12 +72,12 @@ export function AppPinSettingsScreen() {
         </Text>
       </View>
 
-      <Text style={[styles.h, { color: C.text }]}>Yangi PIN (4–6 raqam)</Text>
+      <Text style={[styles.h, { color: C.text }]}>Yangi PIN (4 raqam)</Text>
       <TextInput
         style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
         keyboardType="number-pad"
         secureTextEntry
-        maxLength={6}
+        maxLength={4}
         value={a}
         onChangeText={setA}
         placeholder="••••"
@@ -88,7 +88,7 @@ export function AppPinSettingsScreen() {
         style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
         keyboardType="number-pad"
         secureTextEntry
-        maxLength={6}
+        maxLength={4}
         value={b}
         onChangeText={setB}
         placeholder="••••"
@@ -98,7 +98,7 @@ export function AppPinSettingsScreen() {
       <TouchableOpacity
         style={[styles.save, { backgroundColor: C.primary, opacity: busy ? 0.7 : 1 }]}
         onPress={save}
-        disabled={busy || a.length < 4}
+        disabled={busy || a.length !== 4}
       >
         {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>PIN ni saqlash</Text>}
       </TouchableOpacity>

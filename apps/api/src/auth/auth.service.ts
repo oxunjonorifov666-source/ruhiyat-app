@@ -23,7 +23,19 @@ import {
   VerifyPasswordResetOtpDto,
 } from './dto';
 import { DeliveryService } from '../notifications/delivery.service';
+import { SecurityObservabilityService } from '../observability/security-observability.service';
+import { SecurityAnomalyTrackerService } from '../observability/security-anomaly-tracker.service';
+import { SECURITY_EVENT_NAME } from '../observability/security-event.model';
+import { LegalService } from '../legal/legal.service';
 import { isValidUzbekMobileE164, normalizeUzbekPhoneE164 } from '../common/uzbek-phone.util';
+import { assertRefreshSessionBinding, ttlToMs } from './auth-session.util';
+import { getAccessJwtSecretForAuth } from '../common/config/jwt-secrets.util';
+import { getStepUpSecret } from './step-up.util';
+import { resolvePrincipalCenterId } from '../common/tenant-scope.util';
+
+function isSuperadminRole(role: string): boolean {
+  return role === UserRole.SUPERADMIN;
+}
 
 @Injectable()
 export class AuthService {
@@ -34,13 +46,15 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly delivery: DeliveryService,
+    private readonly securityObservability: SecurityObservabilityService,
+    private readonly anomalyTracker: SecurityAnomalyTrackerService,
+    private readonly legal: LegalService,
   ) {}
 
   private getPasswordResetSecret(): string {
-    return (
-      this.configService.get<string>('JWT_PASSWORD_RESET_SECRET') ||
-      `${this.configService.get<string>('JWT_SECRET') || 'ruhiyat-dev'}.pwd-reset.v1`
-    );
+    const custom = this.configService.get<string>('JWT_PASSWORD_RESET_SECRET')?.trim();
+    if (custom) return custom;
+    return `${getAccessJwtSecretForAuth(this.configService)}.pwd-reset.v1`;
   }
 
   private signPasswordResetToken(userId: number, otpId: number): string {
@@ -124,7 +138,13 @@ export class AuthService {
 
     const authUser = await this.getAuthUserContext(user.id);
     const tokens = await this.generateTokens(authUser);
-    await this.createSession(user.id, tokens.refreshToken, (dto as any).ipAddress, (dto as any).deviceInfo);
+    await this.createSession(
+      user.id,
+      tokens.refreshToken,
+      (dto as any).ipAddress,
+      (dto as any).deviceInfo,
+      tokens.refreshTtlMs,
+    );
     await this.createSecurityLog({
       userId: user.id,
       event: 'REGISTER',
@@ -138,6 +158,8 @@ export class AuthService {
       user: authUser,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      refreshTtlMs: tokens.refreshTtlMs,
+      accessTtlMs: tokens.accessTtlMs,
     };
   }
 
@@ -202,6 +224,27 @@ export class AuthService {
       throw new ForbiddenException('Hisob bloklangan');
     }
 
+    if ((user as any).deletedAt || (user as any).accountLifecycle === 'DELETED') {
+      await this.createSecurityLog({
+        userId: user.id,
+        event: 'LOGIN',
+        success: false,
+        ipAddress: dto.ipAddress,
+        userAgent: dto.deviceInfo,
+        details: { reason: 'ACCOUNT_DELETED' },
+      });
+      throw new UnauthorizedException('Hisob o‘chirilgan');
+    }
+
+    if (
+      (user as any).accountLifecycle === 'PENDING_DELETION' &&
+      (user as any).scheduledDeletionAt &&
+      new Date((user as any).scheduledDeletionAt) <= new Date()
+    ) {
+      await this.legal.finalizeUserDeletion(user.id);
+      throw new UnauthorizedException('Hisob o‘chirilgan');
+    }
+
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
@@ -209,7 +252,7 @@ export class AuthService {
 
     const authUser = await this.getAuthUserContext(user.id);
     const tokens = await this.generateTokens(authUser);
-    await this.createSession(user.id, tokens.refreshToken, dto.ipAddress, dto.deviceInfo);
+    await this.createSession(user.id, tokens.refreshToken, dto.ipAddress, dto.deviceInfo, tokens.refreshTtlMs);
     await this.createSecurityLog({
       userId: user.id,
       event: 'LOGIN',
@@ -223,6 +266,8 @@ export class AuthService {
       user: authUser,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      refreshTtlMs: tokens.refreshTtlMs,
+      accessTtlMs: tokens.accessTtlMs,
     };
   }
 
@@ -250,6 +295,25 @@ export class AuthService {
       throw new UnauthorizedException('Yaroqsiz yoki muddati o\'tgan token');
     }
 
+    const bindOpts = this.getSessionBindingOpts();
+    try {
+      assertRefreshSessionBinding(session, ctx || {}, bindOpts);
+    } catch (e) {
+      await this.prisma.session.update({
+        where: { id: session.id },
+        data: { isRevoked: true },
+      });
+      await this.createSecurityLog({
+        userId: session.userId,
+        event: 'REFRESH',
+        success: false,
+        ipAddress: ctx?.ipAddress,
+        userAgent: ctx?.deviceInfo,
+        details: { reason: 'SESSION_BINDING_MISMATCH' },
+      });
+      throw e;
+    }
+
     await this.prisma.session.update({
       where: { id: session.id },
       data: { isRevoked: true },
@@ -257,7 +321,13 @@ export class AuthService {
 
     const authUser = await this.getAuthUserContext(session.user.id);
     const tokens = await this.generateTokens(authUser);
-    await this.createSession(session.user.id, tokens.refreshToken, ctx?.ipAddress, ctx?.deviceInfo);
+    await this.createSession(
+      session.user.id,
+      tokens.refreshToken,
+      ctx?.ipAddress,
+      ctx?.deviceInfo,
+      tokens.refreshTtlMs,
+    );
     await this.createSecurityLog({
       userId: session.user.id,
       event: 'REFRESH',
@@ -269,6 +339,8 @@ export class AuthService {
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      refreshTtlMs: tokens.refreshTtlMs,
+      accessTtlMs: tokens.accessTtlMs,
     };
   }
 
@@ -321,6 +393,17 @@ export class AuthService {
       if (email) {
         const taken = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
         if (taken) throw new ConflictException('Bu email allaqachon ro‘yxatdan o‘tgan');
+      }
+    }
+
+    if (dto.purpose === 'login') {
+      const u = phone
+        ? await this.prisma.user.findUnique({ where: { phone }, select: { id: true } })
+        : email
+          ? await this.prisma.user.findUnique({ where: { email }, select: { id: true } })
+          : null;
+      if (!u) {
+        throw new BadRequestException('Bu telefon yoki email bilan akkaunt topilmadi');
       }
     }
 
@@ -404,23 +487,170 @@ export class AuthService {
       data: { isUsed: true },
     });
 
-    if (dto.purpose === 'login' && phone) {
-      const user = await this.prisma.user.findUnique({ where: { phone } });
+    if (dto.purpose === 'login') {
+      const user = phone
+        ? await this.prisma.user.findUnique({ where: { phone } })
+        : email
+          ? await this.prisma.user.findUnique({ where: { email } })
+          : null;
       if (user) {
         const authUser = await this.getAuthUserContext(user.id);
         const tokens = await this.generateTokens(authUser);
-        await this.createSession(user.id, tokens.refreshToken, dto.ipAddress, dto.deviceInfo);
+        await this.createSession(
+          user.id,
+          tokens.refreshToken,
+          dto.ipAddress,
+          dto.deviceInfo,
+          tokens.refreshTtlMs,
+        );
         return {
           message: 'Tasdiqlandi',
           verified: true,
           user: authUser,
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
+          refreshTtlMs: tokens.refreshTtlMs,
+          accessTtlMs: tokens.accessTtlMs,
         };
       }
     }
 
     return { message: 'Tasdiqlandi', verified: true };
+  }
+
+  async verifySessionPassword(userId: number, password: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.passwordHash) {
+      throw new BadRequestException('Parol o‘rnatilmagan');
+    }
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) {
+      await this.createSecurityLog({
+        userId,
+        event: 'SESSION_PASSWORD_CHECK',
+        success: false,
+        details: { reason: 'INVALID_PASSWORD', intent: 'step_up' },
+      });
+      throw new UnauthorizedException('Parol noto‘g‘ri');
+    }
+    await this.createSecurityLog({
+      userId,
+      event: 'SESSION_PASSWORD_CHECK',
+      success: true,
+      details: { intent: 'step_up' },
+    });
+    const stepUpExpiresIn = this.configService.get<string>('JWT_STEP_UP_EXPIRES_IN') || '5m';
+    const stepUpTtlMs = ttlToMs(stepUpExpiresIn);
+    const stepUpTtlSec = Math.max(1, Math.floor(stepUpTtlMs / 1000));
+    const secret = getStepUpSecret(this.configService);
+    const stepUpToken = this.jwtService.sign(
+      { sub: userId, typ: 'step-up' },
+      { secret, expiresIn: stepUpTtlSec },
+    );
+    return { ok: true, stepUpToken, stepUpTtlMs };
+  }
+
+  async requestProfilePhoneChange(userId: number, newPhoneRaw: string) {
+    const newPhone = normalizeUzbekPhoneE164(newPhoneRaw);
+    if (!isValidUzbekMobileE164(newPhone)) {
+      throw new BadRequestException("Telefon raqam formati noto'g'ri (+998XXXXXXXXX)");
+    }
+    const me = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!me) throw new BadRequestException('Foydalanuvchi topilmadi');
+    if (me.phone === newPhone) {
+      throw new BadRequestException('Bu allaqachon sizning raqamingiz');
+    }
+    const taken = await this.prisma.user.findFirst({
+      where: { phone: newPhone, id: { not: userId } },
+      select: { id: true },
+    });
+    if (taken) {
+      throw new ConflictException('Bu raqam boshqa akkauntga bog‘langan');
+    }
+
+    const code = String(randomInt(100_000, 1_000_000));
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    const otp = await this.prisma.otpVerification.create({
+      data: {
+        userId,
+        phone: newPhone,
+        code,
+        purpose: 'profile_phone_change',
+        expiresAt,
+        attempts: 0,
+      },
+    });
+
+    try {
+      await this.delivery.sendOtpSms(newPhone, code, 'verification');
+    } catch (e) {
+      await this.prisma.otpVerification.delete({ where: { id: otp.id } }).catch(() => undefined);
+      const detail = e instanceof Error ? e.message : String(e);
+      this.logger.error(`Profil telefon OTP yuborilmadi userId=${userId}: ${detail}`, e instanceof Error ? e.stack : undefined);
+      throw new BadRequestException("Kod yuborilmadi. Keyinroq qayta urinib ko'ring.");
+    }
+
+    return { message: 'Yangi raqamga tasdiqlash kodi yuborildi', expiresAt: otp.expiresAt };
+  }
+
+  async confirmProfilePhoneChange(userId: number, newPhoneRaw: string, code: string) {
+    const newPhone = normalizeUzbekPhoneE164(newPhoneRaw);
+    if (!isValidUzbekMobileE164(newPhone)) {
+      throw new BadRequestException("Telefon raqam formati noto'g'ri (+998XXXXXXXXX)");
+    }
+
+    const otp = await this.prisma.otpVerification.findFirst({
+      where: {
+        userId,
+        phone: newPhone,
+        purpose: 'profile_phone_change',
+        isUsed: false,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!otp || otp.expiresAt < new Date()) {
+      throw new UnauthorizedException('Yaroqsiz yoki muddati o‘tgan kod');
+    }
+    if (otp.attempts >= 5) {
+      throw new UnauthorizedException('Urinishlar soni oshib ketdi');
+    }
+    if (otp.code !== code) {
+      await this.prisma.otpVerification.update({
+        where: { id: otp.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new UnauthorizedException('Noto‘g‘ri tasdiqlash kodi');
+    }
+
+    const taken = await this.prisma.user.findFirst({
+      where: { phone: newPhone, id: { not: userId } },
+      select: { id: true },
+    });
+    if (taken) {
+      throw new ConflictException('Bu raqam boshqa akkauntga bog‘langan');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { phone: newPhone },
+      }),
+      this.prisma.otpVerification.update({
+        where: { id: otp.id },
+        data: { isUsed: true },
+      }),
+    ]);
+
+    await this.createSecurityLog({
+      userId,
+      event: 'PROFILE_PHONE_CHANGE',
+      success: true,
+      details: { newPhone },
+    });
+
+    return this.getAuthUserContext(userId);
   }
 
   async requestPasswordReset(dto: { email?: string; phone?: string }) {
@@ -637,14 +867,58 @@ export class AuthService {
     return { message: 'Parol muvaffaqiyatli tiklandi' };
   }
 
+  /**
+   * Authoritative principal for JWT-backed HTTP requests. Re-resolves `role`, `centerId`,
+   * and `permissions` from the database on every authenticated request so tenant moves,
+   * role changes, and permission matrix updates apply without waiting for access-token expiry.
+   *
+   * JWT payload fields (`role`, `cid`, `pms`) are used only for `sub` (user id) and signature
+   * verification — they must not be trusted for authorization decisions.
+   */
+  async resolvePrincipalForJwt(userId: number): Promise<AuthUser> {
+    await this.legal.assertUserEligibleForAuth(userId);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        administrator: { select: { centerId: true } },
+        psychologist: { select: { centerId: true } },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Foydalanuvchi topilmadi');
+    }
+    if (!user.isActive) {
+      throw new UnauthorizedException('User not found or deactivated');
+    }
+
+    const permissions = await this.getUserPermissions(userId);
+
+    return {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      role: user.role as UserRole,
+      centerId: resolvePrincipalCenterId(
+        user.administrator?.centerId,
+        user.psychologist?.centerId,
+      ),
+      permissions,
+    };
+  }
+
   async getAuthUserContext(userId: number): Promise<AuthUser> {
     if (userId === undefined || userId === null || isNaN(userId)) {
       throw new BadRequestException('Noto\'g\'ri foydalanuvchi identifikatori');
     }
+    await this.legal.assertUserEligibleForAuth(userId);
+
     let user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
         administrator: { select: { centerId: true } },
+        psychologist: { select: { centerId: true } },
         mobileUser: true
       },
     });
@@ -668,6 +942,7 @@ export class AuthService {
         where: { id: userId },
         include: {
           administrator: { select: { centerId: true } },
+          psychologist: { select: { centerId: true } },
           mobileUser: true,
         },
       });
@@ -685,7 +960,10 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role as UserRole,
-      centerId: user.administrator?.centerId || null,
+      centerId: resolvePrincipalCenterId(
+        user.administrator?.centerId,
+        user.psychologist?.centerId,
+      ),
       avatarUrl: user.mobileUser?.avatarUrl || null,
       isPremium: user.mobileUser?.isPremium || false,
       gender: user.mobileUser?.gender || null,
@@ -695,6 +973,13 @@ export class AuthService {
       notificationPrefs: user.mobileUser?.notificationPrefs ?? null,
       analyticsOptIn: user.mobileUser?.analyticsOptIn ?? false,
       biometricEnabled: user.mobileUser?.biometricEnabled ?? false,
+      acceptedTermsVersion: user.mobileUser?.acceptedTermsVersion ?? null,
+      acceptedPrivacyVersion: user.mobileUser?.acceptedPrivacyVersion ?? null,
+      termsAcceptedAt: user.mobileUser?.termsAcceptedAt?.toISOString() ?? null,
+      privacyAcceptedAt: user.mobileUser?.privacyAcceptedAt?.toISOString() ?? null,
+      accountLifecycle: (user as any).accountLifecycle ?? 'ACTIVE',
+      deletionRequestedAt: (user as any).deletionRequestedAt?.toISOString?.() ?? null,
+      scheduledDeletionAt: (user as any).scheduledDeletionAt?.toISOString?.() ?? null,
       permissions,
     } as any;
   }
@@ -761,6 +1046,37 @@ export class AuthService {
     return (role as any).permissions.map((p: any) => `${p.resource}.${p.action}`);
   }
 
+  private getSessionBindingOpts(): { bindUa: boolean; bindIp: boolean } {
+    const uaDefault =
+      this.configService.get<string>('AUTH_SESSION_BIND_UA') !== 'false';
+    return {
+      bindUa: uaDefault,
+      bindIp: this.configService.get<string>('AUTH_SESSION_BIND_IP') === 'true',
+    };
+  }
+
+  private getAccessExpiresIn(user: AuthUser): string {
+    if (isSuperadminRole(user.role)) {
+      return (
+        this.configService.get<string>('JWT_ACCESS_EXPIRES_IN_SUPERADMIN') ||
+        this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ||
+        '15m'
+      );
+    }
+    return this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m';
+  }
+
+  private getRefreshExpiresIn(user: AuthUser): string {
+    if (isSuperadminRole(user.role)) {
+      return (
+        this.configService.get<string>('JWT_REFRESH_EXPIRES_IN_SUPERADMIN') ||
+        this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') ||
+        '1d'
+      );
+    }
+    return this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d';
+  }
+
   private async generateTokens(user: AuthUser) {
     const payload = {
       sub: user.id,
@@ -770,16 +1086,30 @@ export class AuthService {
     };
 
     const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
-    const accessToken = this.jwtService.sign(payload);
+    const accessExpiresIn = this.getAccessExpiresIn(user);
+    const refreshExpiresIn = this.getRefreshExpiresIn(user);
+    const refreshTtlMs = ttlToMs(refreshExpiresIn);
+    const accessTtlMs = ttlToMs(accessExpiresIn);
+    const accessTtlSec = Math.max(1, Math.floor(accessTtlMs / 1000));
+    const refreshTtlSec = Math.max(1, Math.floor(refreshTtlMs / 1000));
+
+    const accessToken = this.jwtService.sign(payload, { expiresIn: accessTtlSec });
     const refreshToken = this.jwtService.sign(payload, {
       secret: refreshSecret || 'ruhiyat-refresh-dev-secret-NOT-FOR-PRODUCTION',
-      expiresIn: '7d',
+      expiresIn: refreshTtlSec,
     });
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, refreshTtlMs, accessTtlMs };
   }
 
-  private async createSession(userId: number, refreshToken: string, ipAddress?: string, deviceInfo?: string) {
+  private async createSession(
+    userId: number,
+    refreshToken: string,
+    ipAddress?: string,
+    deviceInfo?: string,
+    refreshTtlMs?: number,
+  ) {
+    const ttl = refreshTtlMs ?? ttlToMs(this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d');
     const tokenHash = this.hashToken(refreshToken);
     await this.prisma.session.create({
       data: {
@@ -787,7 +1117,7 @@ export class AuthService {
         refreshToken: tokenHash,
         ipAddress,
         deviceInfo,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + ttl),
       },
     });
   }
@@ -842,6 +1172,134 @@ export class AuthService {
         details: data.details,
       },
     }).catch(() => {});
+    this.emitAuthSecurityTelemetry(data);
+  }
+
+  private emitAuthSecurityTelemetry(data: {
+    userId: number | null;
+    event: string;
+    success: boolean;
+    ipAddress?: string;
+    userAgent?: string;
+    details?: any;
+  }) {
+    const ip = data.ipAddress || undefined;
+    const d = data.details && typeof data.details === 'object' && data.details !== null ? data.details : {};
+
+    if ((data.event === 'REFRESH' || data.event === 'LOGOUT') && data.success) {
+      return;
+    }
+
+    if (data.event === 'LOGIN') {
+      if (data.success) {
+        this.securityObservability.securityEvent({
+          event_name: SECURITY_EVENT_NAME.AUTH_LOGIN_SUCCESS,
+          severity: 'low',
+          category: 'auth',
+          alert: false,
+          result: 'success',
+          actor_user_id: data.userId,
+          details: { via: (d as { via?: string }).via, ip },
+        });
+        return;
+      }
+      const reason = (d as { reason?: string }).reason;
+      if (reason === 'INVALID_PASSWORD' || reason === 'USER_NOT_FOUND') {
+        this.anomalyTracker.observeFailedLogin(ip || null);
+      }
+      this.securityObservability.securityEvent({
+        event_name: SECURITY_EVENT_NAME.AUTH_LOGIN_FAILED,
+        severity: 'medium',
+        category: 'auth',
+        alert: true,
+        result: 'failure',
+        actor_user_id: data.userId,
+        aggregation_key: `login_fail:${ip || 'unknown'}`,
+        details: { reason, ip },
+      });
+      return;
+    }
+
+    if (data.event === 'REGISTER' && data.success) {
+      this.securityObservability.securityEvent({
+        event_name: SECURITY_EVENT_NAME.AUTH_REGISTER_SUCCESS,
+        severity: 'low',
+        category: 'auth',
+        alert: false,
+        result: 'success',
+        actor_user_id: data.userId,
+        details: { ip },
+      });
+      return;
+    }
+
+    if (data.event === 'SESSION_PASSWORD_CHECK') {
+      if (!data.success) {
+        if (data.userId != null) this.anomalyTracker.observeStepUpFailure(data.userId);
+        this.securityObservability.securityEvent({
+          event_name: SECURITY_EVENT_NAME.AUTH_STEP_UP_FAILED,
+          severity: 'medium',
+          category: 'auth',
+          alert: true,
+          result: 'failure',
+          actor_user_id: data.userId,
+          aggregation_key: data.userId != null ? `step_up:${data.userId}` : undefined,
+          details: { reason: (d as { reason?: string }).reason },
+        });
+        return;
+      }
+      this.securityObservability.securityEvent({
+        event_name: SECURITY_EVENT_NAME.AUTH_STEP_UP_SUCCESS,
+        severity: 'low',
+        category: 'auth',
+        alert: false,
+        result: 'success',
+        actor_user_id: data.userId,
+        details: {},
+      });
+      return;
+    }
+
+    if (data.event === 'REFRESH' && !data.success) {
+      const reason = (d as { reason?: string }).reason;
+      if (reason === 'SESSION_BINDING_MISMATCH') {
+        if (data.userId != null) {
+          this.anomalyTracker.observeSessionBindingMismatch(
+            data.userId,
+            typeof data.ipAddress === 'string' ? data.ipAddress : null,
+          );
+        }
+        this.securityObservability.securityEvent({
+          event_name: SECURITY_EVENT_NAME.SESSION_BINDING_MISMATCH,
+          severity: 'high',
+          category: 'session',
+          alert: true,
+          result: 'failure',
+          actor_user_id: data.userId,
+          details: { reason, ip },
+        });
+        return;
+      }
+      this.securityObservability.securityEvent({
+        event_name: SECURITY_EVENT_NAME.SESSION_REFRESH_FAILED,
+        severity: 'medium',
+        category: 'session',
+        result: 'failure',
+        actor_user_id: data.userId,
+        details: { reason, ip },
+      });
+      return;
+    }
+
+    this.securityObservability.securityEvent({
+      event_name: SECURITY_EVENT_NAME.LEGACY,
+      severity: data.success ? 'low' : 'medium',
+      category: 'auth',
+      alert: !data.success,
+      result: data.success ? 'success' : 'failure',
+      actor_user_id: data.userId,
+      details: { db_event: data.event, ...d },
+    });
   }
 
   private hashToken(token: string): string {

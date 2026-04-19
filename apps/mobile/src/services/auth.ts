@@ -90,5 +90,35 @@ export const authService = {
   async changePassword(currentPassword: string, newPassword: string) {
     return apiClient.patch<{ message: string }>('/auth/password', { currentPassword, newPassword });
   },
+
+  /** PIN qulfidan — hisob parolini tekshiradi, sessiya ochiq qoladi */
+  async verifySessionPassword(password: string) {
+    return apiClient.post<{ ok: boolean }>('/auth/verify-password', { password });
+  },
+
+  async sendLoginOtp(body: { phone?: string; email?: string }) {
+    return apiClient.post<{ message: string; expiresAt?: string; devCode?: string }>('/auth/otp/send', {
+      ...body,
+      purpose: 'login',
+    });
+  },
+
+  async verifyLoginOtp(body: { phone?: string; email?: string; code: string }) {
+    return apiClient.post<{
+      message: string;
+      verified: boolean;
+      user?: AuthUser;
+      accessToken?: string;
+      refreshToken?: string;
+    }>('/auth/otp/verify', { ...body, purpose: 'login' });
+  },
+
+  async requestProfilePhoneChange(newPhone: string) {
+    return apiClient.post<{ message: string; expiresAt?: string }>('/auth/profile/phone/request', { newPhone });
+  },
+
+  async confirmProfilePhoneChange(newPhone: string, code: string) {
+    return apiClient.post<{ user: AuthUser }>('/auth/profile/phone/confirm', { newPhone, code });
+  },
 };
 

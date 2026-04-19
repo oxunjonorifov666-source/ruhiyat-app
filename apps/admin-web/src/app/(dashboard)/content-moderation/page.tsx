@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
+import { describeEmbeddedApiError, formatEmbeddedApiError, isPermissionDeniedError } from "@/lib/api-error"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 
 type ModerationStatus = "PENDING" | "APPROVED" | "REJECTED" | "HIDDEN"
 
@@ -60,6 +62,9 @@ export default function ContentModerationPage() {
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
+  const [statsPermissionDenied, setStatsPermissionDenied] = useState(false)
+  const [statsError, setStatsError] = useState<string | null>(null)
   const [filters, setFilters] = useState<{ status: string; contentType: string }>({ status: "all", contentType: "all" })
 
   const [actionOpen, setActionOpen] = useState(false)
@@ -102,14 +107,24 @@ export default function ContentModerationPage() {
     try {
       const s = await apiClient<ModerationStats>("/content-moderation/stats")
       setStats(s)
-    } catch {
-      // non-blocking
+      setStatsPermissionDenied(false)
+      setStatsError(null)
+    } catch (e: unknown) {
+      setStats(null)
+      if (isPermissionDeniedError(e)) {
+        setStatsPermissionDenied(true)
+        setStatsError(null)
+      } else {
+        setStatsPermissionDenied(false)
+        setStatsError(formatEmbeddedApiError(e))
+      }
     }
   }, [])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setPermissionDenied(false)
     try {
       const res = await apiClient<PaginatedResponse<ModerationRow>>("/content-moderation", {
         params: {
@@ -122,8 +137,9 @@ export default function ContentModerationPage() {
       })
       setData(res.data)
       setTotal(res.total)
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      setError(formatEmbeddedApiError(e))
+      setPermissionDenied(isPermissionDeniedError(e))
     } finally {
       setLoading(false)
     }
@@ -154,8 +170,9 @@ export default function ContentModerationPage() {
       setActionOpen(false)
       fetchStats()
       fetchData()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     } finally {
       setActionLoading(false)
     }
@@ -224,6 +241,23 @@ export default function ContentModerationPage() {
     },
   ]
 
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6 pb-10">
+        <PageHeader
+          title="Kontent nazorati"
+          description="Kontent moderatsiyasi (real baza): approve/reject/hide/delete"
+          icon={ShieldAlert}
+        />
+        <AccessDeniedPlaceholder
+          title="Kontent moderatsiyasiga ruxsat yo'q"
+          description="Moderatsiya odatda content.moderate (yoki platformadagi tegishli) ruxsatini talab qiladi. Bu ruxsat bo'lmasa, ro'yxat va amallar ochilmaydi."
+          detail={error}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 pb-10">
       <PageHeader
@@ -243,13 +277,22 @@ export default function ContentModerationPage() {
         ]}
       />
 
-      <StatsGrid columns={5}>
-        <StatsCard title="Jami" value={stats?.total || 0} icon={Eye} loading={!stats} iconColor="bg-slate-500/10 text-slate-700" />
-        <StatsCard title="PENDING" value={stats?.pending || 0} icon={Loader2} loading={!stats} iconColor="bg-blue-500/10 text-blue-700" />
-        <StatsCard title="APPROVED" value={stats?.approved || 0} icon={CheckCircle2} loading={!stats} iconColor="bg-emerald-500/10 text-emerald-700" />
-        <StatsCard title="REJECTED" value={stats?.rejected || 0} icon={XCircle} loading={!stats} iconColor="bg-red-500/10 text-red-700" />
-        <StatsCard title="HIDDEN" value={stats?.hidden || 0} icon={EyeOff} loading={!stats} iconColor="bg-amber-500/10 text-amber-700" />
-      </StatsGrid>
+      {statsPermissionDenied ? (
+        <AccessDeniedPlaceholder
+          title="Statistikaga ruxsat yo'q"
+          description="Asosiy moderatsiya ro'yxati ochilishi mumkin, lekin yuqoridagi statistikani ko'rish uchun alohida ruxsat talab qilinishi mumkin."
+        />
+      ) : statsError ? (
+        <p className="text-sm text-destructive">{statsError}</p>
+      ) : (
+        <StatsGrid columns={5}>
+          <StatsCard title="Jami" value={stats?.total || 0} icon={Eye} loading={!stats} iconColor="bg-slate-500/10 text-slate-700" />
+          <StatsCard title="PENDING" value={stats?.pending || 0} icon={Loader2} loading={!stats} iconColor="bg-blue-500/10 text-blue-700" />
+          <StatsCard title="APPROVED" value={stats?.approved || 0} icon={CheckCircle2} loading={!stats} iconColor="bg-emerald-500/10 text-emerald-700" />
+          <StatsCard title="REJECTED" value={stats?.rejected || 0} icon={XCircle} loading={!stats} iconColor="bg-red-500/10 text-red-700" />
+          <StatsCard title="HIDDEN" value={stats?.hidden || 0} icon={EyeOff} loading={!stats} iconColor="bg-amber-500/10 text-amber-700" />
+        </StatsGrid>
+      )}
 
       <DataTable
         columns={columns}

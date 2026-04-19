@@ -7,6 +7,9 @@ import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { SuperadminRouteGate } from "@/components/superadmin-route-gate"
+import { classifyApiError, formatEmbeddedApiError } from "@/lib/api-error"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 
 interface Integration {
   id: number
@@ -18,23 +21,43 @@ interface Integration {
   createdAt: string
 }
 
-export default function IntegrationsPage() {
+function IntegrationsPageContent() {
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   const fetchData = useCallback(async () => {
-    setLoading(true); setError(null)
+    setLoading(true)
+    setError(null)
+    setPermissionDenied(false)
     try {
       const res = await apiClient<{ data: Integration[] }>("/integrations")
       setIntegrations(res.data || [])
-    } catch (e: any) { setError(e.message) }
+    } catch (e: unknown) {
+      const { permissionDenied: denied } = classifyApiError(e)
+      if (denied) setPermissionDenied(true)
+      else setError(formatEmbeddedApiError(e))
+    }
     finally { setLoading(false) }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   const enabled = integrations.filter(i => i.isEnabled).length
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Integratsiyalar" subtitle="Tashqi xizmatlar va ulanishlarni boshqarish" icon={Plug} />
+        <AccessDeniedPlaceholder
+          title="Integratsiyalarga ruxsat yo'q"
+          description="Integratsiyalar ro'yxati odatda superadmin yoki tizim integratsiya ruxsatida."
+          detail={error}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -122,5 +145,13 @@ export default function IntegrationsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function IntegrationsPage() {
+  return (
+    <SuperadminRouteGate title="Integratsiyalar">
+      <IntegrationsPageContent />
+    </SuperadminRouteGate>
   )
 }

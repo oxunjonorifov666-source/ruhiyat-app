@@ -1,4 +1,6 @@
 import { TOKEN_KEYS } from '@ruhiyat/config';
+import { VerifyPasswordError } from '@/lib/verify-password-error';
+import { getCsrfHeadersForMutations } from '@/lib/api-csrf';
 
 const rawUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
 const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl.replace(/\/+$/, '')}/api`;
@@ -21,8 +23,11 @@ export interface AuthUser {
 
 export interface LoginResponse {
   user: AuthUser;
-  accessToken: string;
-  refreshToken: string;
+  /** Present for native/legacy clients; browser admin relies on HttpOnly cookies set by the API. */
+  accessToken?: string;
+  refreshToken?: string;
+  refreshTtlMs?: number;
+  accessTtlMs?: number;
 }
 
 const GENERIC_500_HINT =
@@ -81,6 +86,7 @@ export async function loginApi(identifier: string, password: string): Promise<Lo
     res = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(body),
     });
   } catch (e) {
@@ -97,12 +103,14 @@ export async function loginApi(identifier: string, password: string): Promise<Lo
     throw new Error(errMsg);
   }
 
+  clearLegacyClientTokenStorage();
   return res.json();
 }
 
-export async function fetchMe(accessToken: string): Promise<{ user: AuthUser }> {
+/** Load current user; uses HttpOnly access cookie (no localStorage). */
+export async function fetchMe(): Promise<{ user: AuthUser }> {
   const res = await fetch(`${API_URL}/auth/me`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    credentials: 'include',
   });
 
   if (!res.ok) {
@@ -117,46 +125,75 @@ export async function fetchMe(accessToken: string): Promise<{ user: AuthUser }> 
   return { user };
 }
 
-export async function refreshTokenApi(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+export async function refreshTokenApi(): Promise<{
+  accessToken?: string;
+  refreshToken?: string;
+  refreshTtlMs?: number;
+  accessTtlMs?: number;
+}> {
   const res = await fetch(`${API_URL}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
+    credentials: 'include',
+    body: JSON.stringify({}),
   });
 
   if (!res.ok) {
     throw new Error('Token yangilanmadi');
   }
 
+  clearLegacyClientTokenStorage();
   return res.json();
 }
 
-export async function logoutApi(refreshToken: string): Promise<void> {
+export async function logoutApi(): Promise<void> {
   await fetch(`${API_URL}/auth/logout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
+    credentials: 'include',
+    body: JSON.stringify({}),
   }).catch(() => {});
+  clearLegacyClientTokenStorage();
 }
 
-export function getStoredTokens() {
-  if (typeof window === 'undefined') return null;
-  const accessToken = localStorage.getItem(TOKEN_KEYS.ACCESS_TOKEN);
-  const refreshToken = localStorage.getItem(TOKEN_KEYS.REFRESH_TOKEN);
-  if (!accessToken || !refreshToken) return null;
-  return { accessToken, refreshToken };
-}
-
-export function storeTokens(accessToken: string, refreshToken: string) {
-  localStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, accessToken);
-  localStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, refreshToken);
-  document.cookie = `${TOKEN_KEYS.ACCESS_TOKEN}=${accessToken}; path=/; max-age=${15 * 60}; SameSite=Lax`;
-  document.cookie = `${TOKEN_KEYS.REFRESH_TOKEN}=${refreshToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-}
-
-export function clearTokens() {
+/**
+ * Clears any pre-hardening tokens stored in JS-readable places.
+ * Access/refresh/session cookies are cleared by the API on logout.
+ */
+export function clearLegacyClientTokenStorage() {
+  if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEYS.ACCESS_TOKEN);
   localStorage.removeItem(TOKEN_KEYS.REFRESH_TOKEN);
   document.cookie = `${TOKEN_KEYS.ACCESS_TOKEN}=; path=/; max-age=0`;
   document.cookie = `${TOKEN_KEYS.REFRESH_TOKEN}=; path=/; max-age=0`;
+  document.cookie = `${TOKEN_KEYS.CSRF_TOKEN}=; path=/; max-age=0`;
+}
+
+/**
+ * After login/refresh the API sets HttpOnly cookies; keep this as a no-op compat hook for callers.
+ */
+export function storeTokens(_accessFromBody?: string, _refreshFromBody?: string) {
+  clearLegacyClientTokenStorage();
+}
+
+export function clearTokens() {
+  clearLegacyClientTokenStorage();
+}
+
+/**
+ * POST /auth/verify-password — sets short-lived HttpOnly `ruhiyat_step_up` for step-up–protected mutations.
+ */
+export async function verifyStepUpApi(password: string): Promise<{ ok: boolean }> {
+  const csrf = await getCsrfHeadersForMutations();
+  const res = await fetch(`${API_URL}/auth/verify-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...csrf },
+    credentials: 'include',
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const msg = await readApiErrorMessage(res);
+    throw new VerifyPasswordError(msg, res.status);
+  }
+  return res.json() as Promise<{ ok: boolean }>;
 }

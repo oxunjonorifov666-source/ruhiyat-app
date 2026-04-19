@@ -12,12 +12,21 @@ export class AssessmentsController {
   constructor(private readonly service: AssessmentsService) {}
 
   @Get('tests')
-  findAllTests(@Query('published') published?: string) {
-    return this.service.findAllTests({ publishedOnly: published === 'true' });
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('assessments.read')
+  findAllTests(
+    @CurrentUser() user: AuthUser,
+    @Query('published') published?: string,
+  ) {
+    return this.service.findAllTests(user, { publishedOnly: published === 'true' });
   }
 
   @Get('tests/:id')
-  findTest(@Param('id', ParseIntPipe) id: number) { return this.service.findTest(id); }
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('assessments.read')
+  findTest(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
+    return this.service.findTest(id, user);
+  }
 
   @Post('tests')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -46,13 +55,21 @@ export class AssessmentsController {
   removeTest(@Param('id', ParseIntPipe) id: number) { return this.service.removeTest(id); }
 
   @Get('tests/:id/questions')
-  getQuestions(@Param('id', ParseIntPipe) id: number) { return this.service.getQuestions(id); }
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('assessments.read')
+  getQuestions(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
+    return this.service.getQuestions(id, user);
+  }
 
   @Post('tests/:id/submit')
-  @UseGuards(JwtAuthGuard)
-  submitTest(@Param('id', ParseIntPipe) id: number, @Body() data: any, @Req() req: any) { 
-    const userId = req.user?.id;
-    return this.service.submitTest(id, data, userId); 
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('assessments.read')
+  submitTest(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: any,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.service.submitTest(id, data, user.id, user);
   }
 
   @Get('test-results')

@@ -7,9 +7,11 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUser, UserRole } from '@ruhiyat/types';
 import { SuperadminOverviewService } from './superadmin-overview.service';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('dashboard')
-@UseGuards(JwtAuthGuard, PermissionsGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
 export class DashboardController {
   constructor(
     private readonly prisma: PrismaService,
@@ -17,6 +19,7 @@ export class DashboardController {
   ) {}
 
   @Get('superadmin/overview')
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('system.settings')
   getSuperadminOverview(
     @CurrentUser() requester: AuthUser,
@@ -33,11 +36,9 @@ export class DashboardController {
   }
 
   @Get('superadmin/stats')
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('system.settings')
   async getSuperadminStats(@CurrentUser() requester: AuthUser) {
-    if (requester.role !== UserRole.SUPERADMIN) {
-      throw new ForbiddenException('Siz ushbu ma\'lumotlarni ko\'rish huquqiga ega emassiz');
-    }
 
     const now = new Date();
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
@@ -145,7 +146,10 @@ export class DashboardController {
       if (requester.role === UserRole.SUPERADMIN && !explicitCenterId) {
         throw new ForbiddenException('Superadmin uchun markaz ID ko\'rsatilmadi');
       }
-      return { stats: { totalStudents: 0 }, sessions: { upcoming: [], recent: [] }, monthlyStudents: [] };
+      if (requester.role === UserRole.SUPERADMIN) {
+        throw new ForbiddenException("Noto'g'ri markaz identifikatori");
+      }
+      throw new ForbiddenException("Sizga markaz tayinlanmagan — statistikani ko'ra olmaysiz");
     }
 
     const now = new Date();

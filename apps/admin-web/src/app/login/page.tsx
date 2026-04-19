@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { loginApi, storeTokens } from "@/lib/auth"
+import { formatEmbeddedApiError } from "@/lib/api-error"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = React.useState(false)
@@ -32,17 +33,17 @@ export default function LoginPage() {
       storeTokens(data.accessToken, data.refreshToken)
       // To‘liq sahifa o‘tishi kerak: middleware cookie’ni keyingi so‘rovda ko‘radi (client-side router.push ba’zan yetishmaydi)
       window.location.assign("/dashboard")
-    } catch (err: any) {
-      setError(err.message || "Kirish xatoligi yuz berdi")
+    } catch (err: unknown) {
+      setError(formatEmbeddedApiError(err))
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-background via-muted/15 to-muted/35 p-4">
+      <Card className="w-full max-w-md rounded-2xl border-border/60 shadow-lg shadow-primary/[0.06] ring-1 ring-border/40">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-xl bg-primary">
+          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/25">
             <Building2 className="size-6 text-primary-foreground" />
           </div>
           <CardTitle className="text-2xl">Ruhiyat Administrator</CardTitle>

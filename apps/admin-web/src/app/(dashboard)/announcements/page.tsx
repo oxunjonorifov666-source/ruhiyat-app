@@ -9,7 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Plus } from "lucide-react"
+import { Megaphone, Plus } from "lucide-react"
+import { PageHeader } from "@/components/page-header"
+import { classifyApiError, describeEmbeddedApiError, formatEmbeddedApiError } from "@/lib/api-error"
+import { toast } from "sonner"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 
 interface Announcement {
   id: number; title: string; content: string; type: string; targetAudience: string
@@ -23,15 +27,22 @@ export default function AnnouncementsPage() {
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const fetchData = useCallback(async () => {
-    setLoading(true); setError(null)
+    setLoading(true)
+    setError(null)
+    setPermissionDenied(false)
     try {
       const res = await apiClient<PaginatedResponse<Announcement>>("/announcements", { params: { page, limit: 20, search } })
       setData(res.data); setTotal(res.total)
-    } catch (e: any) { setError(e.message) }
+    } catch (e: unknown) {
+      const { permissionDenied: denied } = classifyApiError(e)
+      if (denied) setPermissionDenied(true)
+      else setError(formatEmbeddedApiError(e))
+    }
     finally { setLoading(false) }
   }, [page, search])
 
@@ -46,7 +57,10 @@ export default function AnnouncementsPage() {
         body: { title: fd.get("title"), content: fd.get("content"), type: "general", targetAudience: "center", isPublished: true, publishedAt: new Date().toISOString() },
       })
       setDialogOpen(false); fetchData()
-    } catch (e: any) { alert(e.message) }
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
+    }
     finally { setSaving(false) }
   }
 
@@ -56,6 +70,18 @@ export default function AnnouncementsPage() {
     { key: "isPublished", title: "Holat", render: (a: Announcement) => <Badge variant={a.isPublished ? "default" : "secondary"}>{a.isPublished ? "Nashr etilgan" : "Qoralama"}</Badge> },
     { key: "createdAt", title: "Sana", render: (a: Announcement) => new Date(a.createdAt).toLocaleDateString("uz-UZ") },
   ]
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="E'lonlar" description="Markaz e'lonlarini boshqarish" icon={Megaphone} />
+        <AccessDeniedPlaceholder
+          title="E'lonlarga ruxsat yo'q"
+          description="E'lonlar moduli announcements.write / announcements.read ruxsatlarini talab qilishi mumkin."
+        />
+      </div>
+    )
+  }
 
   return (
     <DataTable

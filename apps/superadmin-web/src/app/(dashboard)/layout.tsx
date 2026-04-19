@@ -8,6 +8,8 @@ import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
+import { RoutePermissionGate } from "@/components/route-permission-gate"
+import { StepUpProvider } from "@/components/step-up-provider"
 import { Toaster } from "sonner"
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -39,6 +41,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <ThemeProvider>
       <AuthProvider>
         <AuthGate>
+          <RoutePermissionGate>
+          <StepUpProvider>
           <SidebarProvider>
             <AppSidebar />
             <SidebarInset>
@@ -50,6 +54,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </SidebarInset>
           </SidebarProvider>
           <Toaster position="top-right" richColors closeButton />
+          </StepUpProvider>
+          </RoutePermissionGate>
         </AuthGate>
       </AuthProvider>
     </ThemeProvider>

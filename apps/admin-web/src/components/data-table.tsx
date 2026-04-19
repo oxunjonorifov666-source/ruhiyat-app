@@ -38,12 +38,18 @@ interface DataTableProps<T> {
   onFilterChange?: (filterId: string, value: string) => void
   onResetFilters?: () => void
   filters?: React.ReactNode
+  /** Hide search/filter toolbar (e.g. when API has no server-side search). */
+  hideToolbar?: boolean
+  /** Replaces default empty-state hint under "Ma'lumot topilmadi". */
+  emptySubtext?: string
 }
 
 export function DataTable<T extends Record<string, any>>({
   title, description, columns, data, total, page, limit,
   loading, error, search: externalSearch, searchPlaceholder,
-  onPageChange, onSearch, onSearchChange, headerAction, filterFields, activeFilters, onFilterChange, onResetFilters, filters
+  onPageChange, onSearch, onSearchChange, headerAction, filterFields, activeFilters, onFilterChange, onResetFilters, filters,
+  hideToolbar = false,
+  emptySubtext,
 }: DataTableProps<T>) {
   const [searchValue, setSearchValue] = useState(externalSearch || "")
   const debouncedSearch = useDebounce(searchValue, 400)
@@ -71,27 +77,29 @@ export function DataTable<T extends Record<string, any>>({
         </div>
       )}
 
-      <Card>
-        <CardHeader className="pb-3 border-b mb-4">
-          <FilterBar
-            searchQuery={searchValue}
-            onSearchChange={handleSearchChange}
-            searchPlaceholder={searchPlaceholder}
-            filters={filterFields}
-            activeFilters={activeFilters}
-            onFilterChange={(f, v) => onFilterChange ? onFilterChange(f, v) : null}
-            onResetFilters={() => {
-              setSearchValue("")
-              if (onResetFilters) onResetFilters()
-            }}
-          />
-          {filters && <div className="mt-4">{filters}</div>}
-        </CardHeader>
-        <CardContent>
+      <Card className="overflow-hidden">
+        {!hideToolbar && (
+          <CardHeader className="mb-0 border-b border-border/70 bg-muted/25 pb-4 pt-5">
+            <FilterBar
+              searchQuery={searchValue}
+              onSearchChange={handleSearchChange}
+              searchPlaceholder={searchPlaceholder}
+              filters={filterFields}
+              activeFilters={activeFilters}
+              onFilterChange={(f, v) => onFilterChange ? onFilterChange(f, v) : null}
+              onResetFilters={() => {
+                setSearchValue("")
+                if (onResetFilters) onResetFilters()
+              }}
+            />
+            {filters && <div className="mt-4">{filters}</div>}
+          </CardHeader>
+        )}
+        <CardContent className={hideToolbar ? "pt-6" : "pt-5"}>
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-4 text-sm text-red-700 dark:text-red-400 mb-4 flex items-center gap-2">
-              <AlertCircle className="size-4 shrink-0" />
-              {error}
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-destructive/25 bg-destructive/5 p-4 text-sm text-destructive dark:border-destructive/40 dark:bg-destructive/10">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <span className="leading-relaxed">{error}</span>
             </div>
           )}
 
@@ -103,19 +111,24 @@ export function DataTable<T extends Record<string, any>>({
               ))}
             </div>
           ) : !data || data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <Inbox className="size-12 mb-3 opacity-40" />
-              <p className="font-medium">Ma'lumot topilmadi</p>
-              <p className="text-xs mt-1">Qidiruv parametrlarini o'zgartiring</p>
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/15 px-6 py-16 text-muted-foreground">
+              <Inbox className="mb-4 size-12 opacity-35" strokeWidth={1.25} />
+              <p className="font-medium text-foreground/80">Ma'lumot topilmadi</p>
+              <p className="mt-1 max-w-sm text-center text-xs leading-relaxed text-muted-foreground">
+                {emptySubtext ?? "Qidiruv parametrlarini o'zgartiring"}
+              </p>
             </div>
           ) : (
             <>
-              <div className="rounded-md border overflow-hidden">
+              <div className="overflow-hidden rounded-lg border border-border/70 bg-card">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
+                    <TableRow className="border-border/60 bg-muted/40 hover:bg-muted/40">
                       {columns.map((col) => (
-                        <TableHead key={col.key} className="font-semibold">
+                        <TableHead
+                          key={col.key}
+                          className="h-11 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                        >
                           {col.header || col.title}
                         </TableHead>
                       ))}
@@ -125,10 +138,10 @@ export function DataTable<T extends Record<string, any>>({
                     {data.map((item, idx) => (
                       <TableRow
                         key={item.id || idx}
-                        className="transition-colors hover:bg-muted/40"
+                        className="border-border/50 transition-colors hover:bg-primary/[0.035] dark:hover:bg-primary/[0.06]"
                       >
                         {columns.map((col) => (
-                          <TableCell key={col.key}>
+                          <TableCell key={col.key} className="align-middle py-3 text-sm">
                             {col.render ? col.render(item) : item[col.key]}
                           </TableCell>
                         ))}
@@ -138,25 +151,27 @@ export function DataTable<T extends Record<string, any>>({
                 </Table>
               </div>
 
-              <div className="flex items-center justify-between mt-4">
+              <div className="mt-5 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Jami: <span className="font-medium text-foreground">{total}</span> ta
+                  Jami: <span className="font-semibold tabular-nums text-foreground">{total}</span> ta
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-8 min-w-8 px-2 shadow-sm"
                     onClick={() => onPageChange(page - 1)}
                     disabled={page <= 1}
                   >
                     <ChevronLeft className="size-4" />
                   </Button>
-                  <span className="text-sm tabular-nums">
+                  <span className="min-w-[4.5rem] px-2 text-center text-sm font-medium tabular-nums text-foreground">
                     {page} / {totalPages || 1}
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-8 min-w-8 px-2 shadow-sm"
                     onClick={() => onPageChange(page + 1)}
                     disabled={page >= totalPages}
                   >

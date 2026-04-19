@@ -26,6 +26,7 @@ import { MobileService } from './mobile.service';
 import { MobileSosService } from './mobile-sos.service';
 import { MobileAiPsychologistService } from './mobile-ai-psychologist.service';
 import { CommunicationService } from '../communication/communication.service';
+import { MobileComplianceService } from '../legal/mobile-compliance.service';
 
 @Controller('mobile')
 @UseGuards(JwtAuthGuard)
@@ -37,6 +38,7 @@ export class MobileResourcesController {
     private readonly sos: MobileSosService,
     private readonly aiPsych: MobileAiPsychologistService,
     private readonly communication: CommunicationService,
+    private readonly compliance: MobileComplianceService,
   ) {}
 
   private ensureConsumer(user: AuthUser) {
@@ -66,6 +68,12 @@ export class MobileResourcesController {
       search,
       specialization,
     });
+  }
+
+  @Get('psychologists/:id')
+  psychologistDetail(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    this.ensureConsumer(user);
+    return this.psychologists.findMobileById(id);
   }
 
   @Get('bookings')
@@ -161,6 +169,37 @@ export class MobileResourcesController {
   appMetadata(@CurrentUser() user: AuthUser) {
     this.ensureConsumer(user);
     return this.mobile.getAppMetadataFromDb();
+  }
+
+  /** Consent / deletion state vs active legal versions */
+  @Get('compliance-state')
+  complianceState(@CurrentUser() user: AuthUser) {
+    this.ensureConsumer(user);
+    return this.compliance.getComplianceState(user.id);
+  }
+
+  @Post('account/consent')
+  recordConsent(
+    @CurrentUser() user: AuthUser,
+    @Body() body: { termsVersion: string; privacyVersion: string },
+  ) {
+    this.ensureConsumer(user);
+    if (!body?.termsVersion?.trim() || !body?.privacyVersion?.trim()) {
+      throw new BadRequestException('termsVersion va privacyVersion majburiy');
+    }
+    return this.compliance.recordConsent(user.id, body);
+  }
+
+  @Post('account/deletion-request')
+  requestDeletion(@CurrentUser() user: AuthUser) {
+    this.ensureConsumer(user);
+    return this.compliance.requestAccountDeletion(user.id);
+  }
+
+  @Post('account/deletion-cancel')
+  cancelDeletion(@CurrentUser() user: AuthUser) {
+    this.ensureConsumer(user);
+    return this.compliance.cancelAccountDeletion(user.id);
   }
 
   @Post('push/register')

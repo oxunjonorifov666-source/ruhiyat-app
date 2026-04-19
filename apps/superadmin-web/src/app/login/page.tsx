@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { loginApi, storeTokens } from "@/lib/auth"
+import { sessionLogin } from "@/lib/auth"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = React.useState(false)
@@ -20,18 +20,11 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const data = await loginApi(email, password)
-
-      if (data.user.role !== "SUPERADMIN") {
-        setError("Faqat superadmin kirishi mumkin")
-        setLoading(false)
-        return
-      }
-
-      storeTokens(data.accessToken, data.refreshToken)
+      await sessionLogin(email, password)
       window.location.assign("/superadmin/dashboard")
-    } catch (err: any) {
-      setError(err.message || "Kirish xatoligi yuz berdi")
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Kirish xatoligi yuz berdi"
+      setError(msg)
       setLoading(false)
     }
   }

@@ -6,6 +6,9 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { SecurityObservabilityService } from '../../observability/security-observability.service';
+import { SecurityAnomalyTrackerService } from '../../observability/security-anomaly-tracker.service';
+import { isSensitiveApiPath } from '../../observability/sensitive-routes.util';
 import {
   PrismaClientInitializationError,
   PrismaClientKnownRequestError,
@@ -18,6 +21,11 @@ const isProd = () => process.env.NODE_ENV === 'production';
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
+
+  constructor(
+    private readonly securityObs?: SecurityObservabilityService,
+    private readonly anomalyTracker?: SecurityAnomalyTrackerService,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -43,6 +51,46 @@ export class HttpExceptionFilter implements ExceptionFilter {
         if (typeof ec === 'string' && ec.length < 80) errorCode = ec;
         const c = resp.code;
         if (typeof c === 'string' && c.length) errorCode = c;
+      }
+
+      if (this.securityObs && (status === HttpStatus.UNAUTHORIZED || status === HttpStatus.FORBIDDEN)) {
+        const user = request.user as { id?: number; role?: string } | undefined;
+        const ip =
+          request.ip ||
+          (typeof request.headers?.['x-forwarded-for'] === 'string'
+            ? request.headers['x-forwarded-for'].split(',')[0]?.trim()
+            : undefined);
+        this.securityObs.logHttpException({
+          status,
+          method: request.method,
+          path: request.url || '',
+          message: userMessage,
+          userId: user?.id ?? null,
+          role: user?.role ?? null,
+          ip: ip || null,
+        });
+        if (this.anomalyTracker) {
+          if (
+            status === HttpStatus.FORBIDDEN &&
+            user?.id != null &&
+            isSensitiveApiPath(request.url || '')
+          ) {
+            this.anomalyTracker.observeSensitiveRoute403({
+              userId: user.id,
+              path: request.url || '',
+              role: user?.role ?? null,
+              ip: ip || null,
+            });
+          } else if (status === HttpStatus.UNAUTHORIZED || status === HttpStatus.FORBIDDEN) {
+            this.anomalyTracker.observeHttpAuthError({
+              status: status as 401 | 403,
+              ip: ip || null,
+              userId: user?.id ?? null,
+              path: request.url || '',
+              role: user?.role ?? null,
+            });
+          }
+        }
       }
     } else if (exception instanceof PrismaClientInitializationError) {
       status = HttpStatus.SERVICE_UNAVAILABLE;

@@ -36,7 +36,18 @@ import {
 import { UsersRound, Plus, MoreHorizontal, UserMinus, Edit, Loader2, TrendingUp, AlertCircle } from "lucide-react"
 import { ChartLine } from "lucide-react"
 import { toast } from "sonner"
+import {
+  classifyApiError,
+  describeEmbeddedApiError,
+  formatEmbeddedApiError,
+  type EmbeddedApiErrorDescription,
+} from "@/lib/api-error"
+import { EmbeddedApiErrorBanner } from "@/components/embedded-api-error-banner"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 import { useRouter } from "next/navigation"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
+import { SuperadminCenterRequiredScreen, SuperadminCenterSelect } from "@/components/superadmin-center-select"
+import { withCenterQuery } from "@/lib/endpoints"
 
 interface Enrollment {
   id: number
@@ -63,13 +74,16 @@ export default function GroupEnrollmentsPage({ params }: { params: Promise<{ id:
   const groupId = resolvedParams.id
 
   const { user } = useAuth()
-  const centerId = user?.administrator?.centerId
+  const centerCtx = useSuperadminCenter(user)
+  const centerId = centerCtx.effectiveCenterId
   const router = useRouter()
 
   const [data, setData] = useState<Enrollment[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [permissionDenied, setPermissionDenied] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [sheetOpen, setSheetOpen] = useState(false)
   const [studentId, setStudentId] = useState("")
@@ -77,12 +91,15 @@ export default function GroupEnrollmentsPage({ params }: { params: Promise<{ id:
   const [requirePayment, setRequirePayment] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState("")
   const [saving, setSaving] = useState(false)
+  const [sheetApiError, setSheetApiError] = useState<EmbeddedApiErrorDescription | null>(null)
 
   const [analytics, setAnalytics] = useState<GroupAnalytics | null>(null)
 
   const fetchData = useCallback(async () => {
     if (!centerId) return
     setLoading(true)
+    setPermissionDenied(false)
+    setLoadError(null)
     try {
       const [res, statsRes] = await Promise.all([
         apiClient<PaginatedResponse<Enrollment>>("/enrollments", {
@@ -93,8 +110,15 @@ export default function GroupEnrollmentsPage({ params }: { params: Promise<{ id:
       setData(res.data)
       setTotal(res.total)
       setAnalytics(statsRes)
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const { permissionDenied: denied } = classifyApiError(e)
+      if (denied) {
+        setPermissionDenied(true)
+      } else {
+        setLoadError(formatEmbeddedApiError(e))
+        const d = describeEmbeddedApiError(e)
+        toast.error(d.title, { description: d.description })
+      }
     } finally {
       setLoading(false)
     }
@@ -105,6 +129,7 @@ export default function GroupEnrollmentsPage({ params }: { params: Promise<{ id:
   }, [fetchData])
 
   const openCreate = () => {
+    setSheetApiError(null)
     setStudentId("")
     setStatus("active")
     setRequirePayment(false)
@@ -116,6 +141,7 @@ export default function GroupEnrollmentsPage({ params }: { params: Promise<{ id:
     e.preventDefault()
     if (!centerId) return
     setSaving(true)
+    setSheetApiError(null)
     try {
       await apiClient("/enrollments", {
         method: "POST",
@@ -131,8 +157,10 @@ export default function GroupEnrollmentsPage({ params }: { params: Promise<{ id:
       toast.success("O'quvchi guruhga biriktirildi")
       setSheetOpen(false)
       fetchData()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      setSheetApiError(d)
+      toast.error(d.title, { description: d.description })
     } finally {
       setSaving(false)
     }
@@ -144,8 +172,9 @@ export default function GroupEnrollmentsPage({ params }: { params: Promise<{ id:
       await apiClient(`/enrollments/${enrollmentId}?centerId=${centerId}`, { method: "DELETE" })
       toast.success("O'quvchi xorij qilindi")
       fetchData()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     }
   }
 
@@ -209,20 +238,67 @@ export default function GroupEnrollmentsPage({ params }: { params: Promise<{ id:
     },
   ]
 
-  if (!centerId) return <div className="p-8 text-center">Markaz topilmadi</div>
+  if (centerCtx.needsCenterSelection) {
+    return (
+      <SuperadminCenterRequiredScreen
+        title="Guruh"
+        description="Guruh va yozilishlar uchun markazni tanlang"
+        icon={UsersRound}
+        centers={centerCtx.centers}
+        centersLoading={centerCtx.centersLoading}
+        setCenterId={centerCtx.setCenterId}
+      />
+    )
+  }
+
+  if (!centerId) {
+    return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+  }
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" onClick={() => router.push(withCenterQuery("/groups", centerId))}>Orqaga</Button>
+        </div>
+        <PageHeader title="Guruh" description="Guruh va yozilishlar" icon={UsersRound} />
+        <AccessDeniedPlaceholder
+          title="Guruh ma'lumotlariga ruxsat yo'q"
+          description="Guruh tahlili va yozilishlar ro'yxati groups.read / enrollments ruxsatlarini talab qilishi mumkin."
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" onClick={() => router.push("/groups")}>Orqaga</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" onClick={() => router.push(withCenterQuery("/groups", centerId))}>Orqaga</Button>
+        {centerCtx.isSuperadmin && (
+          <SuperadminCenterSelect
+            centers={centerCtx.centers}
+            centersLoading={centerCtx.centersLoading}
+            value={centerCtx.effectiveCenterId}
+            onChange={centerCtx.setCenterId}
+          />
+        )}
       </div>
 
       <PageHeader
         title={`Guruh boshqaruvi va tahlili`}
-        description="Guruhdagi o'quvchilar va ularning faollik ko'rsatkichlari"
+        description={`${centerCtx.centerDisplayName} — guruhdagi o'quvchilar va faollik`}
         icon={UsersRound}
-        actions={[{ label: "O'quvchi qo'shish", icon: Plus, onClick: openCreate }]}
+        actions={
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="mr-2 size-4" />
+            O&apos;quvchi qo&apos;shish
+          </Button>
+        }
       />
+
+      {loadError && !loading ? (
+        <p className="text-sm text-destructive">{loadError}</p>
+      ) : null}
 
       {analytics && (
         <>
@@ -290,12 +366,20 @@ export default function GroupEnrollmentsPage({ params }: { params: Promise<{ id:
         onPageChange={setPage}
       />
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={(o) => {
+          setSheetOpen(o)
+          if (!o) setSheetApiError(null)
+        }}
+      >
         <SheetContent>
           <SheetHeader>
             <SheetTitle>Yangi yozilish</SheetTitle>
             <SheetDescription>O'quvchini guruhga yo'naltirish</SheetDescription>
           </SheetHeader>
+
+          <EmbeddedApiErrorBanner error={sheetApiError} className="mt-4" />
 
           <form onSubmit={handleSave} className="space-y-5 mt-6">
             <div className="space-y-2">

@@ -7,6 +7,8 @@ import {
   CalendarDays,
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
+import { SuperadminCenterSelect } from "@/components/superadmin-center-select"
 import { apiClient, PaginatedResponse } from "@/lib/api-client"
 import { DataTable } from "@/components/data-table"
 import { PageHeader } from "@/components/page-header"
@@ -23,6 +25,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
 import type { FilterField } from "@/components/filter-bar"
+import { classifyApiError, describeEmbeddedApiError, formatEmbeddedApiError } from "@/lib/api-error"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 
 interface Session {
   id: number
@@ -79,7 +83,8 @@ export function SessionsList({ mode }: { mode: Mode }) {
   const searchParams = useSearchParams()
   const historyView = mode === "history" || searchParams.get("view") === "history"
   const { user } = useAuth()
-  const centerId = user?.administrator?.centerId
+  const centerCtx = useSuperadminCenter(user)
+  const centerId = centerCtx.effectiveCenterId
 
   const [data, setData] = useState<Session[]>([])
   const [total, setTotal] = useState(0)
@@ -91,8 +96,11 @@ export function SessionsList({ mode }: { mode: Mode }) {
   const [dateTo, setDateTo] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const [stats, setStats] = useState<SessionStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
+  const [statsPermissionDenied, setStatsPermissionDenied] = useState(false)
+  const [statsError, setStatsError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Session | null>(null)
   const [actionDialog, setActionDialog] = useState<{ action: string; id: number } | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
@@ -106,6 +114,7 @@ export function SessionsList({ mode }: { mode: Mode }) {
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setPermissionDenied(false)
     try {
       const params: Record<string, string | number | undefined> = {
         page,
@@ -121,8 +130,10 @@ export function SessionsList({ mode }: { mode: Mode }) {
       const res = await apiClient<PaginatedResponse<Session>>("/sessions", { params })
       setData(res.data)
       setTotal(res.total)
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      const { permissionDenied: denied } = classifyApiError(e)
+      setError(formatEmbeddedApiError(e))
+      setPermissionDenied(denied)
     } finally {
       setLoading(false)
     }
@@ -130,24 +141,21 @@ export function SessionsList({ mode }: { mode: Mode }) {
 
   const fetchStats = useCallback(async () => {
     setStatsLoading(true)
+    setStatsError(null)
+    setStatsPermissionDenied(false)
     try {
       const params: Record<string, number> = {}
       if (centerId) params.centerId = centerId
       const res = await apiClient<SessionStats>("/sessions/stats", { params })
       setStats(res)
-    } catch {
-      setStats({
-        total: 0,
-        pending: 0,
-        accepted: 0,
-        completed: 0,
-        cancelled: 0,
-        rejected: 0,
-        todaySessions: 0,
-        monthSessions: 0,
-        paidCount: 0,
-        totalRevenue: 0,
-      })
+    } catch (e: unknown) {
+      setStats(null)
+      const { permissionDenied: denied } = classifyApiError(e)
+      if (denied) {
+        setStatsPermissionDenied(true)
+      } else {
+        setStatsError(formatEmbeddedApiError(e))
+      }
     } finally {
       setStatsLoading(false)
     }
@@ -185,8 +193,9 @@ export function SessionsList({ mode }: { mode: Mode }) {
       setSelected(null)
       fetchData()
       fetchStats()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     } finally {
       setActionLoading(false)
     }
@@ -283,6 +292,24 @@ export function SessionsList({ mode }: { mode: Mode }) {
     },
   ]
 
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6 pb-8">
+        <PageHeader
+          title={pageTitle}
+          description={pageDesc}
+          icon={historyView ? History : CalendarCheck}
+          badge={historyView ? "Tarix" : undefined}
+        />
+        <AccessDeniedPlaceholder
+          title="Seanslarga ruxsat yo'q"
+          description="Seanslar ro'yxati va boshqaruv odatda sessions.read / sessions.manage yoki tegishli ruxsatlarni talab qiladi."
+          detail={error}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 pb-8">
       <PageHeader
@@ -290,8 +317,29 @@ export function SessionsList({ mode }: { mode: Mode }) {
         description={pageDesc}
         icon={historyView ? History : CalendarCheck}
         badge={historyView ? "Tarix" : undefined}
-        actions={[{ label: "Yangilash", icon: RefreshCw, variant: "outline", onClick: () => { fetchData(); fetchStats() } }]}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {centerCtx.isSuperadmin && (
+              <SuperadminCenterSelect
+                centers={centerCtx.centers}
+                centersLoading={centerCtx.centersLoading}
+                value={centerCtx.effectiveCenterId}
+                onChange={centerCtx.setCenterId}
+              />
+            )}
+            <Button variant="outline" size="sm" onClick={() => { fetchData(); fetchStats() }}>
+              <RefreshCw className="mr-2 size-4" />
+              Yangilash
+            </Button>
+          </div>
+        }
       />
+
+      {centerCtx.isSuperadmin && centerId == null && (
+        <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Barcha markazlar</span> — ro&apos;yxat filtrlash uchun yuqoridan markazni tanlang (tanlanmasa, barcha markazlar bo&apos;yicha seanslar ko&apos;rinadi).
+        </div>
+      )}
 
       {statsLoading ? (
         <StatsGrid columns={4}>
@@ -299,6 +347,13 @@ export function SessionsList({ mode }: { mode: Mode }) {
             <StatsCard key={i} title="" value="" icon={CalendarCheck} loading />
           ))}
         </StatsGrid>
+      ) : statsPermissionDenied ? (
+        <AccessDeniedPlaceholder
+          title="Seans statistikalariga ruxsat yo'q"
+          description="Asosiy ro'yxat ochilishi mumkin; yuqoridagi yig'ma ko'rsatkichlar uchun alohida ruxsat talab qilinishi mumkin."
+        />
+      ) : statsError ? (
+        <p className="text-sm text-destructive">{statsError}</p>
       ) : stats ? (
         <StatsGrid columns={4}>
           <StatsCard

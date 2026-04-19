@@ -52,7 +52,7 @@ export default function MonitoringPage() {
   useEffect(() => {
     fetchData()
     // Polling health and logs every 30 seconds
-    const interval = setInterval(() => fetchData(true), 30000)
+    const interval = setInterval(() => fetchData(true), 60000)
     
     // Smoothly fluctuate metrics every 2.5 seconds
     const metricInterval = setInterval(() => {

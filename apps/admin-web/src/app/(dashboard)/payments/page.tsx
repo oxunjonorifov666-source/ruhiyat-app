@@ -33,6 +33,16 @@ import {
 import { CreditCard, Plus, MoreHorizontal, Edit, CheckCircle, RefreshCcw, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import type { FilterField } from "@/components/filter-bar"
+import {
+  describeEmbeddedApiError,
+  formatEmbeddedApiError,
+  isPermissionDeniedError,
+  type EmbeddedApiErrorDescription,
+} from "@/lib/api-error"
+import { EmbeddedApiErrorBanner } from "@/components/embedded-api-error-banner"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
+import { SuperadminCenterRequiredScreen, SuperadminCenterSelect } from "@/components/superadmin-center-select"
 
 interface Payment {
   id: number
@@ -51,13 +61,15 @@ interface Payment {
 
 export default function PaymentsPage() {
   const { user } = useAuth()
-  const centerId = user?.administrator?.centerId
+  const centerCtx = useSuperadminCenter(user)
+  const centerId = centerCtx.effectiveCenterId
 
   const [data, setData] = useState<Payment[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const [search, setSearch] = useState("")
   const [filters, setFilters] = useState<{ status: string; method: string; dateFrom: string; dateTo: string }>({
     status: "all",
@@ -75,10 +87,13 @@ export default function PaymentsPage() {
   const [status, setStatus] = useState("PENDING")
   const [method, setMethod] = useState("CASH")
   const [saving, setSaving] = useState(false)
+  const [sheetApiError, setSheetApiError] = useState<EmbeddedApiErrorDescription | null>(null)
 
   const fetchData = useCallback(async () => {
     if (!centerId) return
     setLoading(true)
+    setError(null)
+    setPermissionDenied(false)
     try {
       const res = await apiClient<PaginatedResponse<Payment>>("/payments", {
         params: {
@@ -94,9 +109,13 @@ export default function PaymentsPage() {
       })
       setData(res.data)
       setTotal(res.total)
-    } catch (e: any) {
-      setError(e.message)
-      toast.error(e.message)
+    } catch (e: unknown) {
+      setError(formatEmbeddedApiError(e))
+      setPermissionDenied(isPermissionDeniedError(e))
+      if (!isPermissionDeniedError(e)) {
+        const d = describeEmbeddedApiError(e)
+        toast.error(d.title, { description: d.description })
+      }
     } finally {
       setLoading(false)
     }
@@ -107,6 +126,7 @@ export default function PaymentsPage() {
   }, [fetchData])
 
   const openCreate = () => {
+    setSheetApiError(null)
     setIsEditing(false)
     setEditId(null)
     setStudentId("")
@@ -130,6 +150,7 @@ export default function PaymentsPage() {
     e.preventDefault()
     if (!centerId) return
     setSaving(true)
+    setSheetApiError(null)
     try {
       if (isEditing && editId) {
         await apiClient(`/payments/${editId}`, {
@@ -158,8 +179,10 @@ export default function PaymentsPage() {
       }
       setSheetOpen(false)
       fetchData()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      setSheetApiError(d)
+      toast.error(d.title, { description: d.description })
     } finally {
       setSaving(false)
     }
@@ -176,8 +199,9 @@ export default function PaymentsPage() {
       })
       toast.success("Holat o'zgardi")
       fetchData()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     }
   }
 
@@ -268,15 +292,62 @@ export default function PaymentsPage() {
     },
   ]
 
-  if (!centerId) return <div className="p-8 text-center">Markaz topilmadi</div>
+  if (centerCtx.needsCenterSelection) {
+    return (
+      <SuperadminCenterRequiredScreen
+        title="To'lovlar"
+        description="Markaz bo'yicha to'lovlar va moliyaviy aylanma"
+        icon={CreditCard}
+        centers={centerCtx.centers}
+        centersLoading={centerCtx.centersLoading}
+        setCenterId={centerCtx.setCenterId}
+      />
+    )
+  }
+
+  if (!centerId) {
+    return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+  }
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="To'lovlar Boshqaruvi"
+          description="Markazning moliyaviy aylanmasi va o'quvchilar to'lovlari"
+          icon={CreditCard}
+        />
+        <AccessDeniedPlaceholder
+          title="Moliyaviy modulga ruxsat yo'q"
+          description="To'lovlar ro'yxatini ko'rish odatda finance.read (yoki tegishli moliya) ruxsatini talab qiladi. Hisobingizda bu ruxsat bo'lmasa, bu sahifa ochilmaydi."
+          detail={error}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="To'lovlar Boshqaruvi"
-        description="Markazning moliyaviy aylanmasi va o'quvchilar to'lovlari"
+        description={`${centerCtx.centerDisplayName} — moliyaviy aylanma va o'quvchilar to'lovlari`}
         icon={CreditCard}
-        actions={[{ label: "Yangi to'lov", icon: Plus, onClick: openCreate }]}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {centerCtx.isSuperadmin && (
+              <SuperadminCenterSelect
+                centers={centerCtx.centers}
+                centersLoading={centerCtx.centersLoading}
+                value={centerCtx.effectiveCenterId}
+                onChange={centerCtx.setCenterId}
+              />
+            )}
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="mr-2 size-4" />
+              Yangi to&apos;lov
+            </Button>
+          </div>
+        }
       />
 
       <DataTable
@@ -337,12 +408,20 @@ export default function PaymentsPage() {
         }
       />
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={(o) => {
+          setSheetOpen(o)
+          if (!o) setSheetApiError(null)
+        }}
+      >
         <SheetContent>
           <SheetHeader>
             <SheetTitle>{isEditing ? "To'lovni tahrirlash" : "Yangi to'lov ro'yxatdan o'tkazish"}</SheetTitle>
             <SheetDescription>O'quvchi uchun naqd yoki boshqa to'lov turini belgilang.</SheetDescription>
           </SheetHeader>
+
+          <EmbeddedApiErrorBanner error={sheetApiError} className="mt-4" />
 
           <form onSubmit={handleSave} className="space-y-5 mt-6">
             {!isEditing && (

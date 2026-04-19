@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 
 interface FinanceStats {
   totalRevenue: number
@@ -39,9 +40,27 @@ interface TransactionType {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export default function RevenuePage() {
-  const { data: stats, loading: statsLoading } = useApiData<FinanceStats>({ path: "/finance/stats" })
-  const { data: monthlyData, loading: chartLoading } = useApiData<MonthlyRevenue[]>({ path: "/finance/monthly-revenue" })
-  const { data: typeData, loading: typeLoading } = useApiData<TransactionType[]>({ path: "/finance/transactions-by-type" })
+  const {
+    data: stats,
+    loading: statsLoading,
+    error: statsErr,
+    permissionDenied: statsPd,
+  } = useApiData<FinanceStats>({ path: "/finance/stats" })
+  const {
+    data: monthlyData,
+    loading: chartLoading,
+    error: monthlyErr,
+    permissionDenied: monthlyPd,
+  } = useApiData<MonthlyRevenue[]>({ path: "/finance/monthly-revenue" })
+  const {
+    data: typeData,
+    loading: typeLoading,
+    error: typeErr,
+    permissionDenied: typePd,
+  } = useApiData<TransactionType[]>({ path: "/finance/transactions-by-type" })
+
+  const financeDenied = statsPd || monthlyPd || typePd
+  const financeDeniedDetail = [statsErr, monthlyErr, typeErr].find(Boolean) ?? null
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('uz-UZ').format(val) + " so'm"
@@ -53,7 +72,24 @@ export default function RevenuePage() {
     return Math.round(growth);
   }
 
-  const growth = calculateGrowth();
+  const growth = calculateGrowth()
+
+  if (financeDenied) {
+    return (
+      <div className="space-y-6 pb-20">
+        <PageHeader
+          title="Moliyaviy Tahlil"
+          description="Markazning daromadlari, tranzaksiyalari va moliyaviy o'sish ko'rsatkichlari"
+          icon={DollarSign}
+        />
+        <AccessDeniedPlaceholder
+          title="Moliyaviy tahlilga ruxsat yo'q"
+          description="Daromad va tranzaksiya statistikasi finance.read yoki tegishli moliya ruxsatlarini talab qiladi. Rolingizda bu ruxsat bo'lmasa, grafiklar va raqamlar ko'rinmaydi."
+          detail={financeDeniedDetail}
+        />
+      </div>
+    )
+  }
 
   if (statsLoading && !stats) {
     return (

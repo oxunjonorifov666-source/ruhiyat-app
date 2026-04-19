@@ -54,14 +54,16 @@ function DateDisplay() {
 function TimeDisplay() {
   const [now, setNow] = React.useState(new Date())
   React.useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000)
+    const tick = () => setNow(new Date())
+    const timer = setInterval(tick, 5000)
+    tick()
     return () => clearInterval(timer)
   }, [])
   return (
     <div className="hidden lg:flex items-center gap-1.5 text-sm font-mono text-muted-foreground">
       <Clock className="size-3.5" />
       <span>
-        {new Intl.DateTimeFormat("uz-UZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(now)}
+        {new Intl.DateTimeFormat("uz-UZ", { hour: "2-digit", minute: "2-digit" }).format(now)}
       </span>
     </div>
   )
@@ -118,7 +120,7 @@ function NotificationBell() {
 
   React.useEffect(() => {
     fetchNotifications()
-    const interval = setInterval(fetchNotifications, 30000)
+    const interval = setInterval(fetchNotifications, 90000)
     return () => clearInterval(interval)
   }, [fetchNotifications])
 

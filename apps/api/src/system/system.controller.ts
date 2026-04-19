@@ -1,14 +1,24 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { SystemService } from './system.service';
+import {
+  UpdateSystemSettingDto,
+  UpdateMobileAppSettingDto,
+  CreateApiKeyDto,
+  UpdateIntegrationSettingDto,
+} from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { StepUpGuard } from '../auth/guards/step-up.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { TenantGuard } from '../auth/guards/tenant.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { AuthUser } from '@ruhiyat/types';
+import { AuthUser, UserRole } from '@ruhiyat/types';
 
 @Controller()
-@UseGuards(JwtAuthGuard, PermissionsGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+@Roles(UserRole.SUPERADMIN)
 export class SystemController {
   constructor(private readonly service: SystemService) {}
 
@@ -34,11 +44,12 @@ export class SystemController {
   }
 
   @Patch('settings/:key')
+  @UseGuards(StepUpGuard)
   @Permissions('system.settings')
   updateSetting(
     @CurrentUser() requester: AuthUser,
     @Param('key') key: string, 
-    @Body() data: any
+    @Body() data: UpdateSystemSettingDto
   ) { 
     return this.service.updateSetting(requester, key, data); 
   }
@@ -50,11 +61,12 @@ export class SystemController {
   }
 
   @Patch('mobile-settings/:key')
+  @UseGuards(StepUpGuard)
   @Permissions('system.settings')
   updateMobileSetting(
     @CurrentUser() requester: AuthUser,
     @Param('key') key: string, 
-    @Body() data: any
+    @Body() data: UpdateMobileAppSettingDto
   ) { 
     return this.service.updateMobileSetting(requester, key, data); 
   }
@@ -66,15 +78,17 @@ export class SystemController {
   }
 
   @Post('api-keys')
+  @UseGuards(StepUpGuard)
   @Permissions('system.settings')
   createApiKey(
     @CurrentUser() requester: AuthUser,
-    @Body() data: any
+    @Body() data: CreateApiKeyDto
   ) { 
     return this.service.createApiKey(requester, data); 
   }
 
   @Delete('api-keys/:id')
+  @UseGuards(StepUpGuard)
   @Permissions('system.settings')
   removeApiKey(
     @CurrentUser() requester: AuthUser,
@@ -90,11 +104,12 @@ export class SystemController {
   }
 
   @Patch('integrations/:id')
+  @UseGuards(StepUpGuard)
   @Permissions('system.settings')
   updateIntegration(
     @CurrentUser() requester: AuthUser,
     @Param('id', ParseIntPipe) id: number, 
-    @Body() data: any
+    @Body() data: UpdateIntegrationSettingDto
   ) { 
     return this.service.updateIntegration(requester, id, data); 
   }
@@ -106,6 +121,7 @@ export class SystemController {
   }
 
   @Delete('auth-sessions/:id')
+  @UseGuards(StepUpGuard)
   @Permissions('system.audit')
   revokeAuthSession(@CurrentUser() requester: AuthUser, @Param('id', ParseIntPipe) id: number) {
     return this.service.revokeAuthSession(requester, id);

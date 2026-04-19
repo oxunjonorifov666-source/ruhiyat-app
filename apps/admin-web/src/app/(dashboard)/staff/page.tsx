@@ -28,6 +28,11 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select"
+import { describeEmbeddedApiError, formatEmbeddedApiError, isPermissionDeniedError } from "@/lib/api-error"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
+import { SuperadminCenterRequiredScreen, SuperadminCenterSelect } from "@/components/superadmin-center-select"
+import { toast } from "sonner"
 
 interface Staff {
   id: number
@@ -51,7 +56,8 @@ interface Role {
 export default function StaffPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const centerId = user?.administrator?.centerId
+  const centerCtx = useSuperadminCenter(user)
+  const centerId = centerCtx.effectiveCenterId
   
   const [data, setData] = useState<Staff[]>([])
   const [roles, setRoles] = useState<Role[]>([])
@@ -60,6 +66,7 @@ export default function StaffPage() {
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   
   // Form state
   const [isSheetOpen, setIsSheetOpen] = useState(false)
@@ -77,21 +84,38 @@ export default function StaffPage() {
 
   const fetchData = useCallback(async () => {
     if (!centerId) return
-    setLoading(true); setError(null)
+    setLoading(true)
+    setError(null)
+    setPermissionDenied(false)
     try {
-      // 1. Fetch Staff
       const res = await apiClient<PaginatedResponse<Staff>>(`/education-centers/${centerId}/staff`, {
         params: { page, limit: 15, search }
       })
-      setData(res.data); setTotal(res.total)
-      
-      // 2. Fetch Roles (once)
-      if (roles.length === 0) {
+      setData(res.data)
+      setTotal(res.total)
+    } catch (e: unknown) {
+      setError(formatEmbeddedApiError(e))
+      setPermissionDenied(isPermissionDeniedError(e))
+      setLoading(false)
+      return
+    }
+
+    if (roles.length === 0) {
+      try {
         const rolesRes = await apiClient<Role[]>(`/roles`, { params: { centerId } })
         setRoles(rolesRes || [])
+      } catch (e: unknown) {
+        if (isPermissionDeniedError(e)) {
+          toast("Rollar ro'yxati: ruxsat yetarli emas", {
+            description: "Xodimlar ro'yxati ko'rinadi; rollarni tanlash uchun alohida ruxsat kerak bo'lishi mumkin.",
+          })
+        } else {
+          const d = describeEmbeddedApiError(e)
+          toast.error(d.title, { description: d.description })
+        }
       }
-    } catch (e: any) { setError(e.message) }
-    finally { setLoading(false) }
+    }
+    setLoading(false)
   }, [centerId, page, search, roles])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -147,8 +171,9 @@ export default function StaffPage() {
       }
       setIsSheetOpen(false)
       fetchData()
-    } catch (e: any) {
-      alert(e.message)
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     } finally {
       setSaving(false)
     }
@@ -159,7 +184,10 @@ export default function StaffPage() {
     try {
       await apiClient(`/education-centers/${centerId}/staff/${id}`, { method: "DELETE" })
       fetchData()
-    } catch (e: any) { alert(e.message) }
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
+    }
   }
 
   const columns = [
@@ -228,17 +256,62 @@ export default function StaffPage() {
     }
   ]
 
-  if (!centerId) return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+  if (centerCtx.needsCenterSelection) {
+    return (
+      <SuperadminCenterRequiredScreen
+        title="Xodimlar"
+        description="Markaz bo'yicha xodimlar va rollar"
+        icon={UserCog}
+        centers={centerCtx.centers}
+        centersLoading={centerCtx.centersLoading}
+        setCenterId={centerCtx.setCenterId}
+      />
+    )
+  }
+
+  if (!centerId) {
+    return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+  }
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Xodimlar"
+          description="Markaz ma'muriyati va xodimlarini boshqarish"
+          icon={UserCog}
+        />
+        <AccessDeniedPlaceholder
+          title="Xodimlarni boshqarishga ruxsat yo'q"
+          description="Xodimlar ro'yxati odatda staff.read / staff.manage yoki markaz administratori uchun mo'ljallangan ruxsatlarni talab qiladi."
+          detail={error}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Xodimlar"
-        description="Markaz ma'muriyati va xodimlarini boshqarish"
+        description={`${centerCtx.centerDisplayName} — ma'muriyat va xodimlar`}
         icon={UserCog}
-        actions={[
-          { label: "Yangi xodim", icon: UserPlus, onClick: () => openForm() }
-        ]}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {centerCtx.isSuperadmin && (
+              <SuperadminCenterSelect
+                centers={centerCtx.centers}
+                centersLoading={centerCtx.centersLoading}
+                value={centerCtx.effectiveCenterId}
+                onChange={centerCtx.setCenterId}
+              />
+            )}
+            <Button size="sm" onClick={() => openForm()}>
+              <UserPlus className="mr-2 size-4" />
+              Yangi xodim
+            </Button>
+          </div>
+        }
       />
 
       <DataTable

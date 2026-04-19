@@ -18,6 +18,7 @@
     "@ruhiyat/ui": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "^2.1.1",
+    "jose": "^6.2.2",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.511.0",

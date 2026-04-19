@@ -1,6 +1,14 @@
-import { IsOptional, IsString, IsEnum, IsNumberString, IsIn } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsNumberString, IsIn, IsInt, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class QueryUsersDto {
+  /** Superadmin: filter by center. Other roles: ignored (own center enforced in service). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  centerId?: number;
+
   @IsOptional()
   @IsNumberString()
   page?: string;

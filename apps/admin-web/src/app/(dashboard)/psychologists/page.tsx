@@ -25,6 +25,10 @@ import {
 } from "@/components/ui/select"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { toast } from "sonner"
+import { classifyApiError, describeEmbeddedApiError } from "@/lib/api-error"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
+import { SuperadminCenterEmptyState, SuperadminCenterSelect } from "@/components/superadmin-center-select"
 
 interface Psychologist {
   id: number
@@ -54,7 +58,8 @@ interface Psychologist {
 
 export default function PsychologistsPage() {
   const { user } = useAuth()
-  const centerId = user?.administrator?.centerId
+  const centerCtx = useSuperadminCenter(user)
+  const centerId = centerCtx.effectiveCenterId
   
   // States for "My Psychologists"
   const [myData, setMyData] = useState<Psychologist[]>([])
@@ -62,6 +67,7 @@ export default function PsychologistsPage() {
   const [myPage, setMyPage] = useState(1)
   const [mySearch, setMySearch] = useState("")
   const [myLoading, setMyLoading] = useState(true)
+  const [myPermissionDenied, setMyPermissionDenied] = useState(false)
   
   // States for "Platform Psychologists"
   const [platformData, setPlatformData] = useState<Psychologist[]>([])
@@ -69,6 +75,7 @@ export default function PsychologistsPage() {
   const [platformPage, setPlatformPage] = useState(1)
   const [platformSearch, setPlatformSearch] = useState("")
   const [platformLoading, setPlatformLoading] = useState(true)
+  const [platformPermissionDenied, setPlatformPermissionDenied] = useState(false)
 
   const [selected, setSelected] = useState<Psychologist | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
@@ -96,24 +103,40 @@ export default function PsychologistsPage() {
   const fetchMyPsychologists = useCallback(async () => {
     if (!centerId) return
     setMyLoading(true)
+    setMyPermissionDenied(false)
     try {
       const res = await apiClient<PaginatedResponse<Psychologist>>("/psychologists", {
         params: { page: myPage, limit: 15, search: mySearch, centerId }
       })
       setMyData(res.data); setMyTotal(res.total)
-    } catch (e: any) { toast.error(e.message) }
+    } catch (e: unknown) {
+      const { permissionDenied } = classifyApiError(e)
+      if (permissionDenied) setMyPermissionDenied(true)
+      else {
+        const d = describeEmbeddedApiError(e)
+        toast.error(d.title, { description: d.description })
+      }
+    }
     finally { setMyLoading(false) }
   }, [centerId, myPage, mySearch])
 
   const fetchPlatformPsychologists = useCallback(async () => {
     setPlatformLoading(true)
+    setPlatformPermissionDenied(false)
     try {
       const res = await apiClient<PaginatedResponse<Psychologist>>("/psychologists", {
         params: { page: platformPage, limit: 15, search: platformSearch }
       })
       // Mark psychologists that are already in the center
       setPlatformData(res.data); setPlatformTotal(res.total)
-    } catch (e: any) { toast.error(e.message) }
+    } catch (e: unknown) {
+      const { permissionDenied } = classifyApiError(e)
+      if (permissionDenied) setPlatformPermissionDenied(true)
+      else {
+        const d = describeEmbeddedApiError(e)
+        toast.error(d.title, { description: d.description })
+      }
+    }
     finally { setPlatformLoading(false) }
   }, [platformPage, platformSearch])
 
@@ -128,7 +151,10 @@ export default function PsychologistsPage() {
       toast.success("Psixolog markazga biriktirildi")
       fetchMyPsychologists()
       fetchPlatformPsychologists()
-    } catch (e: any) { toast.error(e.message) }
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
+    }
     finally { setActionLoading(false) }
   }
 
@@ -141,7 +167,10 @@ export default function PsychologistsPage() {
       fetchMyPsychologists()
       fetchPlatformPsychologists()
       if (selected?.id === id) setSelected(null)
-    } catch (e: any) { toast.error(e.message) }
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
+    }
     finally { setActionLoading(false) }
   }
 
@@ -164,7 +193,10 @@ export default function PsychologistsPage() {
         email: "", phone: "", specialization: "", bio: "", education: "",
         licenseNumber: "", experienceYears: "", hourlyRate: "", avatarUrl: "",
       })
-    } catch (e: any) { toast.error(e.message) }
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
+    }
     finally { setActionLoading(false) }
   }
 
@@ -182,7 +214,10 @@ export default function PsychologistsPage() {
       setEditOpen(false)
       setSelected(null)
       fetchMyPsychologists()
-    } catch (e: any) { toast.error(e.message) }
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
+    }
     finally { setActionLoading(false) }
   }
 
@@ -276,15 +311,33 @@ export default function PsychologistsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Psixologlar"
-        description="Markaz psixologlari va platforma mutaxassislari"
+        description={
+          centerCtx.isSuperadmin
+            ? `${centerCtx.centerDisplayName} — markaz biriktirish va platforma`
+            : "Markaz psixologlari va platforma mutaxassislari"
+        }
         icon={Brain}
-        actions={[
-          {
-            label: "Yangi psixolog",
-            icon: UserPlus,
-            onClick: () => setCreateOpen(true)
-          }
-        ]}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {centerCtx.isSuperadmin && (
+              <SuperadminCenterSelect
+                centers={centerCtx.centers}
+                centersLoading={centerCtx.centersLoading}
+                value={centerCtx.effectiveCenterId}
+                onChange={centerCtx.setCenterId}
+              />
+            )}
+            <Button
+              size="sm"
+              disabled={centerCtx.needsCenterSelection}
+              title={centerCtx.needsCenterSelection ? "Avval markazni tanlang" : undefined}
+              onClick={() => setCreateOpen(true)}
+            >
+              <UserPlus className="mr-2 size-4" />
+              Yangi psixolog
+            </Button>
+          </div>
+        }
       />
 
       <Tabs defaultValue="my" className="w-full">
@@ -294,31 +347,51 @@ export default function PsychologistsPage() {
         </TabsList>
 
         <TabsContent value="my" className="mt-0">
-          <DataTable
-            columns={columns(false)}
-            data={myData}
-            total={myTotal}
-            page={myPage}
-            limit={15}
-            loading={myLoading}
-            onPageChange={setMyPage}
-            onSearchChange={setMySearch}
-            searchPlaceholder="Ism yoki mutaxassislik bo'yicha qidirish..."
-          />
+          {centerCtx.needsCenterSelection ? (
+            <SuperadminCenterEmptyState
+              centers={centerCtx.centers}
+              centersLoading={centerCtx.centersLoading}
+              onSelect={centerCtx.setCenterId}
+            />
+          ) : myPermissionDenied ? (
+            <AccessDeniedPlaceholder
+              title="Markaz psixologlariga ruxsat yo'q"
+              description="Markazga biriktirilgan psixologlar ro'yxati psychologists moduli ruxsatini talab qiladi."
+            />
+          ) : (
+            <DataTable
+              columns={columns(false)}
+              data={myData}
+              total={myTotal}
+              page={myPage}
+              limit={15}
+              loading={myLoading}
+              onPageChange={setMyPage}
+              onSearchChange={setMySearch}
+              searchPlaceholder="Ism yoki mutaxassislik bo'yicha qidirish..."
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="platform" className="mt-0">
-          <DataTable
-            columns={columns(true)}
-            data={platformData}
-            total={platformTotal}
-            page={platformPage}
-            limit={15}
-            loading={platformLoading}
-            onPageChange={setPlatformPage}
-            onSearchChange={setPlatformSearch}
-            searchPlaceholder="Platformadan psixolog qidirish..."
-          />
+          {platformPermissionDenied ? (
+            <AccessDeniedPlaceholder
+              title="Platforma psixologlariga ruxsat yo'q"
+              description="Platforma bo'ylab psixologlarni ko'rish alohida ruxsat yoki superadmin huquqini talab qilishi mumkin."
+            />
+          ) : (
+            <DataTable
+              columns={columns(true)}
+              data={platformData}
+              total={platformTotal}
+              page={platformPage}
+              limit={15}
+              loading={platformLoading}
+              onPageChange={setPlatformPage}
+              onSearchChange={setPlatformSearch}
+              searchPlaceholder="Platformadan psixolog qidirish..."
+            />
+          )}
         </TabsContent>
       </Tabs>
 

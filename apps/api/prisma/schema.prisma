@@ -65,6 +65,11 @@ model User {
   aiPsychologistConversations AiPsychologistConversation[]
   mobilePushDevices           MobilePushDevice[]
 
+  accountLifecycle     AccountLifecycle @default(ACTIVE) @map("account_lifecycle")
+  deletionRequestedAt  DateTime?        @map("deletion_requested_at")
+  scheduledDeletionAt  DateTime?        @map("scheduled_deletion_at")
+  deletedAt            DateTime?        @map("deleted_at")
+
   @@map("users")
 }
 
@@ -205,6 +210,10 @@ model MobileUser {
   /** JSON: { pushEnabled, emailEnabled, remindersEnabled, marketingEnabled, moodReminder, sessionReminder } */
   notificationPrefs Json?    @map("notification_prefs")
   analyticsOptIn    Boolean   @default(false) @map("analytics_opt_in")
+  acceptedTermsVersion   String?   @map("accepted_terms_version")
+  acceptedPrivacyVersion String?   @map("accepted_privacy_version")
+  termsAcceptedAt        DateTime? @map("terms_accepted_at")
+  privacyAcceptedAt      DateTime? @map("privacy_accepted_at")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -989,6 +998,39 @@ model MobileAppSetting {
   @@map("mobile_app_settings")
 }
 
+/** Versioned Terms / Privacy — one active row per kind (enforced in service). */
+model LegalDocument {
+  id          Int               @id @default(autoincrement())
+  kind        LegalDocumentKind
+  version     String
+  title       String?
+  content     String            @db.Text
+  isActive    Boolean           @default(false) @map("is_active")
+  publishedAt DateTime?         @map("published_at")
+  createdById Int?              @map("created_by")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@unique([kind, version])
+  @@map("legal_documents")
+}
+
+/** Crisis / emergency lines — prefer `regionCode` match, fallback to GLOBAL. */
+model CrisisResource {
+  id          Int      @id @default(autoincrement())
+  regionCode  String   @default("GLOBAL") @map("region_code")
+  sortOrder   Int      @default(0) @map("sort_order")
+  label       String
+  phoneNumber String?  @map("phone_number")
+  helpText    String?  @map("help_text") @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([regionCode, isActive])
+  @@map("crisis_resources")
+}
+
 model ApiKey {
   id          Int       @id @default(autoincrement())
   name        String
@@ -1208,6 +1250,17 @@ enum UserRole {
   SUPERADMIN
   ADMINISTRATOR
   MOBILE_USER
+}
+
+enum AccountLifecycle {
+  ACTIVE
+  PENDING_DELETION
+  DELETED
+}
+
+enum LegalDocumentKind {
+  TERMS_OF_SERVICE
+  PRIVACY_POLICY
 }
 
 enum VerificationStatus {

@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { getChatSocket, disconnectChatSocket } from "@/lib/chat-socket"
-import { getStoredTokens } from "@/lib/auth"
 import {
   Sheet,
   SheetContent,
@@ -205,39 +204,43 @@ export default function ChatPage() {
 
   // Socket real-time
   useEffect(() => {
-    const socket = getChatSocket()
-    if (!socket) return
+    let cancelled = false
+    let detach: (() => void) | undefined
 
-    const onNewMessage = (msg: any) => {
-      if (!msg?.chatId) return
-      // Update active chat messages
-      if (activeChat?.id === msg.chatId) {
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === msg.id)) return prev
-          return [...prev, msg]
-        })
-        scrollToBottom()
-        // Mark read for non-sender
-        if (msg.senderId !== currentUserId) {
-          socket.emit('markRead', { chatId: msg.chatId })
+    void getChatSocket().then((s) => {
+      if (cancelled || !s) return
+      const onNewMessage = (msg: any) => {
+        if (!msg?.chatId) return
+        if (activeChat?.id === msg.chatId) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === msg.id)) return prev
+            return [...prev, msg]
+          })
+          scrollToBottom()
+          if (msg.senderId !== currentUserId) {
+            s.emit("markRead", { chatId: msg.chatId })
+          }
         }
-      }
-      // Refresh chat list to update last message + unread
-      fetchChats()
-    }
-
-    const onAddedToChat = (data: any) => {
-      if (data?.chatId) {
         fetchChats()
       }
-    }
 
-    socket.on('newMessage', onNewMessage)
-    socket.on('addedToChat', onAddedToChat)
+      const onAddedToChat = (data: any) => {
+        if (data?.chatId) {
+          fetchChats()
+        }
+      }
+
+      s.on("newMessage", onNewMessage)
+      s.on("addedToChat", onAddedToChat)
+      detach = () => {
+        s.off("newMessage", onNewMessage)
+        s.off("addedToChat", onAddedToChat)
+      }
+    })
 
     return () => {
-      socket.off('newMessage', onNewMessage)
-      socket.off('addedToChat', onAddedToChat)
+      cancelled = true
+      detach?.()
     }
   }, [activeChat?.id, currentUserId, fetchChats])
 
@@ -275,14 +278,12 @@ export default function ChatPage() {
     if (!activeChat) return
     setSending(true)
     try {
-      const tokens = getStoredTokens()
-      if (!tokens?.accessToken) throw new Error("Sessiya tugagan. Qayta login qiling.")
       const fd = new FormData()
       fd.append('file', file)
       const res = await fetch(`/api/chats/${activeChat.id}/attachments`, {
         method: 'POST',
         body: fd,
-        headers: { Authorization: `Bearer ${tokens.accessToken}` },
+        credentials: 'include',
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -371,11 +372,6 @@ export default function ChatPage() {
 
   const handleUploadGroupAvatar = async (file: File) => {
     if (!activeChat) return
-    const tokens = getStoredTokens()
-    if (!tokens?.accessToken) {
-      toast.error("Sessiya tugagan")
-      return
-    }
     setGroupSaving(true)
     try {
       const fd = new FormData()
@@ -383,7 +379,7 @@ export default function ChatPage() {
       const res = await fetch(`/api/chats/${activeChat.id}/avatar`, {
         method: "POST",
         body: fd,
-        headers: { Authorization: `Bearer ${tokens.accessToken}` },
+        credentials: "include",
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))

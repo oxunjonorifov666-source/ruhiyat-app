@@ -1,23 +1,23 @@
-import { Controller, Get, Query, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { TenantGuard } from '../auth/guards/tenant.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUser, UserRole } from '@ruhiyat/types';
 
 @Controller('analytics')
-@UseGuards(JwtAuthGuard, PermissionsGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+@Roles(UserRole.SUPERADMIN)
 export class AnalyticsController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('dashboard')
   @Permissions('system.settings')
   async getDashboardStats(@CurrentUser() requester: AuthUser, @Query('dateFrom') dateFrom?: string, @Query('dateTo') dateTo?: string) {
-    if (requester.role !== UserRole.SUPERADMIN) {
-      throw new ForbiddenException('Siz ushbu ma\'lumotlarni ko\'rish huquqiga ega emassiz');
-    }
 
     // Current period
     const start = dateFrom ? new Date(dateFrom) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);

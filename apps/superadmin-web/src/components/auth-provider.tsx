@@ -2,25 +2,19 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  type AuthUser,
-  fetchMe,
-  refreshTokenApi,
-  logoutApi,
-  getStoredTokens,
-  storeTokens,
-  clearTokens,
-} from '@/lib/auth'
+import { type AuthUser, sessionMe, sessionLogout, sessionRefresh, clearLegacyBrowserTokens } from '@/lib/auth'
+import { disconnectChatSocket } from '@/lib/chat-socket'
 
 interface AuthContextType {
   user: AuthUser | null
   isLoading: boolean
   isAuthenticated: boolean
-  accessToken: string | null
+  /** HttpOnly sessiya — brauzerda token yo‘q */
+  accessToken: null
   permissions: string[]
   hasPermission: (permission: string) => boolean
   logout: () => Promise<void>
-  setAuth: (user: AuthUser, accessToken: string, refreshToken: string) => void
+  setUser: (user: AuthUser) => void
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -31,79 +25,74 @@ const AuthContext = createContext<AuthContextType>({
   permissions: [],
   hasPermission: () => false,
   logout: async () => {},
-  setAuth: () => {},
+  setUser: () => {},
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [accessToken, setAccessToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
   const permissions = user?.permissions ?? []
 
-  const hasPermission = useCallback((permission: string) => {
-    if (!user) return false
-    if (user.role === 'SUPERADMIN') return true
-    if (permissions.includes('*')) return true
-    return permissions.includes(permission)
-  }, [user, permissions])
+  const hasPermission = useCallback(
+    (permission: string) => {
+      if (!user) return false
+      if (user.role === 'SUPERADMIN') return true
+      if (permissions.includes('*')) return true
+      return permissions.includes(permission)
+    },
+    [user, permissions],
+  )
 
   const handleLogout = useCallback(async () => {
-    const tokens = getStoredTokens()
-    if (tokens?.refreshToken) {
-      await logoutApi(tokens.refreshToken)
-    }
-    clearTokens()
+    disconnectChatSocket()
+    await sessionLogout()
     setUser(null)
-    setAccessToken(null)
     router.push('/login')
   }, [router])
 
-  const setAuth = useCallback((newUser: AuthUser, newAccessToken: string, newRefreshToken: string) => {
+  const setUserOnly = useCallback((newUser: AuthUser) => {
     setUser(newUser)
-    setAccessToken(newAccessToken)
-    storeTokens(newAccessToken, newRefreshToken)
+  }, [])
+
+  useEffect(() => {
+    clearLegacyBrowserTokens()
   }, [])
 
   useEffect(() => {
     async function initAuth() {
-      const tokens = getStoredTokens()
-      if (!tokens) {
-        setIsLoading(false)
-        return
-      }
-
       try {
-        const userData = await fetchMe(tokens.accessToken)
+        const userData = await sessionMe()
         if (userData.role !== 'SUPERADMIN') {
-          clearTokens()
+          await sessionLogout()
           setIsLoading(false)
           return
         }
         setUser(userData)
-        setAccessToken(tokens.accessToken)
       } catch {
         try {
-          const newTokens = await refreshTokenApi(tokens.refreshToken)
-          storeTokens(newTokens.accessToken, newTokens.refreshToken)
-          const userData = await fetchMe(newTokens.accessToken)
+          const ok = await sessionRefresh()
+          if (!ok) {
+            setIsLoading(false)
+            return
+          }
+          const userData = await sessionMe()
           if (userData.role !== 'SUPERADMIN') {
-            clearTokens()
+            await sessionLogout()
             setIsLoading(false)
             return
           }
           setUser(userData)
-          setAccessToken(newTokens.accessToken)
         } catch {
-          clearTokens()
+          /* sessiya yo‘q */
         }
+      } finally {
+        setIsLoading(false)
       }
-
-      setIsLoading(false)
     }
 
-    initAuth()
+    void initAuth()
   }, [])
 
   return (
@@ -112,11 +101,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
-        accessToken,
+        accessToken: null,
         permissions,
         hasPermission,
         logout: handleLogout,
-        setAuth,
+        setUser: setUserOnly,
       }}
     >
       {children}

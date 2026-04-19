@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Activity } from "lucide-react"
+import { Activity, Loader2 } from "lucide-react"
 import { apiClient, PaginatedResponse } from "@/lib/api-client"
 import { DataTable } from "@/components/data-table"
 import { PageHeader } from "@/components/page-header"
@@ -10,6 +10,15 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import type { FilterField } from "@/components/filter-bar"
+import { SuperadminRouteGate } from "@/components/superadmin-route-gate"
+import {
+  classifyApiError,
+  describeEmbeddedApiError,
+  formatEmbeddedApiError,
+  type EmbeddedApiErrorDescription,
+} from "@/lib/api-error"
+import { EmbeddedApiErrorBanner } from "@/components/embedded-api-error-banner"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 
 interface AuditLog {
   id: number
@@ -33,7 +42,7 @@ const actionColors: Record<string, string> = {
   LOGIN: "default", LOGOUT: "secondary",
 }
 
-export default function AuditLogsPage() {
+function AuditLogsPageContent() {
   const [data, setData] = useState<AuditLog[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -46,10 +55,16 @@ export default function AuditLogsPage() {
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
+  const [logDialogOpen, setLogDialogOpen] = useState(false)
+  const [logDetailLoading, setLogDetailLoading] = useState(false)
+  const [logDetailError, setLogDetailError] = useState<EmbeddedApiErrorDescription | null>(null)
 
   const fetchData = useCallback(async () => {
-    setLoading(true); setError(null)
+    setLoading(true)
+    setError(null)
+    setPermissionDenied(false)
     try {
       const res = await apiClient<any>("/audit-logs", {
         params: {
@@ -64,7 +79,11 @@ export default function AuditLogsPage() {
       })
       setData(res.data)
       setTotal(res.total)
-    } catch (e: any) { setError(e.message) }
+    } catch (e: unknown) {
+      const { permissionDenied: denied } = classifyApiError(e)
+      if (denied) setPermissionDenied(true)
+      else setError(formatEmbeddedApiError(e))
+    }
     finally { setLoading(false) }
   }, [page, search, filters])
 
@@ -128,11 +147,17 @@ export default function AuditLogsPage() {
         size="sm"
         className="text-xs"
         onClick={async () => {
+          setLogDetailError(null)
+          setSelectedLog(null)
+          setLogDetailLoading(true)
+          setLogDialogOpen(true)
           try {
             const full = await apiClient<AuditLog>(`/audit-logs/${log.id}`)
             setSelectedLog(full)
-          } catch (e: any) {
-            setError(e.message || "Log tafsilotlarini yuklab bo'lmadi")
+          } catch (e: unknown) {
+            setLogDetailError(describeEmbeddedApiError(e))
+          } finally {
+            setLogDetailLoading(false)
           }
         }}
       >
@@ -146,6 +171,23 @@ export default function AuditLogsPage() {
       <span className="text-sm">{new Date(log.createdAt).toLocaleString("uz-UZ")}</span>
     )},
   ]
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Faollik jurnali"
+          description="Tizimdagi amallar va o'zgarishlar — real vaqt rejimida bazadan"
+          icon={Activity}
+        />
+        <AccessDeniedPlaceholder
+          title="Audit jurnaliga ruxsat yo'q"
+          description="Audit loglar odatda faqat superadmin yoki xavfsizlik rollari uchun."
+          detail={error}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -202,13 +244,31 @@ export default function AuditLogsPage() {
         }
       />
 
-      <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
+      <Dialog
+        open={logDialogOpen}
+        onOpenChange={(open) => {
+          setLogDialogOpen(open)
+          if (!open) {
+            setSelectedLog(null)
+            setLogDetailError(null)
+            setLogDetailLoading(false)
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Log tafsilotlari</DialogTitle>
-            <DialogDescription>Amal ID: #{selectedLog?.id}</DialogDescription>
+            <DialogDescription>
+              {selectedLog ? `Amal ID: #${selectedLog.id}` : "Yuklanmoqda yoki xato"}
+            </DialogDescription>
           </DialogHeader>
-          {selectedLog && (
+          {logDetailLoading ? (
+            <div className="flex flex-1 items-center justify-center py-12" role="status" aria-live="polite">
+              <Loader2 className="size-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : logDetailError ? (
+            <EmbeddedApiErrorBanner error={logDetailError} className="flex-1" />
+          ) : selectedLog ? (
             <div className="flex-1 overflow-auto space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg border bg-muted/30">
@@ -227,9 +287,17 @@ export default function AuditLogsPage() {
                 </pre>
               </div>
             </div>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function AuditLogsPage() {
+  return (
+    <SuperadminRouteGate title="Faollik jurnali">
+      <AuditLogsPageContent />
+    </SuperadminRouteGate>
   )
 }

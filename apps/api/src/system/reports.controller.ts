@@ -1,14 +1,17 @@
-import { Controller, Get, Query, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { TenantGuard } from '../auth/guards/tenant.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUser, UserRole } from '@ruhiyat/types';
 
 @Controller('reports')
-@UseGuards(JwtAuthGuard, PermissionsGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+@Roles(UserRole.SUPERADMIN)
 export class ReportsController {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -20,9 +23,6 @@ export class ReportsController {
     @Query('to') to?: string,
     @Query('status') status?: string,
   ) {
-    if (requester.role !== UserRole.SUPERADMIN) {
-      throw new ForbiddenException('Siz ushbu ma\'lumotlarni ko\'rish huquqiga ega emassiz');
-    }
 
     const where: any = {
       createdAt: {
@@ -72,9 +72,6 @@ export class ReportsController {
     @Query('to') to?: string,
     @Query('status') status?: string,
   ) {
-    if (requester.role !== UserRole.SUPERADMIN) {
-      throw new ForbiddenException('Siz ushbu ma\'lumotlarni ko\'rish huquqiga ega emassiz');
-    }
 
     const where: any = {
       scheduledAt: {
@@ -113,9 +110,6 @@ export class ReportsController {
     @Query('to') to?: string,
     @Query('role') role?: UserRole,
   ) {
-    if (requester.role !== UserRole.SUPERADMIN) {
-      throw new ForbiddenException('Siz ushbu ma\'lumotlarni ko\'rish huquqiga ega emassiz');
-    }
 
     const where: any = {
       createdAt: {

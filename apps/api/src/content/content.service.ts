@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { AuthUser } from '@ruhiyat/types';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushNotificationService } from '../push/push-notification.service';
 
@@ -9,18 +10,29 @@ export class ContentService {
     private readonly pushNotification: PushNotificationService,
   ) {}
 
-  async findAllArticles(query: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    publishedOnly?: boolean;
-    category?: string;
-  } = {}) {
+  /** Panel / privileged users with content permissions may list drafts; everyone else sees published only. */
+  private canManageContent(viewer?: AuthUser | null): boolean {
+    if (!viewer) return false;
+    const p = viewer.permissions ?? [];
+    return p.includes('*') || p.includes('content.read') || p.includes('content.write');
+  }
+
+  async findAllArticles(
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      publishedOnly?: boolean;
+      category?: string;
+    } = {},
+    viewer?: AuthUser | null,
+  ) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
     const where: any = {};
-    if (query.publishedOnly) {
+    const restrict = !this.canManageContent(viewer);
+    if (restrict || query.publishedOnly) {
       where.isPublished = true;
     }
     if (query.category?.trim()) {
@@ -39,10 +51,13 @@ export class ContentService {
     return { data, total, page, limit };
   }
 
-  async findArticle(id: number) {
+  /** GET single article: published for everyone; drafts only for privileged content roles. */
+  async findArticleForViewer(id: number, viewer?: AuthUser | null) {
     const a = await this.prisma.article.findUnique({ where: { id } });
     if (!a) throw new NotFoundException('Maqola topilmadi');
-    return a;
+    if (a.isPublished) return a;
+    if (this.canManageContent(viewer)) return a;
+    throw new NotFoundException('Maqola topilmadi');
   }
   async createArticle(data: any) {
     const article = await this.prisma.article.create({ data });

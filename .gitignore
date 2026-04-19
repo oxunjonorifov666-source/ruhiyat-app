@@ -48,3 +48,18 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# ENV (VERY IMPORTANT)
+.env
+.env.*
+!.env.example
+
+# uploads
+uploads/
+
+# prisma backup
+apps/api/prisma/migrations_backup
+
+# next build
+.next
+.config/

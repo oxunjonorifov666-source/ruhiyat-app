@@ -28,9 +28,22 @@ export interface BookingRow {
   };
 }
 
+export interface DailyInsightPayload {
+  title: string;
+  body: string;
+  motivational: string;
+  moodScore: number | null;
+  streakDays: number;
+  generatedAt: string;
+}
+
 export const profileMobileService = {
   async getStats() {
     return apiClient.get<DashboardStats>('/mobile/stats');
+  },
+
+  async getDailyInsight() {
+    return apiClient.get<DailyInsightPayload>('/ai/daily-insight');
   },
 
   async getMyBookings(params?: { page?: number; limit?: number }) {

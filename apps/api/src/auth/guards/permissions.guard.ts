@@ -29,7 +29,7 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    // Access permissions from the cached JWT payload via request object
+    // Permissions are resolved from the DB on each request (see AuthService.resolvePrincipalForJwt).
     const userPermissions = user.permissions || [];
 
     // O(1) Check for each required permission

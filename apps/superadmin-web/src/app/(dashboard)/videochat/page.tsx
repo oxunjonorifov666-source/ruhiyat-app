@@ -93,7 +93,7 @@ export default function VideochatPage() {
 
   useEffect(() => {
     fetchSessions()
-    const interval = setInterval(fetchSessions, 15000)
+    const interval = setInterval(fetchSessions, 30000)
     return () => clearInterval(interval)
   }, [fetchSessions])
 

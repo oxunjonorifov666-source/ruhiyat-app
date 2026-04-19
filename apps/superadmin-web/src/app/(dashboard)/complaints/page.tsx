@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { apiClient, PaginatedResponse } from "@/lib/api-client"
+import { safeDevError } from "@/lib/safe-log"
 import { PageHeader } from "@/components/page-header"
 import { StatsCard, StatsGrid } from "@/components/stats-card"
 import { Badge } from "@/components/ui/badge"
@@ -115,7 +116,9 @@ export default function ComplaintsPage() {
       setComplaints(listRes.data)
       setTotal(listRes.total)
       setStats(statsRes)
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("complaints/fetch", e)
+    }
     setLoading(false)
   }, [page, search, statusFilter, priorityFilter])
 
@@ -137,7 +140,9 @@ export default function ComplaintsPage() {
       setAssignOpen(false)
       setAssignUserId("")
       fetchData()
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("complaints/assign", e)
+    }
     setActionLoading(false)
   }
 
@@ -150,7 +155,9 @@ export default function ComplaintsPage() {
       setResolutionNote("")
       setSheetOpen(false)
       fetchData()
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("complaints/resolve", e)
+    }
     setActionLoading(false)
   }
 
@@ -163,7 +170,9 @@ export default function ComplaintsPage() {
       setResolutionNote("")
       setSheetOpen(false)
       fetchData()
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("complaints/reject", e)
+    }
     setActionLoading(false)
   }
 

@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
+import { StepUpProvider } from "@/components/step-up/step-up-provider"
 import { Toaster } from "sonner"
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -39,17 +40,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <ThemeProvider>
       <AuthProvider>
         <AuthGate>
+          <StepUpProvider>
           <SidebarProvider>
             <AppSidebar />
             <SidebarInset className="flex flex-col">
               <AppHeader />
-              <main className="flex-1 overflow-auto p-4 md:p-6">
-                {children}
+              <main className="app-main-canvas flex-1 overflow-auto">
+                <div className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8 min-h-[min(100%,calc(100vh-7rem))]">
+                  {children}
+                </div>
               </main>
               <AppFooter />
             </SidebarInset>
           </SidebarProvider>
           <Toaster position="top-right" richColors />
+          </StepUpProvider>
         </AuthGate>
       </AuthProvider>
     </ThemeProvider>

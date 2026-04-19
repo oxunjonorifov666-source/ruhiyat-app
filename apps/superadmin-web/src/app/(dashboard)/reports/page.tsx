@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { apiClient } from "@/lib/api-client"
+import { safeDevError } from "@/lib/safe-log"
 import { DataTable } from "@/components/data-table"
 import { Badge } from "@/components/ui/badge"
 import { exportToExcel, exportToPDF } from "@/lib/export-utils"
@@ -45,7 +46,7 @@ export default function ReportsPage() {
         setSummary(null)
       }
     } catch (error) {
-      console.error("Failed to fetch report:", error)
+      safeDevError("reports/fetch", error)
     } finally {
       setLoading(false)
     }

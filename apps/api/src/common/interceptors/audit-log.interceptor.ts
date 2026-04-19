@@ -2,12 +2,16 @@ import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nes
 import { Observable, tap } from 'rxjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthUser } from '@ruhiyat/types';
+import { SecurityAnomalyTrackerService } from '../../observability/security-anomaly-tracker.service';
 
 const WRITE_METHODS = ['POST', 'PATCH', 'PUT', 'DELETE'];
 
 @Injectable()
 export class AuditLogInterceptor implements NestInterceptor {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly anomalyTracker: SecurityAnomalyTrackerService,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
@@ -29,6 +33,15 @@ export class AuditLogInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap({
         next: () => {
+          if (method === 'DELETE' && userId) {
+            this.anomalyTracker.observeDestructiveAction({
+              userId,
+              role: user?.role ?? null,
+              method,
+              path: typeof request.url === 'string' ? request.url : '',
+              resource,
+            });
+          }
           this.prisma.auditLog.create({
             data: {
               userId,
@@ -39,6 +52,7 @@ export class AuditLogInterceptor implements NestInterceptor {
               details: {
                 method,
                 path: request.url,
+                actorRole: user?.role ?? null,
                 body: this.sanitizeBody(request.body),
               },
               ipAddress,

@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (accessToken: string, refreshToken: string, user: AuthUser) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /** Ilova faolligi (PIN qulfi va sessiya uchun) */
   resetInactivityTimer: () => void;
 }
 
@@ -28,29 +29,16 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  /** Foydalanuvchi hech narsa tegmasa — 10 daqiqadan keyin chiqish */
-  const INACTIVITY_TIMEOUT = 10 * 60 * 1000;
 
   const logout = useCallback(async () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
     const refreshToken = await SecureStore.getItemAsync(TOKEN_KEYS.REFRESH_TOKEN);
     if (refreshToken) await authService.logout(refreshToken);
     await clearTokens();
     setUser(null);
   }, []);
 
-  const resetInactivityTimer = useCallback(() => {
-    if (!user) return;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      if (__DEV__) {
-        console.log('Inactivity timeout reached. Logging out...');
-      }
-      logout();
-    }, INACTIVITY_TIMEOUT);
-  }, [user, logout]);
+  /** Eski API bilan moslik: PIN qulfi va boshqa komponentlar chaqirishi mumkin (sessiya faolligi) */
+  const resetInactivityTimer = useCallback(() => {}, []);
 
   const saveTokens = async (accessToken: string, refreshToken: string) => {
     try {
@@ -76,8 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (accessToken: string, refreshToken: string, userData: AuthUser) => {
     await saveTokens(accessToken, refreshToken);
     setUser(userData);
-    resetInactivityTimer();
-  }, [resetInactivityTimer]);
+  }, []);
 
   const refreshProfile = useCallback(async () => {
     try {
@@ -85,14 +72,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(data.user);
     } catch {}
   }, []);
-
-  useEffect(() => {
-    if (user) {
-      resetInactivityTimer();
-    } else if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-  }, [user, resetInactivityTimer]);
 
   useEffect(() => {
     setTelemetryOptIn(!!user?.analyticsOptIn);
@@ -124,10 +103,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     initAuth();
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
   }, []);
 
   return (

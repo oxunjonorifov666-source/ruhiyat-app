@@ -15,6 +15,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { UserRole } from "@ruhiyat/types"
+import {
+  describeEmbeddedApiError,
+  formatEmbeddedApiError,
+  isPermissionDeniedError,
+  isUserCancelledStepUp,
+} from "@/lib/api-error"
+import { useStepUp } from "@/components/step-up/step-up-provider"
+import { toast } from "sonner"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
+import { SuperadminRouteGate } from "@/components/superadmin-route-gate"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
+import { SuperadminCenterRequiredScreen, SuperadminCenterSelect } from "@/components/superadmin-center-select"
 
 interface Role {
   id: number
@@ -52,12 +64,16 @@ const ACTIONS = [
   { id: "manage", label: "Boshqarish", color: "bg-indigo-500", desc: "To'liq boshqaruv va tasdiqlash" },
 ]
 
-export default function StaffRolesPage() {
+function StaffRolesPageContent() {
+  const { runWithStepUp } = useStepUp()
   const { user } = useAuth()
-  const centerId = user?.administrator?.centerId
-  
+  const centerCtx = useSuperadminCenter(user)
+  const centerId = centerCtx.effectiveCenterId
+
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [isAddRoleOpen, setIsAddRoleOpen] = useState(false)
   const [newRole, setNewRole] = useState({ name: "", description: "" })
@@ -67,6 +83,8 @@ export default function StaffRolesPage() {
   const fetchRoles = useCallback(async () => {
     if (!centerId) return
     setLoading(true)
+    setLoadError(null)
+    setPermissionDenied(false)
     try {
       const res = await apiClient<Role[]>(`/roles`, { params: { centerId } })
       setRoles(res || [])
@@ -78,8 +96,12 @@ export default function StaffRolesPage() {
           if (updated) setSelectedRole(updated)
         }
       }
-    } catch (e: any) {
-      console.error(e)
+    } catch (e: unknown) {
+      if (isPermissionDeniedError(e)) {
+        setPermissionDenied(true)
+      } else {
+        setLoadError(formatEmbeddedApiError(e))
+      }
     } finally {
       setLoading(false)
     }
@@ -92,15 +114,25 @@ export default function StaffRolesPage() {
     if (!centerId) return
     setAdding(true)
     try {
-      await apiClient("/roles", {
-        method: "POST",
-        body: { ...newRole, centerId }
-      })
+      await runWithStepUp(
+        async () => {
+          await apiClient("/roles", {
+            method: "POST",
+            body: { ...newRole, centerId },
+          })
+        },
+        {
+          title: "Yangi rol — tasdiqlash",
+          description: "Rol yaratish xavfli amal hisoblanadi. Joriy akkaunt parolini kiriting.",
+        },
+      )
       setIsAddRoleOpen(false)
       setNewRole({ name: "", description: "" })
       fetchRoles()
-    } catch (e: any) {
-      alert(e.message)
+    } catch (e: unknown) {
+      if (isUserCancelledStepUp(e)) return
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     } finally {
       setAdding(false)
     }
@@ -108,26 +140,38 @@ export default function StaffRolesPage() {
 
   const togglePermission = async (resource: string, action: string) => {
     if (!selectedRole || (selectedRole.isSystem && user?.role !== UserRole.SUPERADMIN)) return
-    
+
     const key = `${resource}-${action}`
     setToggling(key)
 
     try {
-      const existing = selectedRole.permissions.find(p => p.resource === resource && p.action === action)
-      
-      if (existing) {
-        await apiClient(`/roles/${selectedRole.id}/permissions/${existing.id}`, {
-          method: "DELETE"
-        })
-      } else {
-        await apiClient(`/roles/${selectedRole.id}/permissions`, {
-          method: "POST",
-          body: { resource, action }
-        })
-      }
+      await runWithStepUp(
+        async () => {
+          const existing = selectedRole.permissions.find(
+            (p) => p.resource === resource && p.action === action,
+          )
+
+          if (existing) {
+            await apiClient(`/roles/${selectedRole.id}/permissions/${existing.id}`, {
+              method: "DELETE",
+            })
+          } else {
+            await apiClient(`/roles/${selectedRole.id}/permissions`, {
+              method: "POST",
+              body: { resource, action },
+            })
+          }
+        },
+        {
+          title: "Ruxsatni o‘zgartirish",
+          description: "Ruxsat matritsasidagi o‘zgarishlar darhol kuchga kiradi. Parolingizni tasdiqlang.",
+        },
+      )
       await fetchRoles()
-    } catch (e: any) {
-      alert(e.message)
+    } catch (e: unknown) {
+      if (isUserCancelledStepUp(e)) return
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     } finally {
       setToggling(null)
     }
@@ -140,7 +184,20 @@ export default function StaffRolesPage() {
   const systemRolesCount = roles.filter(r => r.isSystem).length
   const customRolesCount = roles.filter(r => !r.isSystem).length
 
-  if (loading && roles.length === 0) {
+  if (centerCtx.needsCenterSelection) {
+    return (
+      <SuperadminCenterRequiredScreen
+        title="Xodim rollari"
+        description="Tanlangan markaz uchun rollar va ruxsatlar matritsasi"
+        icon={Shield}
+        centers={centerCtx.centers}
+        centersLoading={centerCtx.centersLoading}
+        setCenterId={centerCtx.setCenterId}
+      />
+    )
+  }
+
+  if (loading && roles.length === 0 && !permissionDenied && !loadError) {
     return (
       <div className="flex h-[500px] flex-col items-center justify-center space-y-4">
         <Loader2 className="size-12 animate-spin text-primary opacity-20" />
@@ -149,15 +206,65 @@ export default function StaffRolesPage() {
     )
   }
 
+  if (permissionDenied) {
+    return (
+      <div className="space-y-8 pb-10">
+        <PageHeader
+          title="Xodimlar Rollari"
+          description="Markaz xodimlari uchun ruxsatnomalar va rollarni boshqarish"
+          icon={Shield}
+        />
+        <AccessDeniedPlaceholder
+          title="Rollarni boshqarishga ruxsat yo'q"
+          description="Rollar va ruxsatlar matritsasi odatda staff.manage yoki superadmin darajasidagi ruxsatni talab qiladi. Bu ruxsat bo'lmasa, ro'llarni ko'rish va tahrirlash mumkin emas."
+        />
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-8 pb-10">
+        <PageHeader
+          title="Xodimlar Rollari"
+          description="Markaz xodimlari uchun ruxsatnomalar va rollarni boshqarish"
+          icon={Shield}
+        />
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-base">Rollar yuklanmadi</CardTitle>
+            <CardDescription className="text-destructive">{loadError}</CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button variant="outline" onClick={() => fetchRoles()}>
+              Qayta urinish
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8 pb-10">
       <PageHeader 
         title="Xodimlar Rollari" 
-        description="Markaz xodimlari uchun ruxsatnomalar va rollarni boshqarish" 
+        description={`${centerCtx.centerDisplayName} — ruxsatnomalar va rollar`} 
         icon={Shield} 
-        actions={[
-          { label: "Yangi rol", icon: Plus, onClick: () => setIsAddRoleOpen(true) }
-        ]}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <SuperadminCenterSelect
+              centers={centerCtx.centers}
+              centersLoading={centerCtx.centersLoading}
+              value={centerCtx.effectiveCenterId}
+              onChange={centerCtx.setCenterId}
+            />
+            <Button size="sm" onClick={() => setIsAddRoleOpen(true)}>
+              <Plus className="mr-2 size-4" />
+              Yangi rol
+            </Button>
+          </div>
+        }
       />
 
       <StatsGrid columns={3}>
@@ -345,3 +452,12 @@ export default function StaffRolesPage() {
     </div>
   )
 }
+
+export default function StaffRolesPage() {
+  return (
+    <SuperadminRouteGate title="Xodim rollari">
+      <StaffRolesPageContent />
+    </SuperadminRouteGate>
+  )
+}
+

@@ -5,6 +5,7 @@ import { Settings, Globe, Smartphone, Key, Save, Loader2, Plus, Trash2, AlertCir
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
 import { apiClient } from "@/lib/api-client"
+import { safeDevError } from "@/lib/safe-log"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -61,7 +62,7 @@ export default function SettingsPage() {
       setMobileSettings(m)
       setApiKeys(a)
     } catch (e) {
-      console.error(e)
+      safeDevError("settings/fetch", e)
     } finally {
       setLoading(false)
     }

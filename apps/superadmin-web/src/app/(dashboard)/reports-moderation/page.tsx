@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { apiClient, PaginatedResponse } from "@/lib/api-client"
+import { safeDevError } from "@/lib/safe-log"
 import { PageHeader } from "@/components/page-header"
 import { StatsCard, StatsGrid } from "@/components/stats-card"
 import { Badge } from "@/components/ui/badge"
@@ -98,7 +99,9 @@ export default function ReportsModerationPage() {
       setReports(listRes.data)
       setTotal(listRes.total)
       setStats(statsRes)
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("reports-moderation/fetch", e)
+    }
     setLoading(false)
   }, [page, search, statusFilter, severityFilter])
 
@@ -121,7 +124,9 @@ export default function ReportsModerationPage() {
       setResolutionNote("")
       setSheetOpen(false)
       fetchData()
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("reports-moderation/resolve", e)
+    }
     setActionLoading(false)
   }
 

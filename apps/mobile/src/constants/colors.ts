@@ -1,12 +1,13 @@
 /** Osmonrang (sky) palitra — kunduz / tun */
 
+/** Ruhiyat — sokin binafsha / lavanda palitra (Calm/Headspace uslubida) */
 const skyLight = {
-  primary: '#0369a1',
-  primaryLight: '#dbeafe',
-  primaryDark: '#1d4ed8',
-  secondary: '#2563eb',
-  accent: '#0ea5e9',
-  background: '#e8f4fc',
+  primary: '#6d28d9',
+  primaryLight: '#ede9fe',
+  primaryDark: '#5b21b6',
+  secondary: '#7c3aed',
+  accent: '#a78bfa',
+  background: '#f5f3ff',
   surface: '#ffffff',
   border: '#93c5fd',
   text: '#0f172a',
@@ -36,12 +37,12 @@ const skyLight = {
 };
 
 const skyDark = {
-  primary: '#60a5fa',
-  primaryLight: '#1e3a5f',
-  primaryDark: '#93c5fd',
-  secondary: '#3b82f6',
-  accent: '#38bdf8',
-  background: '#0a1628',
+  primary: '#a78bfa',
+  primaryLight: '#2e1065',
+  primaryDark: '#c4b5fd',
+  secondary: '#8b5cf6',
+  accent: '#ddd6fe',
+  background: '#0f0720',
   surface: '#132337',
   border: '#1e4976',
   text: '#f1f5f9',

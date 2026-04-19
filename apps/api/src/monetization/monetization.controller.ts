@@ -9,30 +9,37 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
+import { UserRole } from '@ruhiyat/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { TenantGuard } from '../auth/guards/tenant.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { TenantAllowMobileUser } from '../auth/decorators/tenant-allow-mobile.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUser } from '@ruhiyat/types';
 import { MonetizationService } from './monetization.service';
 
 @Controller('monetization')
-@UseGuards(JwtAuthGuard, PermissionsGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
 export class MonetizationController {
   constructor(private readonly service: MonetizationService) {}
 
   @Get('me/entitlements')
+  @TenantAllowMobileUser()
   getMyEntitlements(@CurrentUser() requester: AuthUser) {
     return this.service.getMyEntitlements(requester);
   }
 
   @Post('mobile/premium/start')
+  @TenantAllowMobileUser()
   startPremium(@CurrentUser() requester: AuthUser) {
     return this.service.startPremiumSubscription(requester);
   }
 
   @Post('mobile/premium/confirm')
+  @TenantAllowMobileUser()
   confirmPremiumPayment(
     @CurrentUser() requester: AuthUser,
     @Body() body: { paymentId: number },
@@ -41,6 +48,7 @@ export class MonetizationController {
   }
 
   @Get('mobile/premium/payment-status/:paymentId')
+  @TenantAllowMobileUser()
   getPremiumPaymentStatus(
     @CurrentUser() requester: AuthUser,
     @Param('paymentId', ParseIntPipe) paymentId: number,
@@ -49,17 +57,20 @@ export class MonetizationController {
   }
 
   @Get('mobile/my-payments')
+  @TenantAllowMobileUser()
   listMyMobilePayments(@CurrentUser() requester: AuthUser) {
     return this.service.listMyMobilePayments(requester);
   }
 
   @Get('platform-settings')
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('system.settings')
   getPlatform(@CurrentUser() requester: AuthUser) {
     return this.service.getPlatformSettings(requester);
   }
 
   @Patch('platform-settings')
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('system.settings')
   patchPlatform(
     @CurrentUser() requester: AuthUser,
@@ -80,6 +91,7 @@ export class MonetizationController {
   }
 
   @Put('center-tariffs')
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('system.settings')
   upsertCenterTariff(
     @CurrentUser() requester: AuthUser,
@@ -99,6 +111,7 @@ export class MonetizationController {
   }
 
   @Patch('centers/:centerId/tariff')
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('system.settings')
   assignTariff(
     @CurrentUser() requester: AuthUser,
@@ -109,11 +122,13 @@ export class MonetizationController {
   }
 
   @Get('consumer-plans')
+  @TenantAllowMobileUser()
   listConsumerPlans(@CurrentUser() requester: AuthUser) {
     return this.service.listConsumerPlans(requester);
   }
 
   @Put('consumer-plans')
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('system.settings')
   upsertConsumerPlan(
     @CurrentUser() requester: AuthUser,
@@ -135,6 +150,7 @@ export class MonetizationController {
   }
 
   @Get('superadmin/overview')
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('system.settings')
   overview(@CurrentUser() requester: AuthUser) {
     return this.service.superadminOverview(requester);

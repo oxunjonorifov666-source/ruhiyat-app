@@ -1,9 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import type { AuthUser } from '@ruhiyat/types';
 import { PrismaService } from '../prisma/prisma.service';
+import { SecurityObservabilityService } from '../observability/security-observability.service';
 
 @Injectable()
 export class BlockingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly securityObs: SecurityObservabilityService,
+  ) {}
 
   async findBlocked(query: {
     page?: number;
@@ -97,11 +102,11 @@ export class BlockingService {
     return { data, total, page, limit };
   }
 
-  async blockUser(id: number, performerId: number, reason?: string) {
+  async blockUser(id: number, requester: AuthUser, reason?: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
     if (user.role === 'SUPERADMIN') throw new ForbiddenException('SUPERADMIN hisobini bloklash mumkin emas');
-    if (user.id === performerId) throw new BadRequestException('O\'zingizni bloklash mumkin emas');
+    if (user.id === requester.id) throw new BadRequestException('O\'zingizni bloklash mumkin emas');
     if (user.isBlocked) throw new BadRequestException('Foydalanuvchi allaqachon bloklangan');
 
     const [updated] = await this.prisma.$transaction([
@@ -110,14 +115,27 @@ export class BlockingService {
         data: { isBlocked: true, blockedAt: new Date(), blockedReason: reason },
       }),
       this.prisma.blockHistory.create({
-        data: { targetType: 'user', targetId: id, action: 'block', reason, performedBy: performerId },
+        data: { targetType: 'user', targetId: id, action: 'block', reason, performedBy: requester.id },
       }),
     ]);
+
+    await this.securityObs.record({
+      event: 'GLOBAL_USER_BLOCKED',
+      userId: requester.id,
+      success: true,
+      details: {
+        actorRole: requester.role,
+        targetType: 'user',
+        targetUserId: id,
+        targetRole: user.role,
+        hasReason: Boolean(reason?.trim()),
+      },
+    });
 
     return updated;
   }
 
-  async unblockUser(id: number, performerId: number) {
+  async unblockUser(id: number, requester: AuthUser) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
     if (!user.isBlocked) throw new BadRequestException('Foydalanuvchi bloklanmagan');
@@ -128,21 +146,33 @@ export class BlockingService {
         data: { isBlocked: false, blockedAt: null, blockedReason: null },
       }),
       this.prisma.blockHistory.create({
-        data: { targetType: 'user', targetId: id, action: 'unblock', performedBy: performerId },
+        data: { targetType: 'user', targetId: id, action: 'unblock', performedBy: requester.id },
       }),
     ]);
+
+    await this.securityObs.record({
+      event: 'GLOBAL_USER_UNBLOCKED',
+      userId: requester.id,
+      success: true,
+      details: {
+        actorRole: requester.role,
+        targetType: 'user',
+        targetUserId: id,
+        targetRole: user.role,
+      },
+    });
 
     return updated;
   }
 
-  async blockPsychologist(id: number, performerId: number, reason?: string) {
+  async blockPsychologist(id: number, requester: AuthUser, reason?: string) {
     const psych = await this.prisma.psychologist.findUnique({
       where: { id },
       include: { user: true },
     });
     if (!psych) throw new NotFoundException('Psixolog topilmadi');
     if (psych.user.role === 'SUPERADMIN') throw new ForbiddenException('SUPERADMIN hisobini bloklash mumkin emas');
-    if (psych.userId === performerId) throw new BadRequestException('O\'zingizni bloklash mumkin emas');
+    if (psych.userId === requester.id) throw new BadRequestException('O\'zingizni bloklash mumkin emas');
     if (psych.user.isBlocked) throw new BadRequestException('Psixolog allaqachon bloklangan');
 
     const [updated] = await this.prisma.$transaction([
@@ -151,14 +181,27 @@ export class BlockingService {
         data: { isBlocked: true, blockedAt: new Date(), blockedReason: reason },
       }),
       this.prisma.blockHistory.create({
-        data: { targetType: 'psychologist', targetId: id, action: 'block', reason, performedBy: performerId },
+        data: { targetType: 'psychologist', targetId: id, action: 'block', reason, performedBy: requester.id },
       }),
     ]);
+
+    await this.securityObs.record({
+      event: 'GLOBAL_PSYCHOLOGIST_BLOCKED',
+      userId: requester.id,
+      success: true,
+      details: {
+        actorRole: requester.role,
+        targetType: 'psychologist',
+        psychologistId: id,
+        targetUserId: psych.userId,
+        hasReason: Boolean(reason?.trim()),
+      },
+    });
 
     return updated;
   }
 
-  async unblockPsychologist(id: number, performerId: number) {
+  async unblockPsychologist(id: number, requester: AuthUser) {
     const psych = await this.prisma.psychologist.findUnique({
       where: { id },
       include: { user: true },
@@ -172,9 +215,21 @@ export class BlockingService {
         data: { isBlocked: false, blockedAt: null, blockedReason: null },
       }),
       this.prisma.blockHistory.create({
-        data: { targetType: 'psychologist', targetId: id, action: 'unblock', performedBy: performerId },
+        data: { targetType: 'psychologist', targetId: id, action: 'unblock', performedBy: requester.id },
       }),
     ]);
+
+    await this.securityObs.record({
+      event: 'GLOBAL_PSYCHOLOGIST_UNBLOCKED',
+      userId: requester.id,
+      success: true,
+      details: {
+        actorRole: requester.role,
+        targetType: 'psychologist',
+        psychologistId: id,
+        targetUserId: psych.userId,
+      },
+    });
 
     return updated;
   }

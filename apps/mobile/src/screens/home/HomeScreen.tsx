@@ -18,7 +18,8 @@ import { useAppPalette } from '../../theme/useAppPalette';
 import { useResolvedThemeMode } from '../../hooks/useResolvedThemeMode';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
-import { profileMobileService, type DashboardStats } from '../../services/profileMobile';
+import { profileMobileService, type DashboardStats, type DailyInsightPayload } from '../../services/profileMobile';
+import { DailyAiInsightCard } from '../../components/home/DailyAiInsightCard';
 import { contentService, Banner, Article, Training, VideoContent } from '../../services/content';
 import { resolveMediaUrl } from '../../config';
 import { useQueryClient } from '@tanstack/react-query';
@@ -121,6 +122,8 @@ export function HomeScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [dailyInsight, setDailyInsight] = useState<DailyInsightPayload | null>(null);
+  const [insightLoading, setInsightLoading] = useState(true);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const moodAnims = useRef(moods.map(() => new Animated.Value(1))).current;
@@ -151,6 +154,12 @@ export function HomeScreen({ navigation }: any) {
         .getStats()
         .then(setDashStats)
         .catch(() => setDashStats(null));
+      setInsightLoading(true);
+      profileMobileService
+        .getDailyInsight()
+        .then(setDailyInsight)
+        .catch(() => setDailyInsight(null))
+        .finally(() => setInsightLoading(false));
     }, []),
   );
 
@@ -250,6 +259,8 @@ export function HomeScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       </View>
+
+      <DailyAiInsightCard data={dailyInsight} loading={insightLoading} C={C} />
 
       {dashStats != null && dashStats.days > 0 ? (
         <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>

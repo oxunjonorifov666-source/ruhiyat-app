@@ -4,11 +4,17 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { createCsrfProtectionMiddleware } from './common/csrf/csrf.middleware';
+import { SecurityObservabilityService } from './observability/security-observability.service';
+import { SecurityAnomalyTrackerService } from './observability/security-anomaly-tracker.service';
 import * as express from 'express';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
+import cookieParser from 'cookie-parser';
+import { assertProductionJwtSecretPresent } from './common/config/jwt-secrets.util';
 
 async function bootstrap() {
+  assertProductionJwtSecretPresent();
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: process.env.NODE_ENV === 'production'
       ? ['error', 'warn', 'log']
@@ -22,6 +28,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.use(cookieParser());
+  const securityObs = app.get(SecurityObservabilityService);
+  const anomalyTracker = app.get(SecurityAnomalyTrackerService);
+  expressApp.use(createCsrfProtectionMiddleware(securityObs, anomalyTracker));
   if (process.env.ENFORCE_HTTPS === 'true') {
     expressApp.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
       const p = req.path || '';
@@ -72,7 +82,7 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-step-up-token', 'X-CSRF-Token'],
     maxAge: 86400,
   });
 
@@ -87,7 +97,7 @@ async function bootstrap() {
     }),
   );
 
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter(securityObs, anomalyTracker));
 
   expressApp.use(express.urlencoded({ extended: true }));
 

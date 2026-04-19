@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
+import type { AuthUser } from '@ruhiyat/types';
 import { CommunicationService } from './communication.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -16,7 +17,9 @@ export class CommunicationController {
   @Get('chat/stats')
   @UseGuards(PermissionsGuard)
   @Permissions('communication.read')
-  getChatStats() { return this.service.getChatStats(); }
+  getChatStats(@CurrentUser() user: any) {
+    return this.service.getChatStats(user.role);
+  }
 
   @Get('chats')
   @UseGuards(PermissionsGuard)
@@ -31,6 +34,7 @@ export class CommunicationController {
   ) {
     return this.service.findAllChats({
       requesterId: user.id,
+      requesterRole: user.role,
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
       search,
@@ -42,7 +46,9 @@ export class CommunicationController {
   @Get('chats/:id')
   @UseGuards(PermissionsGuard)
   @Permissions('communication.read')
-  findChat(@Param('id', ParseIntPipe) id: number) { return this.service.findChat(id); }
+  findChat(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.service.findChat(id, user.id);
+  }
 
   @Post('chats')
   @UseGuards(PermissionsGuard)
@@ -118,7 +124,7 @@ export class CommunicationController {
         page: page ? parseInt(page) : undefined,
         limit: limit ? parseInt(limit) : undefined,
       },
-      { markReadForUserId: user.id },
+      { markReadForUserId: user.id, requesterId: user.id },
     );
   }
 
@@ -136,15 +142,15 @@ export class CommunicationController {
   @Delete('messages/:id')
   @UseGuards(PermissionsGuard)
   @Permissions('communication.write')
-  deleteMessage(@Param('id', ParseIntPipe) id: number) {
-    return this.service.deleteMessage(id);
+  deleteMessage(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.service.deleteMessage(id, user.id);
   }
 
   @Patch('chats/:id/toggle')
   @UseGuards(PermissionsGuard)
   @Permissions('communication.write')
-  toggleChatActive(@Param('id', ParseIntPipe) id: number) {
-    return this.service.toggleChatActive(id);
+  toggleChatActive(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.service.toggleChatActive(id, user.id);
   }
 
   @Patch('chats/:id')
@@ -322,6 +328,11 @@ export class CommunicationController {
       centerId: centerId ? parseInt(centerId) : undefined,
       publishedOnly: published === 'true',
     });
+  }
+
+  @Get('announcements/:id')
+  findOneAnnouncement(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
+    return this.service.getAnnouncementForViewer(id, user);
   }
 
   @Post('announcements')

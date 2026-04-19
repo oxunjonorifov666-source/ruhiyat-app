@@ -75,8 +75,8 @@ function WeatherWidget() {
   }, [])
 
   return (
-    <div className="hidden lg:flex items-center gap-1.5 text-sm text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border">
-      <CloudRain className="size-4 text-blue-500" />
+    <div className="hidden items-center gap-1.5 rounded-lg border border-border/70 bg-muted/30 px-2.5 py-1 text-sm text-muted-foreground lg:flex">
+      <CloudRain className="size-4 text-primary/80" />
       <span>Toshkent: {temp !== null ? `${temp}°C` : "--°C"}</span>
     </div>
   )
@@ -172,14 +172,14 @@ export function AppHeader() {
   const { user, logout } = useAuth()
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border/60 bg-background/90 px-4 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/75 dark:border-border/80 dark:bg-background/80">
       <SidebarTrigger className="-ml-1" />
-      <Separator orientation="vertical" className="mr-2 !h-4" />
-      <div className="flex items-center gap-2 mr-2">
-        <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Heart className="size-3.5" />
+      <Separator orientation="vertical" className="mr-2 !h-4 opacity-60" />
+      <div className="mr-2 flex items-center gap-2">
+        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/20">
+          <Heart className="size-3.5" strokeWidth={2} />
         </div>
-        <span className="text-sm font-semibold hidden lg:block">Ruhiyat</span>
+        <span className="hidden text-sm font-semibold tracking-tight lg:block">Ruhiyat</span>
       </div>
       <Separator orientation="vertical" className="mr-2 !h-4 hidden lg:block" />
       <DateTime />

@@ -1,11 +1,18 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { SecurityObservabilityService } from '../observability/security-observability.service';
+import { SecurityAnomalyTrackerService } from '../observability/security-anomaly-tracker.service';
+import { SECURITY_EVENT_NAME } from '../observability/security-event.model';
 import { AuthUser, UserRole } from '@ruhiyat/types';
 
 @Injectable()
 export class SystemService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly securityObs: SecurityObservabilityService,
+    private readonly anomalyTracker: SecurityAnomalyTrackerService,
+  ) {}
 
   async findAuditLogs(requester: AuthUser, query: any = {}) { 
     const page = Math.max(1, query.page || 1);
@@ -94,15 +101,45 @@ export class SystemService {
     return { data, total, page: 1, limit: data.length };
   }
 
-  async updateSetting(requester: AuthUser, key: string, data: any) {
+  async updateSetting(
+    requester: AuthUser,
+    key: string,
+    data: { value: string; category?: string },
+  ) {
     if (requester.role !== UserRole.SUPERADMIN) {
       throw new ForbiddenException('Faqat Superadmin tizim sozlamalarini o\'zgartirishi mumkin');
     }
-    return this.prisma.systemSetting.upsert({
+    const row = await this.prisma.systemSetting.upsert({
       where: { key },
       update: { value: data.value, updatedBy: requester.id },
-      create: { key, value: data.value, category: data.category || 'general', updatedBy: requester.id },
+      create: {
+        key,
+        value: data.value,
+        category: (data.category && data.category.trim()) || 'general',
+        updatedBy: requester.id,
+      },
     });
+    await this.securityObs.record({
+      event: 'SYSTEM_SETTING_UPSERT',
+      userId: requester.id,
+      success: true,
+      event_name: SECURITY_EVENT_NAME.SUPERADMIN_SETTING_CHANGE,
+      severity: 'high',
+      category: 'privilege',
+      details: {
+        actorRole: requester.role,
+        settingKey: key,
+        category: data.category ?? row.category ?? 'general',
+        valueLength:
+          typeof data.value === 'string'
+            ? data.value.length
+            : data.value != null
+              ? JSON.stringify(data.value).length
+              : 0,
+      },
+    });
+    this.anomalyTracker.observeSuperadminSensitiveMutation(requester.id);
+    return row;
   }
 
   async findMobileSettings(requester: AuthUser) { 
@@ -116,15 +153,36 @@ export class SystemService {
     return { data, total, page: 1, limit: data.length };
   }
 
-  async updateMobileSetting(requester: AuthUser, key: string, data: any) {
+  async updateMobileSetting(
+    requester: AuthUser,
+    key: string,
+    data: { value: string; platform?: string },
+  ) {
     if (requester.role !== UserRole.SUPERADMIN) {
       throw new ForbiddenException('Faqat Superadmin mobil ilova sozlamalarini o\'zgartirishi mumkin');
     }
-    return this.prisma.mobileAppSetting.upsert({
+    const platform = (data.platform && data.platform.trim()) || 'all';
+    const row = await this.prisma.mobileAppSetting.upsert({
       where: { key },
-      update: { value: data.value, updatedBy: requester.id },
-      create: { key, value: data.value, platform: data.platform || 'all', updatedBy: requester.id },
+      update: { value: data.value, platform, updatedBy: requester.id },
+      create: { key, value: data.value, platform, updatedBy: requester.id },
     });
+    await this.securityObs.record({
+      event: 'MOBILE_SETTING_UPSERT',
+      userId: requester.id,
+      success: true,
+      event_name: SECURITY_EVENT_NAME.SUPERADMIN_MOBILE_SETTING_CHANGE,
+      severity: 'high',
+      category: 'privilege',
+      details: {
+        actorRole: requester.role,
+        settingKey: key,
+        platform: data.platform ?? row.platform ?? 'all',
+        valueLength: typeof data.value === 'string' ? data.value.length : JSON.stringify(data.value ?? '').length,
+      },
+    });
+    this.anomalyTracker.observeSuperadminSensitiveMutation(requester.id);
+    return row;
   }
 
   /** Mobil ilova: AI Dilosh sozlamalari (API kalitsiz). */
@@ -157,7 +215,10 @@ export class SystemService {
     return { data, total, page: 1, limit: data.length };
   }
 
-  async createApiKey(requester: AuthUser, data: any) { 
+  async createApiKey(
+    requester: AuthUser,
+    data: { name: string; permissions?: string[]; expiresAt?: string | null },
+  ) {
     if (requester.role !== UserRole.SUPERADMIN) {
       throw new ForbiddenException('Faqat Superadmin API kalitlarini yaratishi mumkin');
     }
@@ -165,17 +226,31 @@ export class SystemService {
     const rawKey = `rk_${randomBytes(24).toString('base64url')}`;
     const keyHash = createHash('sha256').update(rawKey).digest('hex');
     const keyPrefix = rawKey.slice(0, 8);
+    const permissions =
+      data.permissions && data.permissions.length > 0 ? data.permissions : ['*'];
 
     const apiKey = await this.prisma.apiKey.create({ 
       data: { 
         name: data.name,
         keyHash,
         keyPrefix,
-        permissions: Array.isArray(data.permissions) ? data.permissions : ['*'],
+        permissions,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
         createdBy: requester.id,
       },
       select: { id: true, name: true, keyPrefix: true, isActive: true, lastUsedAt: true, expiresAt: true, createdAt: true },
+    });
+
+    await this.securityObs.record({
+      event: 'API_KEY_CREATED',
+      userId: requester.id,
+      success: true,
+      details: {
+        actorRole: requester.role,
+        apiKeyId: apiKey.id,
+        name: apiKey.name,
+        keyPrefix: apiKey.keyPrefix,
+      },
     });
 
     return { key: rawKey, apiKey };
@@ -186,6 +261,12 @@ export class SystemService {
       throw new ForbiddenException('Faqat Superadmin API kalitlarini o\'chirishi mumkin');
     }
     await this.prisma.apiKey.delete({ where: { id } });
+    await this.securityObs.record({
+      event: 'API_KEY_REMOVED',
+      userId: requester.id,
+      success: true,
+      details: { actorRole: requester.role, apiKeyId: id },
+    });
     return { message: 'API kaliti o\'chirildi' };
   }
 
@@ -200,14 +281,49 @@ export class SystemService {
     return { data, total, page: 1, limit: data.length };
   }
 
-  async updateIntegration(requester: AuthUser, id: number, data: any) {
+  async updateIntegration(
+    requester: AuthUser,
+    id: number,
+    data: {
+      name?: string;
+      provider?: string;
+      config?: any;
+      isActive?: boolean;
+    },
+  ) {
     if (requester.role !== UserRole.SUPERADMIN) {
       throw new ForbiddenException('Faqat Superadmin integratsiyalarni o\'zgartirishi mumkin');
     }
-    return this.prisma.integrationSetting.update({ 
+    const patch: {
+      name?: string;
+      provider?: string;
+      config?: any;
+      isActive?: boolean;
+    } = {};
+    if (data.name !== undefined) patch.name = data.name;
+    if (data.provider !== undefined) patch.provider = data.provider;
+    if (data.config !== undefined) patch.config = data.config;
+    if (data.isActive !== undefined) patch.isActive = data.isActive;
+    if (Object.keys(patch).length === 0) {
+      const current = await this.prisma.integrationSetting.findUnique({ where: { id } });
+      if (!current) throw new NotFoundException('Topilmadi');
+      return current;
+    }
+    const updated = await this.prisma.integrationSetting.update({ 
       where: { id }, 
-      data: { ...data } 
+      data: patch, 
     });
+    await this.securityObs.record({
+      event: 'INTEGRATION_SETTING_UPDATED',
+      userId: requester.id,
+      success: true,
+      details: {
+        actorRole: requester.role,
+        integrationId: id,
+        fieldsPresent: Object.keys(patch).slice(0, 48),
+      },
+    });
+    return updated;
   }
 
   async findAuthSessions(requester: AuthUser, query: any = {}) {
@@ -235,9 +351,20 @@ export class SystemService {
     if (requester.role !== UserRole.SUPERADMIN) {
       throw new ForbiddenException('Faqat Superadmin seansni bekor qila oladi');
     }
-    await this.prisma.session.update({
+    const session = await this.prisma.session.update({
       where: { id },
       data: { isRevoked: true },
+      select: { userId: true },
+    });
+    await this.securityObs.record({
+      event: 'SUPERADMIN_AUTH_SESSION_REVOKED',
+      userId: requester.id,
+      success: true,
+      details: {
+        actorRole: requester.role,
+        sessionId: id,
+        targetUserId: session.userId,
+      },
     });
     return { message: 'Seans bekor qilindi' };
   }

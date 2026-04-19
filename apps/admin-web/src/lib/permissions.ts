@@ -45,6 +45,18 @@ export function hasPermission(user: AuthUser | null, required: Permission | Perm
   const requiredArray = Array.isArray(required) ? required : [required];
   if (requiredArray.length === 0) return true;
 
+  /** Matches Nest SystemController / SecurityController — not valid for center administrators. */
+  const superadminOnlyResources: Resource[] = ['security', 'audit-logs', 'integrations'];
+  if (
+    user.role === 'ADMINISTRATOR' &&
+    requiredArray.some((req) => {
+      const [, resource] = req.split(':') as [Action, Resource];
+      return superadminOnlyResources.includes(resource);
+    })
+  ) {
+    return false;
+  }
+
   // 1. If explicit permissions exist from the backend, use those as absolute truth
   if (user.permissions && Array.isArray(user.permissions)) {
     return requiredArray.every(req => user.permissions!.includes(req));

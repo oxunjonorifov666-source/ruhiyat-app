@@ -32,21 +32,26 @@ export function StatsCard({ title, value, description, icon: Icon, trend, iconCo
   }
 
   return (
-    <Card className="overflow-hidden transition-all duration-200 hover:shadow-md hover:scale-[1.01]">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{title}</p>
-            <p className="text-2xl font-bold tabular-nums">{value}</p>
-            {description && <p className="text-xs text-muted-foreground">{description}</p>}
+    <Card className="overflow-hidden transition-shadow duration-200 hover:shadow-md hover:ring-primary/5">
+      <CardContent className="p-5 md:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{title}</p>
+            <p className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">{value}</p>
+            {description && <p className="text-xs leading-snug text-muted-foreground">{description}</p>}
             {trend && (
               <p className={cn("text-xs font-medium", trend.value >= 0 ? "text-emerald-600" : "text-red-600")}>
                 {trend.value >= 0 ? "+" : ""}{trend.value}% {trend.label}
               </p>
             )}
           </div>
-          <div className={cn("flex size-10 items-center justify-center rounded-lg transition-colors", iconColor || "bg-primary/10 text-primary")}>
-            <Icon className="size-5" />
+          <div
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-xl shadow-inner ring-1 ring-black/5 transition-colors dark:ring-white/10",
+              iconColor || "bg-primary/10 text-primary",
+            )}
+          >
+            <Icon className="size-5" strokeWidth={1.75} />
           </div>
         </div>
       </CardContent>
@@ -66,5 +71,5 @@ export function StatsGrid({ children, columns = 4 }: StatsGridProps) {
     4: "md:grid-cols-2 lg:grid-cols-4",
     5: "md:grid-cols-3 lg:grid-cols-5",
   }
-  return <div className={cn("grid gap-4", colClass[columns])}>{children}</div>
+  return <div className={cn("grid gap-4 md:gap-5", colClass[columns])}>{children}</div>
 }

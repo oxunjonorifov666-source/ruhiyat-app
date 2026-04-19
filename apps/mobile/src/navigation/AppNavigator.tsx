@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, ActivityIndicator, View, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Text, ActivityIndicator, View, StyleSheet, Platform } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Home, GraduationCap, Bookmark, Trophy, UserRound } from 'lucide-react-native';
 import { Colors } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppPalette } from '../theme/useAppPalette';
+import { useAppLockStore } from '../stores/appLockStore';
 
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { PsychologyScreen } from '../screens/psychology/PsychologyScreen';
@@ -50,8 +53,8 @@ import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
 import { PrivacyCenterScreen } from '../screens/privacy/PrivacyCenterScreen';
 import { AppPinSettingsScreen } from '../screens/privacy/AppPinSettingsScreen';
 import { StaticLegalScreen } from '../screens/legal/StaticLegalScreen';
-import { BiometricGate } from '../components/BiometricGate';
 import { AppLockGate } from '../components/AppLockGate';
+import { FirstPinSetupScreen } from '../screens/auth/FirstPinSetupScreen';
 import { TestResultScreen } from '../screens/psychology/TestResultScreen';
 import { usePushRegistration } from '../hooks/usePushRegistration';
 
@@ -60,28 +63,45 @@ const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
 
 
-type TabIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+const TAB_ICONS = [Home, GraduationCap, Bookmark, Trophy, UserRound] as const;
 
-function TabBarIcon({
-  name,
+function TabBarLucideIcon({
+  index,
   focused,
   activeColor,
   inactiveColor,
 }: {
-  name: TabIconName;
+  index: number;
   focused: boolean;
   activeColor: string;
   inactiveColor: string;
 }) {
+  const scale = useSharedValue(focused ? 1.08 : 1);
+  useEffect(() => {
+    scale.value = withSpring(focused ? 1.08 : 1, { damping: 16, stiffness: 220 });
+  }, [focused, scale]);
+
+  const anim = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const Icon = TAB_ICONS[index];
+  const size = focused ? 26 : 24;
+  const color = focused ? activeColor : inactiveColor;
+
   return (
-    <View style={focused ? tabStyles.activeTab : undefined}>
-      <MaterialCommunityIcons name={name} size={focused ? 26 : 24} color={focused ? activeColor : inactiveColor} />
-    </View>
+    <Animated.View style={[anim, focused ? tabStyles.activeTab : undefined]}>
+      <Icon size={size} color={color} strokeWidth={focused ? 2.4 : 2} />
+    </Animated.View>
   );
 }
 
 function MainTabs() {
   const C = useAppPalette();
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 8);
+  const tabHeight = 72 + bottomPad;
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -91,16 +111,16 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: C.tabBar,
           borderTopColor: C.border,
-          height: 85,
-          paddingBottom: 25,
+          height: tabHeight,
+          paddingBottom: bottomPad,
           paddingTop: 10,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: -10 },
-          shadowOpacity: 0.05,
-          shadowRadius: 15,
-          elevation: 20,
+          shadowOffset: { width: 0, height: -8 },
+          shadowOpacity: 0.08,
+          shadowRadius: 16,
+          elevation: 24,
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginTop: 4 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 2 },
       }}
     >
       <Tab.Screen
@@ -109,7 +129,7 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Asosiy',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon name="home-variant-outline" focused={focused} activeColor={C.primary} inactiveColor={C.tabBarInactive} />
+            <TabBarLucideIcon index={0} focused={focused} activeColor={C.primary} inactiveColor={C.tabBarInactive} />
           ),
         }}
       />
@@ -119,7 +139,7 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Darslar',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon name="school-outline" focused={focused} activeColor={C.primary} inactiveColor={C.tabBarInactive} />
+            <TabBarLucideIcon index={1} focused={focused} activeColor={C.primary} inactiveColor={C.tabBarInactive} />
           ),
         }}
       />
@@ -129,7 +149,7 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Marklar',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon name="bookmark-multiple-outline" focused={focused} activeColor={C.primary} inactiveColor={C.tabBarInactive} />
+            <TabBarLucideIcon index={2} focused={focused} activeColor={C.primary} inactiveColor={C.tabBarInactive} />
           ),
         }}
       />
@@ -139,7 +159,7 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Reyting',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon name="trophy-outline" focused={focused} activeColor={C.primary} inactiveColor={C.tabBarInactive} />
+            <TabBarLucideIcon index={3} focused={focused} activeColor={C.primary} inactiveColor={C.tabBarInactive} />
           ),
         }}
       />
@@ -149,7 +169,7 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Profil',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon name="account-circle-outline" focused={focused} activeColor={C.primary} inactiveColor={C.tabBarInactive} />
+            <TabBarLucideIcon index={4} focused={focused} activeColor={C.primary} inactiveColor={C.tabBarInactive} />
           ),
         }}
       />
@@ -342,8 +362,15 @@ function PushBootstrap() {
 
 export function AppNavigator() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const lockHydrated = useAppLockStore((s) => s.hydrated);
+  const mandatoryPinDone = useAppLockStore((s) => s.mandatoryPinDone);
+  const hydrateLock = useAppLockStore((s) => s.hydrate);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (isAuthenticated) void hydrateLock();
+  }, [isAuthenticated, hydrateLock]);
+
+  if (isLoading || (isAuthenticated && user && !lockHydrated)) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
         <Text style={{ fontSize: 48, marginBottom: 24 }}>🧠</Text>
@@ -361,13 +388,21 @@ export function AppNavigator() {
     return <OnboardingScreen />;
   }
 
+  if (user && !mandatoryPinDone) {
+    return (
+      <FirstPinSetupScreen
+        onComplete={() => {
+          /* holat zustand orqali yangilanadi */
+        }}
+      />
+    );
+  }
+
   return (
     <>
       <PushBootstrap />
       <AppLockGate>
-        <BiometricGate>
-          <AppMainNavigator />
-        </BiometricGate>
+        <AppMainNavigator />
       </AppLockGate>
     </>
   );

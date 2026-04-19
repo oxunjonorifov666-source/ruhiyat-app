@@ -6,8 +6,11 @@ import { PageHeader } from "@/components/page-header"
 import { StatsCard, StatsGrid } from "@/components/stats-card"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useApiData } from "@/hooks/use-api-data"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
 import { useAuth } from "@/components/auth-provider"
+import { SuperadminCenterEmptyState, SuperadminCenterSelect } from "@/components/superadmin-center-select"
 import { Button } from "@/components/ui/button"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, PieChart, Pie, Cell, Legend
@@ -41,8 +44,16 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4'
 
 export default function StatisticsPage() {
   const { user } = useAuth()
-  const centerName = user?.administrator?.center?.name || "Markaz"
-  const { data, loading, error, refresh } = useApiData<AdminStats>({ path: "/dashboard/admin/stats" })
+  const centerCtx = useSuperadminCenter(user)
+  const centerName = centerCtx.centerDisplayName
+  const statsEnabled = !centerCtx.needsCenterSelection
+  const centerId = centerCtx.effectiveCenterId
+
+  const { data, loading, error, permissionDenied, refresh } = useApiData<AdminStats>({
+    path: "/dashboard/admin/stats",
+    params: centerId != null ? { centerId } : undefined,
+    enabled: statsEnabled,
+  })
   
   const s = data?.stats
   
@@ -59,6 +70,31 @@ export default function StatisticsPage() {
     return new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'UZS', maximumFractionDigits: 0 }).format(val)
   }
 
+  if (centerCtx.needsCenterSelection) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Markaz Statistikasi"
+          description="Markaz bo'yicha real vaqt tahlili va ko'rsatkichlar"
+          icon={PieIcon}
+          actions={
+            <SuperadminCenterSelect
+              centers={centerCtx.centers}
+              centersLoading={centerCtx.centersLoading}
+              value={centerCtx.effectiveCenterId}
+              onChange={centerCtx.setCenterId}
+            />
+          }
+        />
+        <SuperadminCenterEmptyState
+          centers={centerCtx.centers}
+          centersLoading={centerCtx.centersLoading}
+          onSelect={centerCtx.setCenterId}
+        />
+      </div>
+    )
+  }
+
   if (loading && !data) {
     return (
       <div className="flex h-[400px] flex-col items-center justify-center space-y-4">
@@ -68,11 +104,38 @@ export default function StatisticsPage() {
     )
   }
 
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Markaz Statistikasi"
+          description={`${centerName} faoliyati bo'yicha real vaqt tahlili va ko'rsatkichlari`}
+          icon={PieIcon}
+          actions={
+            centerCtx.isSuperadmin ? (
+              <SuperadminCenterSelect
+                centers={centerCtx.centers}
+                centersLoading={centerCtx.centersLoading}
+                value={centerCtx.effectiveCenterId}
+                onChange={centerCtx.setCenterId}
+              />
+            ) : undefined
+          }
+        />
+        <AccessDeniedPlaceholder
+          title="Statistikaga ruxsat yo'q"
+          description="Ushbu sahifadagi yig'ma tahlillar markaz administratori yoki kengaytirilgan statistika ruxsatini talab qilishi mumkin."
+          detail={error}
+        />
+      </div>
+    )
+  }
+
   if (error) {
     return (
       <div className="p-12 text-center bg-destructive/5 rounded-3xl border border-destructive/10">
         <AlertCircle className="size-10 text-destructive mx-auto mb-4" />
-        <h3 className="text-lg font-bold text-destructive">Xatolik yuz berdi</h3>
+        <h3 className="text-lg font-bold text-destructive">Server xatosi</h3>
         <p className="text-sm text-muted-foreground mt-1">{error}</p>
         <Button variant="outline" size="sm" className="mt-4" onClick={refresh}>Qayta urinish</Button>
       </div>
@@ -85,9 +148,22 @@ export default function StatisticsPage() {
         title="Markaz Statistikasi" 
         description={`${centerName} faoliyati bo'yicha real vaqt tahlili va ko'rsatkichlari`} 
         icon={PieIcon}
-        actions={[
-          { label: "Yangilash", icon: loading ? Loader2 : RefreshCw, variant: "outline", onClick: refresh }
-        ]}
+        actions={
+          <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+            {centerCtx.isSuperadmin && (
+              <SuperadminCenterSelect
+                centers={centerCtx.centers}
+                centersLoading={centerCtx.centersLoading}
+                value={centerCtx.effectiveCenterId}
+                onChange={centerCtx.setCenterId}
+              />
+            )}
+            <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+              {loading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+              <span className="ml-1.5">Yangilash</span>
+            </Button>
+          </div>
+        }
       />
 
       <StatsGrid columns={4}>

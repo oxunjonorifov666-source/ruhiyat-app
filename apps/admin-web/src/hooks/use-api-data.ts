@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { apiClient } from "@/lib/api-client"
+import { formatEmbeddedApiError, isPermissionDeniedError } from "@/lib/api-error"
 
 interface UseApiDataOptions<T> {
   path: string
@@ -16,6 +17,8 @@ interface UseApiDataReturn<T> {
   data: T | null
   loading: boolean
   error: string | null
+  /** True when API returned 401/403 — show access-denied UX, not “random” failure. */
+  permissionDenied: boolean
   refresh: () => Promise<void>
   mutate: (newData: T) => void
 }
@@ -25,24 +28,33 @@ export function useApiData<T = any>(options: UseApiDataOptions<T>): UseApiDataRe
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const mountedRef = useRef(true)
   const fetchIdRef = useRef(0)
 
   const fetchData = useCallback(async () => {
-    if (!enabled) return
+    if (!enabled) {
+      setLoading(false)
+      setPermissionDenied(false)
+      return
+    }
     const fetchId = ++fetchIdRef.current
     setLoading(true)
     setError(null)
+    setPermissionDenied(false)
     try {
       const result = await apiClient<T>(path, { params })
       if (mountedRef.current && fetchId === fetchIdRef.current) {
         setData(result)
+        setPermissionDenied(false)
         onSuccess?.(result)
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (mountedRef.current && fetchId === fetchIdRef.current) {
-        setError(e.message || "Xatolik yuz berdi")
-        onError?.(e.message)
+        const line = formatEmbeddedApiError(e)
+        setError(line)
+        setPermissionDenied(isPermissionDeniedError(e))
+        onError?.(line)
       }
     } finally {
       if (mountedRef.current && fetchId === fetchIdRef.current) {
@@ -67,5 +79,5 @@ export function useApiData<T = any>(options: UseApiDataOptions<T>): UseApiDataRe
     setData(newData)
   }, [])
 
-  return { data, loading, error, refresh: fetchData, mutate }
+  return { data, loading, error, permissionDenied, refresh: fetchData, mutate }
 }

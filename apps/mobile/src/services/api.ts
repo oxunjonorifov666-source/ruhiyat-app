@@ -157,7 +157,8 @@ class ApiClient {
       path.startsWith('/auth/login') ||
       path.startsWith('/auth/register') ||
       path.startsWith('/auth/otp') ||
-      path.startsWith('/auth/password');
+      path.startsWith('/auth/password') ||
+      path.startsWith('/auth/verify-password');
 
     if (response.status === 401 && this.refreshToken && !skipRefreshOn401 && !path.startsWith('/auth/refresh')) {
       const refreshed = await this.tryRefresh();

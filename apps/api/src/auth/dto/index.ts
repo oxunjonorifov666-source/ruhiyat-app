@@ -10,3 +10,5 @@ export {
 } from './password.dto';
 export { ChangePasswordDto } from './change-password.dto';
 export { UpdateProfileDto } from './update-profile.dto';
+export { VerifySessionPasswordDto } from './verify-session-password.dto';
+export { RequestProfilePhoneChangeDto, ConfirmProfilePhoneChangeDto } from './phone-change.dto';

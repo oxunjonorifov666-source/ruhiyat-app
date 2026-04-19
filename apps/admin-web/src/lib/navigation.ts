@@ -3,9 +3,14 @@ import {
   BookOpen, UsersRound, CreditCard, FileText, PieChart,
   DollarSign, ArrowLeftRight, ClipboardList, BarChart3,
   MessageSquare, MessageSquareWarning, Bell, CalendarCheck, History, Megaphone,
-  Settings, Shield, Lock, Plug, Ban, EyeOff, Video, Activity, Layers,
+  Settings, Shield, Lock, Plug, Ban, EyeOff, Video, Activity,   Layers,
+  Scale,
   type LucideIcon
-} from 'lucide-react';
+} from 'lucide-react'
+
+import { SUPERADMIN_ONLY_HREFS } from "@/lib/superadmin-only-routes"
+
+export { SUPERADMIN_ONLY_HREFS }
 
 export interface NavItem {
   title: string;
@@ -16,6 +21,19 @@ export interface NavItem {
 export interface NavGroup {
   label: string;
   items: NavItem[];
+}
+
+/** Navigation visible to the signed-in user (ADMINISTRATOR vs SUPERADMIN). */
+export function getAdminNavGroupsForRole(role: string | undefined): NavGroup[] {
+  if (role === "SUPERADMIN") {
+    return adminNavGroups
+  }
+  return adminNavGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !SUPERADMIN_ONLY_HREFS.has(item.href)),
+    }))
+    .filter((group) => group.items.length > 0)
 }
 
 export const adminNavGroups: NavGroup[] = [
@@ -91,6 +109,7 @@ export const adminNavGroups: NavGroup[] = [
       { title: 'Xavfsizlik', href: '/security', icon: Lock },
       { title: 'Bloklash', href: '/blocking', icon: Ban },
       { title: 'Integratsiyalar', href: '/integrations', icon: Plug },
+      { title: 'Huquqiy va maxfiylik', href: '/legal-compliance', icon: Scale },
     ],
   },
 ];

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Lock, Key, Eye, Server, CheckCircle2, XCircle, Loader2, Shield } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,7 +13,16 @@ import { apiClient, PaginatedResponse } from "@/lib/api-client"
 import { DataTable } from "@/components/data-table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import {
+  classifyApiError,
+  describeEmbeddedApiError,
+  formatEmbeddedApiError,
+  isUserCancelledStepUp,
+} from "@/lib/api-error"
+import { useStepUp } from "@/components/step-up/step-up-provider"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 import { useAuth } from "@/components/auth-provider"
+import { SuperadminRouteGate } from "@/components/superadmin-route-gate"
 
 type SecurityPolicy = {
   passwordMinLength: number
@@ -41,32 +50,40 @@ type SecurityLog = {
   createdAt: string
 }
 
-export default function SecurityPage() {
+function SecurityPageContent() {
+  const { runWithStepUp } = useStepUp()
   const { user } = useAuth()
   const centerName = user?.administrator?.center?.name || "Markaz"
   const [tab, setTab] = useState("policy")
 
   const [policy, setPolicy] = useState<SecurityPolicy | null>(null)
   const [policyLoading, setPolicyLoading] = useState(true)
+  const [policyDenied, setPolicyDenied] = useState(false)
 
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [sessionsTotal, setSessionsTotal] = useState(0)
   const [sessionsPage, setSessionsPage] = useState(1)
   const [sessionsLoading, setSessionsLoading] = useState(true)
   const [sessionsError, setSessionsError] = useState<string | null>(null)
+  const [sessionsDenied, setSessionsDenied] = useState(false)
 
   const [logs, setLogs] = useState<SecurityLog[]>([])
   const [logsTotal, setLogsTotal] = useState(0)
   const [logsPage, setLogsPage] = useState(1)
   const [logsLoading, setLogsLoading] = useState(true)
   const [logsError, setLogsError] = useState<string | null>(null)
+  const [logsDenied, setLogsDenied] = useState(false)
   const [selectedLog, setSelectedLog] = useState<SecurityLog | null>(null)
 
   const fetchPolicy = useCallback(async () => {
     setPolicyLoading(true)
+    setPolicyDenied(false)
     try {
       const res = await apiClient<SecurityPolicy>("/security/policy")
       setPolicy(res)
+    } catch (e: unknown) {
+      setPolicy(null)
+      if (classifyApiError(e).permissionDenied) setPolicyDenied(true)
     } finally {
       setPolicyLoading(false)
     }
@@ -75,14 +92,17 @@ export default function SecurityPage() {
   const fetchSessions = useCallback(async () => {
     setSessionsLoading(true)
     setSessionsError(null)
+    setSessionsDenied(false)
     try {
       const res = await apiClient<PaginatedResponse<SessionRow>>("/security/sessions", {
         params: { page: sessionsPage, limit: 20, status: "all" }
       })
       setSessions(res.data)
       setSessionsTotal(res.total)
-    } catch (e: any) {
-      setSessionsError(e.message || "Sessiyalarni yuklab bo'lmadi")
+    } catch (e: unknown) {
+      const { permissionDenied } = classifyApiError(e)
+      if (permissionDenied) setSessionsDenied(true)
+      else setSessionsError(formatEmbeddedApiError(e))
     } finally {
       setSessionsLoading(false)
     }
@@ -91,14 +111,17 @@ export default function SecurityPage() {
   const fetchLogs = useCallback(async () => {
     setLogsLoading(true)
     setLogsError(null)
+    setLogsDenied(false)
     try {
       const res = await apiClient<PaginatedResponse<SecurityLog>>("/security/logs", {
         params: { page: logsPage, limit: 20 }
       })
       setLogs(res.data)
       setLogsTotal(res.total)
-    } catch (e: any) {
-      setLogsError(e.message || "Loglarni yuklab bo'lmadi")
+    } catch (e: unknown) {
+      const { permissionDenied } = classifyApiError(e)
+      if (permissionDenied) setLogsDenied(true)
+      else setLogsError(formatEmbeddedApiError(e))
     } finally {
       setLogsLoading(false)
     }
@@ -108,35 +131,48 @@ export default function SecurityPage() {
   useEffect(() => { fetchSessions() }, [fetchSessions])
   useEffect(() => { fetchLogs() }, [fetchLogs])
 
-  const sessionColumns = [
-    { key: "createdAt", title: "Vaqt", render: (s: SessionRow) => <span className="text-sm">{new Date(s.createdAt).toLocaleString("uz-UZ")}</span> },
-    { key: "ipAddress", title: "IP", render: (s: SessionRow) => <span className="font-mono text-xs text-muted-foreground">{s.ipAddress || "—"}</span> },
-    { key: "deviceInfo", title: "Qurilma", render: (s: SessionRow) => <span className="text-xs text-muted-foreground line-clamp-1">{s.deviceInfo || "—"}</span> },
-    { key: "expiresAt", title: "Tugash", render: (s: SessionRow) => <span className="text-sm">{new Date(s.expiresAt).toLocaleDateString("uz-UZ")}</span> },
-    { key: "isRevoked", title: "Holat", render: (s: SessionRow) => (
-      s.isRevoked
-        ? <Badge variant="secondary" className="gap-1"><XCircle className="size-3" /> Revoked</Badge>
-        : <Badge className="gap-1"><CheckCircle2 className="size-3" /> Active</Badge>
-    )},
-    { key: "actions", title: "", render: (s: SessionRow) => (
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={s.isRevoked}
-        onClick={async () => {
-          try {
-            await apiClient(`/security/sessions/${s.id}`, { method: "DELETE" })
-            toast.success("Sessiya yopildi")
-            fetchSessions()
-          } catch (e: any) {
-            toast.error(e.message || "Yopib bo'lmadi")
-          }
-        }}
-      >
-        Yopish
-      </Button>
-    )},
-  ]
+  const sessionColumns = useMemo(
+    () => [
+      { key: "createdAt", title: "Vaqt", render: (s: SessionRow) => <span className="text-sm">{new Date(s.createdAt).toLocaleString("uz-UZ")}</span> },
+      { key: "ipAddress", title: "IP", render: (s: SessionRow) => <span className="font-mono text-xs text-muted-foreground">{s.ipAddress || "—"}</span> },
+      { key: "deviceInfo", title: "Qurilma", render: (s: SessionRow) => <span className="text-xs text-muted-foreground line-clamp-1">{s.deviceInfo || "—"}</span> },
+      { key: "expiresAt", title: "Tugash", render: (s: SessionRow) => <span className="text-sm">{new Date(s.expiresAt).toLocaleDateString("uz-UZ")}</span> },
+      { key: "isRevoked", title: "Holat", render: (s: SessionRow) => (
+        s.isRevoked
+          ? <Badge variant="secondary" className="gap-1"><XCircle className="size-3" /> Revoked</Badge>
+          : <Badge className="gap-1"><CheckCircle2 className="size-3" /> Active</Badge>
+      )},
+      { key: "actions", title: "", render: (s: SessionRow) => (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={s.isRevoked}
+          onClick={async () => {
+            try {
+              await runWithStepUp(
+                async () => {
+                  await apiClient(`/security/sessions/${s.id}`, { method: "DELETE" })
+                  toast.success("Sessiya yopildi")
+                  await fetchSessions()
+                },
+                {
+                  title: "Sessiyani yopish",
+                  description: "Boshqa qurilmadagi sessiyani tugatish uchun parolingizni tasdiqlang.",
+                },
+              )
+            } catch (e: unknown) {
+              if (isUserCancelledStepUp(e)) return
+              const d = describeEmbeddedApiError(e)
+              toast.error(d.title, { description: d.description })
+            }
+          }}
+        >
+          Yopish
+        </Button>
+      )},
+    ],
+    [runWithStepUp, fetchSessions],
+  )
 
   const logColumns = [
     { key: "createdAt", title: "Vaqt", render: (l: SecurityLog) => <span className="text-sm">{new Date(l.createdAt).toLocaleString("uz-UZ")}</span> },
@@ -154,8 +190,13 @@ export default function SecurityPage() {
         size="sm"
         className="text-xs"
         onClick={async () => {
-          const full = await apiClient<SecurityLog>(`/security/logs/${l.id}`)
-          setSelectedLog(full)
+          try {
+            const full = await apiClient<SecurityLog>(`/security/logs/${l.id}`)
+            setSelectedLog(full)
+          } catch (e: unknown) {
+            const d = describeEmbeddedApiError(e)
+            toast.error(d.title, { description: d.description })
+          }
         }}
       >
         Ko'rish
@@ -186,7 +227,12 @@ export default function SecurityPage() {
               <CardDescription>Parol tekshiruvi backend policy bo‘yicha ishlaydi</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {policyLoading || !policy ? (
+              {policyDenied ? (
+                <AccessDeniedPlaceholder
+                  title="Parol siyosatiga ruxsat yo'q"
+                  description="Bu bo'lim faqat xavfsizlik administratori yoki superadmin uchun bo'lishi mumkin."
+                />
+              ) : policyLoading || !policy ? (
                 <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Yuklanmoqda...</div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-3">
@@ -226,11 +272,21 @@ export default function SecurityPage() {
                 className="gap-2"
                 onClick={async () => {
                   try {
-                    await apiClient("/security/sessions/logout-all", { method: "POST", body: {} })
-                    toast.success("Barcha sessiyalar yopildi")
-                    fetchSessions()
-                  } catch (e: any) {
-                    toast.error(e.message || "Bajarilmadi")
+                    await runWithStepUp(
+                      async () => {
+                        await apiClient("/security/sessions/logout-all", { method: "POST", body: {} })
+                        toast.success("Barcha sessiyalar yopildi")
+                        await fetchSessions()
+                      },
+                      {
+                        title: "Barcha sessiyalarni yopish",
+                        description: "Tizimdagi barcha faol sessiyalar yopiladi. Parolingizni tasdiqlang.",
+                      },
+                    )
+                  } catch (e: unknown) {
+                    if (isUserCancelledStepUp(e)) return
+                    const d = describeEmbeddedApiError(e)
+                    toast.error(d.title, { description: d.description })
                   }
                 }}
               >
@@ -238,17 +294,27 @@ export default function SecurityPage() {
               </Button>
             </CardHeader>
             <CardContent className="p-0">
-              <DataTable
-                columns={sessionColumns as any}
-                data={sessions}
-                total={sessionsTotal}
-                page={sessionsPage}
-                limit={20}
-                loading={sessionsLoading}
-                error={sessionsError}
-                onPageChange={setSessionsPage}
-                searchPlaceholder="Sessiya qidirish..."
-              />
+              {sessionsDenied ? (
+                <div className="p-6">
+                  <AccessDeniedPlaceholder
+                    title="Sessiyalar ro'yxatiga ruxsat yo'q"
+                    description="Boshqa foydalanuvchilarning sessiyalarini ko'rish maxsus ruxsatni talab qiladi."
+                    detail={sessionsError}
+                  />
+                </div>
+              ) : (
+                <DataTable
+                  columns={sessionColumns as any}
+                  data={sessions}
+                  total={sessionsTotal}
+                  page={sessionsPage}
+                  limit={20}
+                  loading={sessionsLoading}
+                  error={sessionsError}
+                  onPageChange={setSessionsPage}
+                  searchPlaceholder="Sessiya qidirish..."
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -260,17 +326,27 @@ export default function SecurityPage() {
               <CardDescription>Login/refresh/logout hodisalari</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <DataTable
-                columns={logColumns as any}
-                data={logs}
-                total={logsTotal}
-                page={logsPage}
-                limit={20}
-                loading={logsLoading}
-                error={logsError}
-                onPageChange={setLogsPage}
-                searchPlaceholder="Log qidirish..."
-              />
+              {logsDenied ? (
+                <div className="p-6">
+                  <AccessDeniedPlaceholder
+                    title="Xavfsizlik loglariga ruxsat yo'q"
+                    description="Bu jurnal faqat xavfsizlik tekshiruvi uchun mo'ljallangan rollarda ochiladi."
+                    detail={logsError}
+                  />
+                </div>
+              ) : (
+                <DataTable
+                  columns={logColumns as any}
+                  data={logs}
+                  total={logsTotal}
+                  page={logsPage}
+                  limit={20}
+                  loading={logsLoading}
+                  error={logsError}
+                  onPageChange={setLogsPage}
+                  searchPlaceholder="Log qidirish..."
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -289,6 +365,15 @@ export default function SecurityPage() {
           )}
         </DialogContent>
       </Dialog>
+
     </div>
+  )
+}
+
+export default function SecurityPage() {
+  return (
+    <SuperadminRouteGate title="Xavfsizlik">
+      <SecurityPageContent />
+    </SuperadminRouteGate>
   )
 }

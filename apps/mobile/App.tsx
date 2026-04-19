@@ -23,6 +23,7 @@ import { startupLog } from './src/utils/startupLog';
 import { InAppNotificationBanner } from './src/components/InAppNotificationBanner';
 import { getActiveRouteName } from './src/lib/getActiveRouteName';
 import { recordScreenView } from './src/services/telemetry';
+import { useAppActivityStore } from './src/stores/appActivityStore';
 
 const LazyAppNavigator = React.lazy(() =>
   import('./src/navigation/AppNavigator').then((m) => ({ default: m.AppNavigator })),
@@ -76,15 +77,22 @@ const linking = {
 
 function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { resetInactivityTimer, isAuthenticated } = useAuth();
+  const touchActivity = useAppActivityStore((s) => s.touch);
 
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponderCapture: () => {
-        if (isAuthenticated) resetInactivityTimer();
+        if (isAuthenticated) {
+          touchActivity();
+          resetInactivityTimer();
+        }
         return false;
       },
       onMoveShouldSetPanResponderCapture: () => {
-        if (isAuthenticated) resetInactivityTimer();
+        if (isAuthenticated) {
+          touchActivity();
+          resetInactivityTimer();
+        }
         return false;
       },
     }),

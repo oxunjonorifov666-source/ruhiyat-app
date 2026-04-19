@@ -13,6 +13,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Separator } from "@/components/ui/separator"
 import type { FilterField } from "@/components/filter-bar"
 import { toast } from "sonner"
+import { useAuth } from "@/components/auth-provider"
+import {
+  classifyApiError,
+  describeEmbeddedApiError,
+  formatEmbeddedApiError,
+  type EmbeddedApiErrorDescription,
+} from "@/lib/api-error"
+import { EmbeddedApiErrorBanner } from "@/components/embedded-api-error-banner"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 
 interface MeetingRow {
   id: number
@@ -59,20 +68,26 @@ const typeLabels: Record<string, string> = {
 }
 
 export default function MeetingsPage() {
+  const { user } = useAuth()
+  const isSuperAdmin = user?.role === "SUPERADMIN"
+
   const [data, setData] = useState<MeetingRow[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [selected, setSelected] = useState<MeetingDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<EmbeddedApiErrorDescription | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setPermissionDenied(false)
     try {
       const params: Record<string, string | number | undefined> = { page, limit: 20 }
       if (search) params.search = search
@@ -80,9 +95,14 @@ export default function MeetingsPage() {
       const res = await apiClient<PaginatedResponse<MeetingRow>>("/meetings", { params })
       setData(res.data)
       setTotal(res.total)
-    } catch (e: any) {
-      setError(e.message)
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const { permissionDenied: denied } = classifyApiError(e)
+      setError(formatEmbeddedApiError(e))
+      setPermissionDenied(denied)
+      if (!denied) {
+        const d = describeEmbeddedApiError(e)
+        toast.error(d.title, { description: d.description })
+      }
     } finally {
       setLoading(false)
     }
@@ -95,12 +115,15 @@ export default function MeetingsPage() {
   const openDetail = async (m: MeetingRow) => {
     setSheetOpen(true)
     setDetailLoading(true)
+    setDetailError(null)
     setSelected(m as MeetingDetail)
     try {
       const full = await apiClient<MeetingDetail>(`/meetings/${m.id}`)
       setSelected(full)
-    } catch (e: any) {
-      toast.error(e.message || "Ma'lumot yuklanmadi")
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      setDetailError(d)
+      toast.error(d.title, { description: d.description })
     } finally {
       setDetailLoading(false)
     }
@@ -172,11 +195,32 @@ export default function MeetingsPage() {
     },
   ]
 
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6 pb-10">
+        <PageHeader
+          title="Uchrashuvlar"
+          description="Video/konsultatsiya uchrashuvlari"
+          icon={CalendarCheck}
+        />
+        <AccessDeniedPlaceholder
+          title="Uchrashuvlarga ruxsat yo'q"
+          description="Uchrashuvlar ro'yxati tegishli meetings yoki video moduli ruxsatini talab qilishi mumkin."
+          detail={error}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 pb-10">
       <PageHeader
         title="Uchrashuvlar"
-        description="Rejalashtirilgan uchrashuvlar va video ulanishlar (meetings jadvali)"
+        description={
+          isSuperAdmin
+            ? "Tizimdagi barcha uchrashuvlar. Ixtiyoriy filtr: API query centerId (faqat superadmin)."
+            : "Markazingizga bog‘liq uchrashuvlar: tashkilotchi (markaz admini/psixologi), bog‘langan seans yoki ishtirokchilar orqali. Boshqa markazlar ko‘rinmaydi."
+        }
         icon={CalendarCheck}
         actions={[{ label: "Yangilash", icon: RefreshCw, variant: "outline", onClick: fetchData }]}
       />
@@ -207,7 +251,13 @@ export default function MeetingsPage() {
         }}
       />
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={(o) => {
+          setSheetOpen(o)
+          if (!o) setDetailError(null)
+        }}
+      >
         <SheetContent className="overflow-y-auto sm:max-w-lg">
           <SheetHeader>
             <SheetTitle className="pr-8">{selected?.title}</SheetTitle>
@@ -217,6 +267,8 @@ export default function MeetingsPage() {
             <div className="flex justify-center py-12">
               <Loader2 className="size-8 animate-spin text-muted-foreground" />
             </div>
+          ) : detailError ? (
+            <EmbeddedApiErrorBanner error={detailError} className="mt-6" />
           ) : selected ? (
             <div className="mt-6 space-y-4">
               <div className="flex flex-wrap gap-2">

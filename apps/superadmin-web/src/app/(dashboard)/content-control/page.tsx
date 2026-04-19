@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { apiClient, PaginatedResponse } from "@/lib/api-client"
+import { safeDevError } from "@/lib/safe-log"
 import { PageHeader } from "@/components/page-header"
 import { StatsCard, StatsGrid } from "@/components/stats-card"
 import { Badge } from "@/components/ui/badge"
@@ -93,7 +94,9 @@ export default function ContentControlPage() {
       setItems(listRes.data)
       setTotal(listRes.total)
       setStats(statsRes)
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("content-control/fetch", e)
+    }
     setLoading(false)
   }, [page, search, statusFilter, typeFilter])
 
@@ -108,7 +111,9 @@ export default function ContentControlPage() {
       setActionType(null)
       setModeratorNote("")
       fetchData()
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("content-control/action", e)
+    }
     setActionLoading(false)
   }
 

@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import type { FilterField } from "@/components/filter-bar"
+import { formatEmbeddedApiError, isPermissionDeniedError } from "@/lib/api-error"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 
 interface Transaction {
   id: number
@@ -39,6 +41,7 @@ export default function TransactionsPage() {
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const [filters, setFilters] = useState<{ status: string; dateFrom: string; dateTo: string }>({
     status: "all",
     dateFrom: "",
@@ -46,7 +49,9 @@ export default function TransactionsPage() {
   })
 
   const fetchData = useCallback(async () => {
-    setLoading(true); setError(null)
+    setLoading(true)
+    setError(null)
+    setPermissionDenied(false)
     try {
       const res = await apiClient<PaginatedResponse<Transaction>>("/finance/ledger", {
         params: {
@@ -58,9 +63,14 @@ export default function TransactionsPage() {
           dateTo: filters.dateTo || undefined,
         }
       })
-      setData(res.data); setTotal(res.total)
-    } catch (e: any) { setError(e.message) }
-    finally { setLoading(false) }
+      setData(res.data)
+      setTotal(res.total)
+    } catch (e: unknown) {
+      setError(formatEmbeddedApiError(e))
+      setPermissionDenied(isPermissionDeniedError(e))
+    } finally {
+      setLoading(false)
+    }
   }, [page, search, filters])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -102,6 +112,23 @@ export default function TransactionsPage() {
     },
     { key: "createdAt", title: "Yaratilgan", render: (t: Transaction) => new Date(t.createdAt).toLocaleDateString("uz-UZ") },
   ]
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Tranzaksiyalar"
+          description="Psixolog seanslari bo'yicha to'lovlar tarixi (real baza)"
+          icon={ArrowLeftRight}
+        />
+        <AccessDeniedPlaceholder
+          title="Moliyaviy jurnalga ruxsat yo'q"
+          description="Tranzaksiya / ledger ma'lumotlari finance.read yoki tegishli moliya ruxsatini talab qiladi. Rolingizda bu ruxsat bo'lmasa, bu bo'lim ochilmaydi."
+          detail={error}
+        />
+      </div>
+    )
+  }
 
   return (
     <>

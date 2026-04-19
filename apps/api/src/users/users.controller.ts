@@ -2,6 +2,8 @@ import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe,
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { StepUpGuard } from '../auth/guards/step-up.guard';
+import { StepUpForPrivilegedUserFieldsGuard } from '../auth/guards/step-up-privileged-user-fields.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { QueryUsersDto } from './dto/query-users.dto';
@@ -26,6 +28,7 @@ export class UsersController {
       status: query.status,
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
+      centerId: query.centerId,
     }, user);
   }
 
@@ -42,6 +45,7 @@ export class UsersController {
   }
 
   @Post()
+  @UseGuards(StepUpGuard)
   @Permissions('users.manage')
   create(
     @Body() data: CreateUserDto,
@@ -54,6 +58,7 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @UseGuards(StepUpForPrivilegedUserFieldsGuard)
   @Permissions('users.write')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -64,6 +69,7 @@ export class UsersController {
   }
 
   @Patch(':id/block')
+  @UseGuards(StepUpGuard)
   @Permissions('users.manage')
   block(
     @Param('id', ParseIntPipe) id: number,
@@ -74,12 +80,14 @@ export class UsersController {
   }
 
   @Patch(':id/unblock')
+  @UseGuards(StepUpGuard)
   @Permissions('users.manage')
   unblock(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
     return this.usersService.unblock(id, user);
   }
 
   @Delete(':id')
+  @UseGuards(StepUpGuard)
   @Permissions('users.manage')
   remove(
     @Param('id', ParseIntPipe) id: number,

@@ -53,11 +53,15 @@ export class ResetPasswordDto {
 }
 
 export class RefreshTokenDto {
+  /** Optional when refresh is sent via HttpOnly cookie (browser clients). */
+  @IsOptional()
   @IsString()
-  refreshToken: string;
+  refreshToken?: string;
 }
 
 export class LogoutDto {
+  /** Optional when refresh is sent via HttpOnly cookie (browser clients). */
+  @IsOptional()
   @IsString()
-  refreshToken: string;
+  refreshToken?: string;
 }

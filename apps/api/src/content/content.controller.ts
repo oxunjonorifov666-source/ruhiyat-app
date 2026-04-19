@@ -1,41 +1,58 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
+import type { AuthUser } from '@ruhiyat/types';
+import { UserRole } from '@ruhiyat/types';
 import { ContentService } from './content.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller()
 export class ContentController {
   constructor(private readonly service: ContentService) {}
 
   @Get('articles')
+  @UseGuards(OptionalJwtAuthGuard)
   findAllArticles(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('published') published?: string,
     @Query('category') category?: string,
+    @CurrentUser() user?: AuthUser,
   ) {
-    return this.service.findAllArticles({
-      page: page ? parseInt(page) : undefined,
-      limit: limit ? parseInt(limit) : undefined,
-      search,
-      publishedOnly: published === 'true',
-      category,
-    });
+    return this.service.findAllArticles(
+      {
+        page: page ? parseInt(page) : undefined,
+        limit: limit ? parseInt(limit) : undefined,
+        search,
+        publishedOnly: published === 'true',
+        category,
+      },
+      user,
+    );
   }
   @Get('articles/:id')
-  findArticle(@Param('id', ParseIntPipe) id: number) { return this.service.findArticle(id); }
+  @UseGuards(OptionalJwtAuthGuard)
+  findArticle(@Param('id', ParseIntPipe) id: number, @CurrentUser() user?: AuthUser) {
+    return this.service.findArticleForViewer(id, user);
+  }
   @Post('articles')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   createArticle(@Body() data: any) { return this.service.createArticle(data); }
   @Patch('articles/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   updateArticle(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateArticle(id, data); }
   @Delete('articles/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.delete')
   removeArticle(@Param('id', ParseIntPipe) id: number) { return this.service.removeArticle(id); }
 
@@ -44,15 +61,18 @@ export class ContentController {
     return this.service.findAllBanners({ activeOnly: activeOnly === 'true' });
   }
   @Post('banners')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   createBanner(@Body() data: any) { return this.service.createBanner(data); }
   @Patch('banners/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   updateBanner(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateBanner(id, data); }
   @Delete('banners/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.delete')
   removeBanner(@Param('id', ParseIntPipe) id: number) { return this.service.removeBanner(id); }
 
@@ -73,15 +93,18 @@ export class ContentController {
   @Get('audio/:id')
   findAudio(@Param('id', ParseIntPipe) id: number) { return this.service.findAudio(id); }
   @Post('audio')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   createAudio(@Body() data: any) { return this.service.createAudio(data); }
   @Patch('audio/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   updateAudio(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateAudio(id, data); }
   @Delete('audio/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.delete')
   removeAudio(@Param('id', ParseIntPipe) id: number) { return this.service.removeAudio(id); }
 
@@ -102,30 +125,36 @@ export class ContentController {
   @Get('videos/:id')
   findVideo(@Param('id', ParseIntPipe) id: number) { return this.service.findVideo(id); }
   @Post('videos')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   createVideo(@Body() data: any) { return this.service.createVideo(data); }
   @Patch('videos/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   updateVideo(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateVideo(id, data); }
   @Delete('videos/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.delete')
   removeVideo(@Param('id', ParseIntPipe) id: number) { return this.service.removeVideo(id); }
 
   @Get('affirmations')
   findAllAffirmations() { return this.service.findAllAffirmations(); }
   @Post('affirmations')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   createAffirmation(@Body() data: any) { return this.service.createAffirmation(data); }
   @Patch('affirmations/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   updateAffirmation(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateAffirmation(id, data); }
   @Delete('affirmations/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.delete')
   removeAffirmation(@Param('id', ParseIntPipe) id: number) { return this.service.removeAffirmation(id); }
 
@@ -134,15 +163,18 @@ export class ContentController {
   @Get('projective-methods/:id')
   findProjectiveMethod(@Param('id', ParseIntPipe) id: number) { return this.service.findProjectiveMethod(id); }
   @Post('projective-methods')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   createProjectiveMethod(@Body() data: any) { return this.service.createProjectiveMethod(data); }
   @Patch('projective-methods/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   updateProjectiveMethod(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateProjectiveMethod(id, data); }
   @Delete('projective-methods/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.delete')
   removeProjectiveMethod(@Param('id', ParseIntPipe) id: number) { return this.service.removeProjectiveMethod(id); }
 
@@ -153,15 +185,18 @@ export class ContentController {
   @Get('trainings/:id')
   findTraining(@Param('id', ParseIntPipe) id: number) { return this.service.findTraining(id); }
   @Post('trainings')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   createTraining(@Body() data: any) { return this.service.createTraining(data); }
   @Patch('trainings/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.write')
   updateTraining(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.updateTraining(id, data); }
   @Delete('trainings/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SUPERADMIN)
   @Permissions('content.delete')
   removeTraining(@Param('id', ParseIntPipe) id: number) { return this.service.removeTraining(id); }
 }

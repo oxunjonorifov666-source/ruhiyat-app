@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
@@ -28,8 +29,10 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
 import { SecurityModule } from './security/security.module';
 import { MonetizationModule } from './monetization/monetization.module';
 import { MobileModule } from './mobile/mobile.module';
+import { LegalModule } from './legal/legal.module';
 import { ClickModule } from './integrations/click/click.module';
 import { PushModule } from './push/push.module';
+import { TenantGuard } from './auth/guards/tenant.guard';
 
 @Module({
   imports: [
@@ -37,6 +40,7 @@ import { PushModule } from './push/push.module';
     PushModule,
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     PrismaModule,
+    ObservabilityModule,
     HealthModule,
     AuthModule,
     UsersModule,
@@ -61,9 +65,11 @@ import { PushModule } from './push/push.module';
     SecurityModule,
     MonetizationModule,
     MobileModule,
+    LegalModule,
     ClickModule,
   ],
   providers: [
+    TenantGuard,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

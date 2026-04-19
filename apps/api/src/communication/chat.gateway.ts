@@ -16,12 +16,14 @@ import { PushNotificationService } from '../push/push-notification.service';
 interface AuthSocket extends Socket {
   userId?: number;
   userRole?: string;
+  tokenExp?: number;
 }
 
-const ADMIN_ROLES = ['SUPERADMIN', 'ADMIN'];
-
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: { 
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'http://localhost:3002'],
+    credentials: true,
+  },
   namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -39,25 +41,52 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: AuthSocket) {
     try {
-      const token =
-        client.handshake.auth?.token ||
-        client.handshake.headers?.authorization?.replace('Bearer ', '');
+      let token: string | undefined;
+
+      /**
+       * Umumiy `/chat` namespace: mobil ilova (`ruhiyat_at` — @ruhiyat/config) va superadmin panel
+       * (`ruhiyat_sa_at`) bir xil JWT_SECRET bilan imzolangan access tokenlarni HttpOnly cookie orqali yuboradi.
+       * Imkoniyat (rol) payload.sub / DB `user.role` dan keladi — cookie nomi privilege bermaydi.
+       * Faqat ushbu ikki nom qabul qilinadi (Authorization: Bearer yoki `auth.token` ishlatilmaydi).
+       */
+      if (client.handshake.headers.cookie) {
+        const match = client.handshake.headers.cookie.match(/(?:^|;)\s*(ruhiyat_sa_at|ruhiyat_at)=([^;]+)/);
+        if (match) token = match[2];
+      }
+
       if (!token) {
+        this.logger.warn(`Connection rejected: strict HttpOnly cookie required but missing.`);
         client.disconnect();
         return;
       }
+      
       const payload = this.jwt.verify(token);
-      client.userId = payload.sub;
-      client.userRole = payload.role;
-      this.onlineUsers.set(payload.sub, client.id);
+      
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { id: true, isActive: true, role: true },
+      });
+
+      if (!user || !user.isActive) {
+        this.logger.warn(`Connection rejected: user ${payload.sub} inactive.`);
+        client.disconnect();
+        return;
+      }
+
+      client.userId = user.id;
+      client.userRole = user.role;
+      client.tokenExp = payload.exp;
+      this.onlineUsers.set(user.id, client.id);
+      
       const chats = await this.prisma.chatParticipant.findMany({
-        where: { userId: payload.sub },
+        where: { userId: user.id },
         select: { chatId: true },
       });
       chats.forEach((c: any) => client.join(`chat:${c.chatId}`));
-      this.server.emit('userOnline', { userId: payload.sub });
-      this.logger.log(`User ${payload.sub} connected`);
-    } catch {
+      this.server.emit('userOnline', { userId: user.id });
+      this.logger.log(`User ${user.id} connected securely`);
+    } catch (e) {
+      this.logger.error(`Connection failed: auth error`, e);
       client.disconnect();
     }
   }
@@ -70,12 +99,41 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  private async isParticipantOrAdmin(chatId: number, client: AuthSocket): Promise<boolean> {
-    if (ADMIN_ROLES.includes(client.userRole || '')) return true;
+  private validateSession(client: AuthSocket): boolean {
+    if (!client.userId || !client.tokenExp) return false;
+    if (Date.now() / 1000 >= client.tokenExp) {
+      this.logger.warn(`Disconnecting ${client.userId}: token expired.`);
+      client.disconnect();
+      return false;
+    }
+    return true;
+  }
+
+  private async checkSocketScope(chatId: number, client: AuthSocket): Promise<boolean> {
+    if (!this.validateSession(client)) return false;
+    
+    const user = await this.prisma.user.findUnique({
+      where: { id: client.userId },
+      select: { isActive: true, role: true }
+    });
+    
+    if (!user?.isActive) {
+      client.disconnect();
+      return false;
+    }
+
+    if (user.role === 'SUPERADMIN') return true;
+    
     const participant = await this.prisma.chatParticipant.findUnique({
       where: { chatId_userId: { chatId, userId: client.userId! } },
     });
-    return !!participant;
+
+    if (!participant) {
+      this.logger.warn(`Unauthorized scope interception blocked for user ${client.userId} on chat ${chatId}.`);
+      return false;
+    }
+
+    return true;
   }
 
   @SubscribeMessage('sendMessage')
@@ -84,10 +142,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { chatId: number; content: string; type?: string },
   ) {
     if (!client.userId) return;
-    const participant = await this.prisma.chatParticipant.findUnique({
-      where: { chatId_userId: { chatId: data.chatId, userId: client.userId } },
-    });
-    if (!participant) return;
+    if (!(await this.checkSocketScope(data.chatId, client))) return;
 
     const chat = await this.prisma.chat.findUnique({ where: { id: data.chatId } });
     if (!chat || !chat.isActive) return;
@@ -130,7 +185,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { chatId: number },
   ) {
     if (!client.userId) return;
-    if (!(await this.isParticipantOrAdmin(data.chatId, client))) return;
+    if (!(await this.checkSocketScope(data.chatId, client))) return;
     client.to(`chat:${data.chatId}`).emit('userTyping', {
       chatId: data.chatId,
       userId: client.userId,
@@ -143,7 +198,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { chatId: number },
   ) {
     if (!client.userId) return;
-    if (!(await this.isParticipantOrAdmin(data.chatId, client))) return;
+    if (!(await this.checkSocketScope(data.chatId, client))) return;
     client.to(`chat:${data.chatId}`).emit('userStopTyping', {
       chatId: data.chatId,
       userId: client.userId,
@@ -156,7 +211,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { chatId: number },
   ) {
     if (!client.userId) return;
-    if (!(await this.isParticipantOrAdmin(data.chatId, client))) return;
+    if (!(await this.checkSocketScope(data.chatId, client))) return;
     const row = await this.prisma.chatParticipant.findUnique({
       where: { chatId_userId: { chatId: data.chatId, userId: client.userId } },
     });
@@ -177,7 +232,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { chatId: number },
   ) {
     if (!client.userId) return;
-    if (!(await this.isParticipantOrAdmin(data.chatId, client))) return;
+    if (!(await this.checkSocketScope(data.chatId, client))) return;
     client.join(`chat:${data.chatId}`);
   }
 

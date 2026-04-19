@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { apiClient, PaginatedResponse } from "@/lib/api-client"
+import { safeDevError } from "@/lib/safe-log"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -68,7 +69,9 @@ export default function BlockingPage() {
       const res = await apiClient<PaginatedResponse<BlockedUser>>("/blocks", { params })
       setBlocked(res.data)
       setBlockedTotal(res.total)
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("blocking/list", e)
+    }
     setLoadingBlocked(false)
   }, [blockedPage, search])
 
@@ -79,7 +82,9 @@ export default function BlockingPage() {
       const res = await apiClient<PaginatedResponse<BlockHistoryItem>>("/blocks/history", { params })
       setHistory(res.data)
       setHistoryTotal(res.total)
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("blocking/history", e)
+    }
     setLoadingHistory(false)
   }, [historyPage])
 
@@ -99,7 +104,9 @@ export default function BlockingPage() {
       setUnblockTarget(null)
       fetchBlocked()
       fetchHistory()
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      safeDevError("blocking/unblock", e)
+    }
     setActionLoading(false)
   }
 

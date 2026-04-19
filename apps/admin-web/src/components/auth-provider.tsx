@@ -7,7 +7,6 @@ import {
   fetchMe,
   refreshTokenApi,
   logoutApi,
-  getStoredTokens,
   storeTokens,
   clearTokens,
 } from '@/lib/auth'
@@ -16,9 +15,10 @@ interface AuthContextType {
   user: AuthUser | null
   isLoading: boolean
   isAuthenticated: boolean
+  /** @deprecated Access JWT is HttpOnly; always null. Kept for compatibility. */
   accessToken: string | null
   logout: () => Promise<void>
-  setAuth: (user: AuthUser, accessToken: string, refreshToken: string) => void
+  setAuth: (user: AuthUser, _accessToken?: string, _refreshToken?: string) => void
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -32,56 +32,41 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [accessToken, setAccessToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
   const handleLogout = useCallback(async () => {
-    const tokens = getStoredTokens()
-    if (tokens?.refreshToken) {
-      await logoutApi(tokens.refreshToken)
-    }
+    await logoutApi()
     clearTokens()
     setUser(null)
-    setAccessToken(null)
     router.push('/login')
   }, [router])
 
-  const setAuth = useCallback((newUser: AuthUser, newAccessToken: string, newRefreshToken: string) => {
+  const setAuth = useCallback((newUser: AuthUser, _newAccessToken?: string, _newRefreshToken?: string) => {
     setUser(newUser)
-    setAccessToken(newAccessToken)
-    storeTokens(newAccessToken, newRefreshToken)
+    storeTokens()
   }, [])
 
   useEffect(() => {
     async function initAuth() {
-      const tokens = getStoredTokens()
-      if (!tokens) {
-        setIsLoading(false)
-        return
-      }
-
       try {
-        const data = await fetchMe(tokens.accessToken)
+        const data = await fetchMe()
         if (data.user.role !== 'ADMINISTRATOR' && data.user.role !== 'SUPERADMIN') {
           clearTokens()
           setIsLoading(false)
           return
         }
         setUser(data.user)
-        setAccessToken(tokens.accessToken)
       } catch {
         try {
-          const newTokens = await refreshTokenApi(tokens.refreshToken)
-          storeTokens(newTokens.accessToken, newTokens.refreshToken)
-          const data = await fetchMe(newTokens.accessToken)
+          await refreshTokenApi()
+          const data = await fetchMe()
           if (data.user.role !== 'ADMINISTRATOR' && data.user.role !== 'SUPERADMIN') {
             clearTokens()
             setIsLoading(false)
             return
           }
           setUser(data.user)
-          setAccessToken(newTokens.accessToken)
         } catch {
           clearTokens()
         }
@@ -99,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
-        accessToken,
+        accessToken: null,
         logout: handleLogout,
         setAuth,
       }}

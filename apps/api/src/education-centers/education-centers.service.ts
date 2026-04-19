@@ -33,6 +33,9 @@ export class EducationCentersService {
     
     // Only Superadmins can list all centers
     if (requester.role !== UserRole.SUPERADMIN) {
+      if (requester.centerId == null) {
+        throw new ForbiddenException("Sizga markaz tayinlanmagan — ro'yxatni ko'ra olmaysiz");
+      }
       where.id = requester.centerId;
     }
 

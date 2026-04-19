@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveOpenAiApiKey } from '../common/openai-key.util';
+import { AuthUser, UserRole } from '@ruhiyat/types';
 
 import { CreateTestDto } from './dto/create-test.dto';
 import type { TestInterpretationV2 } from './test-interpretation.types';
@@ -15,9 +16,30 @@ export class AssessmentsService {
     private readonly config: ConfigService,
   ) {}
 
-  async findAllTests(opts?: { publishedOnly?: boolean }) {
+  /** Draft / unpublished tests: only superadmin or users with assessments write (e.g. admins). */
+  private canViewUnpublishedTests(requester: AuthUser): boolean {
+    if (requester.role === UserRole.SUPERADMIN) return true;
+    const p = requester.permissions || [];
+    return (
+      p.includes('assessments.write') ||
+      p.includes('assessments.delete') ||
+      p.includes('*')
+    );
+  }
+
+  /**
+   * Non-privileged callers only see published tests; use NotFound for unpublished to limit enumeration.
+   */
+  private assertTestReadable(test: { isPublished: boolean }, requester: AuthUser): void {
+    if (!this.canViewUnpublishedTests(requester) && !test.isPublished) {
+      throw new NotFoundException('Test topilmadi');
+    }
+  }
+
+  async findAllTests(requester: AuthUser, opts?: { publishedOnly?: boolean }) {
     const where: any = {};
-    if (opts?.publishedOnly) {
+    const wantPublishedOnly = opts?.publishedOnly === true;
+    if (!this.canViewUnpublishedTests(requester) || wantPublishedOnly) {
       where.isPublished = true;
     }
     const [data, total] = await Promise.all([
@@ -33,7 +55,7 @@ export class AssessmentsService {
     return { data, total, page: 1, limit: data.length };
   }
 
-  async findTest(id: number) {
+  async findTest(id: number, requester: AuthUser) {
     const test = await this.prisma.test.findUnique({ 
       where: { id }, 
       include: { 
@@ -46,6 +68,7 @@ export class AssessmentsService {
       } 
     });
     if (!test) throw new NotFoundException('Test topilmadi');
+    this.assertTestReadable(test, requester);
     return test;
   }
 
@@ -89,7 +112,8 @@ export class AssessmentsService {
   }
 
   async updateTest(id: number, data: any) {
-    await this.findTest(id);
+    const existing = await this.prisma.test.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Test topilmadi');
     return this.prisma.test.update({ 
       where: { id }, 
       data,
@@ -98,13 +122,14 @@ export class AssessmentsService {
   }
 
   async removeTest(id: number) {
-    await this.findTest(id);
+    const existing = await this.prisma.test.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Test topilmadi');
     await this.prisma.test.delete({ where: { id } });
     return { message: 'Test o\'chirildi' };
   }
 
-  async getQuestions(id: number) {
-    await this.findTest(id);
+  async getQuestions(id: number, requester: AuthUser) {
+    await this.findTest(id, requester);
     return this.prisma.question.findMany({ 
       where: { testId: id }, 
       include: { answers: true }, 
@@ -112,12 +137,13 @@ export class AssessmentsService {
     });
   }
 
-  async submitTest(testId: number, data: any, userId: number) {
+  async submitTest(testId: number, data: any, userId: number, requester: AuthUser) {
     const test = await this.prisma.test.findUnique({
       where: { id: testId },
-      select: { id: true, title: true, description: true, category: true },
+      select: { id: true, title: true, description: true, category: true, isPublished: true },
     });
     if (!test) throw new NotFoundException('Test topilmadi');
+    this.assertTestReadable(test, requester);
 
     const interpretation = await this.buildTestInterpretation(test, {
       score: data.score,

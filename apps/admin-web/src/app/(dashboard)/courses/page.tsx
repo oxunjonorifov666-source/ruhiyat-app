@@ -48,6 +48,17 @@ import {
   BarChart2,
 } from "lucide-react"
 import { toast } from "sonner"
+import {
+  describeEmbeddedApiError,
+  formatEmbeddedApiError,
+  isPermissionDeniedError,
+  type EmbeddedApiErrorDescription,
+} from "@/lib/api-error"
+import { EmbeddedApiErrorBanner } from "@/components/embedded-api-error-banner"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
+import { SuperadminCenterRequiredScreen, SuperadminCenterSelect } from "@/components/superadmin-center-select"
+import { withCenterQuery } from "@/lib/endpoints"
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -126,7 +137,8 @@ function StatusBadge({ status }: { status: CourseStatus }) {
 export default function CoursesPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const centerId = user?.administrator?.centerId
+  const centerCtx = useSuperadminCenter(user)
+  const centerId = centerCtx.effectiveCenterId
 
   // List state
   const [data, setData] = useState<Course[]>([])
@@ -136,15 +148,19 @@ export default function CoursesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   // Stats state
   const [stats, setStats] = useState<CourseStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
+  const [statsAccessDenied, setStatsAccessDenied] = useState(false)
+  const [statsError, setStatsError] = useState<string | null>(null)
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false)
   const [selected, setSelected] = useState<Course | null>(null)
   const [saving, setSaving] = useState(false)
+  const [sheetApiError, setSheetApiError] = useState<EmbeddedApiErrorDescription | null>(null)
   const [form, setForm] = useState<CourseForm>(DEFAULT_FORM)
 
   // ── Data fetching ─────────────────────────────────────────────────────────
@@ -153,6 +169,7 @@ export default function CoursesPage() {
     if (!centerId) return
     setLoading(true)
     setError(null)
+    setPermissionDenied(false)
     try {
       const res = await apiClient<PaginatedResponse<Course>>("/courses", {
         params: {
@@ -165,8 +182,9 @@ export default function CoursesPage() {
       })
       setData(res.data)
       setTotal(res.total)
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      setError(formatEmbeddedApiError(e))
+      setPermissionDenied(isPermissionDeniedError(e))
     } finally {
       setLoading(false)
     }
@@ -175,11 +193,18 @@ export default function CoursesPage() {
   const fetchStats = useCallback(async () => {
     if (!centerId) return
     setStatsLoading(true)
+    setStatsAccessDenied(false)
+    setStatsError(null)
     try {
       const res = await apiClient<CourseStats>(`/courses/stats?centerId=${centerId}`)
       setStats(res)
-    } catch {
+    } catch (e: unknown) {
       setStats(null)
+      if (isPermissionDeniedError(e)) {
+        setStatsAccessDenied(true)
+      } else {
+        setStatsError(formatEmbeddedApiError(e))
+      }
     } finally {
       setStatsLoading(false)
     }
@@ -196,12 +221,14 @@ export default function CoursesPage() {
   // ── Form helpers ──────────────────────────────────────────────────────────
 
   const openCreate = () => {
+    setSheetApiError(null)
     setSelected(null)
     setForm(DEFAULT_FORM)
     setSheetOpen(true)
   }
 
   const openEdit = (course: Course) => {
+    setSheetApiError(null)
     setSelected(course)
     setForm({
       name: course.name,
@@ -217,6 +244,7 @@ export default function CoursesPage() {
     e.preventDefault()
     if (!centerId) return
     setSaving(true)
+    setSheetApiError(null)
     try {
       const payload: any = {
         name: form.name,
@@ -238,8 +266,10 @@ export default function CoursesPage() {
       setSheetOpen(false)
       fetchData()
       fetchStats()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      setSheetApiError(d)
+      toast.error(d.title, { description: d.description })
     } finally {
       setSaving(false)
     }
@@ -252,8 +282,9 @@ export default function CoursesPage() {
       toast.success(`"${course.name}" arxivlandi`)
       fetchData()
       fetchStats()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     }
   }
 
@@ -333,7 +364,7 @@ export default function CoursesPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onClick={() => router.push(`/courses/${c.id}`)}>
+              <DropdownMenuItem onClick={() => router.push(withCenterQuery(`/courses/${c.id}`, centerId))}>
                 <BarChart2 className="mr-2 size-4" /> Tahlillar
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => openEdit(c)}>
@@ -357,9 +388,39 @@ export default function CoursesPage() {
     },
   ]
 
+  if (centerCtx.needsCenterSelection) {
+    return (
+      <SuperadminCenterRequiredScreen
+        title="Kurslar"
+        description="Markaz bo'yicha ta'lim kurslarini boshqarish"
+        icon={BookOpen}
+        centers={centerCtx.centers}
+        centersLoading={centerCtx.centersLoading}
+        setCenterId={centerCtx.setCenterId}
+      />
+    )
+  }
+
   if (!centerId) {
     return (
       <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Kurslar"
+          description="Markaz ta'lim kurslarini boshqarish"
+          icon={BookOpen}
+        />
+        <AccessDeniedPlaceholder
+          title="Kurslarni boshqarishga ruxsat yo'q"
+          description="Kurslar ro'yxati odatda courses.read / courses.write yoki tegishli ta'lim moduli ruxsatlarini talab qiladi."
+          detail={error}
+        />
+      </div>
     )
   }
 
@@ -369,42 +430,66 @@ export default function CoursesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Kurslar"
-        description="Markaz ta'lim kurslarini boshqarish"
+        description={`${centerCtx.centerDisplayName} — ta'lim kurslari`}
         icon={BookOpen}
-        actions={[{ label: "Yangi kurs", icon: Plus, onClick: openCreate }]}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {centerCtx.isSuperadmin && (
+              <SuperadminCenterSelect
+                centers={centerCtx.centers}
+                centersLoading={centerCtx.centersLoading}
+                value={centerCtx.effectiveCenterId}
+                onChange={centerCtx.setCenterId}
+              />
+            )}
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="mr-2 size-4" />
+              Yangi kurs
+            </Button>
+          </div>
+        }
       />
 
       {/* Stats */}
-      <StatsGrid columns={4}>
-        <StatsCard
-          title="Jami kurslar"
-          value={stats?.total ?? "—"}
-          icon={BookOpen}
-          loading={statsLoading}
-          iconColor="bg-blue-500/10 text-blue-600"
+      {statsAccessDenied ? (
+        <AccessDeniedPlaceholder
+          title="Kurs statistikalariga ruxsat yo'q"
+          description="Asosiy kurslar ro'yxati ochilishi mumkin, lekin yuqoridagi statistikani ko'rish uchun alohida ruxsat talab qilinishi mumkin."
         />
-        <StatsCard
-          title="Faol kurslar"
-          value={stats?.active ?? "—"}
-          icon={PlayCircle}
-          loading={statsLoading}
-          iconColor="bg-emerald-500/10 text-emerald-600"
-        />
-        <StatsCard
-          title="Qolamalar"
-          value={stats?.draft ?? "—"}
-          icon={FileText}
-          loading={statsLoading}
-          iconColor="bg-amber-500/10 text-amber-600"
-        />
-        <StatsCard
-          title="Arxivlangan"
-          value={stats?.archived ?? "—"}
-          icon={FolderArchive}
-          loading={statsLoading}
-          iconColor="bg-slate-500/10 text-slate-600"
-        />
-      </StatsGrid>
+      ) : statsError ? (
+        <p className="text-sm text-destructive">{statsError}</p>
+      ) : (
+        <StatsGrid columns={4}>
+          <StatsCard
+            title="Jami kurslar"
+            value={stats?.total ?? "—"}
+            icon={BookOpen}
+            loading={statsLoading}
+            iconColor="bg-blue-500/10 text-blue-600"
+          />
+          <StatsCard
+            title="Faol kurslar"
+            value={stats?.active ?? "—"}
+            icon={PlayCircle}
+            loading={statsLoading}
+            iconColor="bg-emerald-500/10 text-emerald-600"
+          />
+          <StatsCard
+            title="Qolamalar"
+            value={stats?.draft ?? "—"}
+            icon={FileText}
+            loading={statsLoading}
+            iconColor="bg-amber-500/10 text-amber-600"
+          />
+          <StatsCard
+            title="Arxivlangan"
+            value={stats?.archived ?? "—"}
+            icon={FolderArchive}
+            loading={statsLoading}
+            iconColor="bg-slate-500/10 text-slate-600"
+          />
+        </StatsGrid>
+      )}
 
       {/* Filter bar */}
       <div className="flex items-center gap-3">
@@ -436,7 +521,13 @@ export default function CoursesPage() {
       />
 
       {/* Create / Edit Sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={(o) => {
+          setSheetOpen(o)
+          if (!o) setSheetApiError(null)
+        }}
+      >
         <SheetContent className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>
@@ -448,6 +539,8 @@ export default function CoursesPage() {
                 : "Yangi ta'lim kursini qo'shing."}
             </SheetDescription>
           </SheetHeader>
+
+          <EmbeddedApiErrorBanner error={sheetApiError} className="mt-4" />
 
           <form onSubmit={handleSave} className="space-y-5 mt-6">
             {/* Name */}

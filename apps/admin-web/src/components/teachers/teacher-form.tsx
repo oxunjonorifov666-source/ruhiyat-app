@@ -1,26 +1,32 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
-import { buildCenterEndpoint } from "@/lib/endpoints"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
+import { apiClient } from "@/lib/api-client"
+import { centerIdQuery, withCenterQuery } from "@/lib/endpoints"
+import {
+  describeEmbeddedApiError,
+  type EmbeddedApiErrorDescription,
+} from "@/lib/api-error"
+import { EmbeddedApiErrorBanner } from "@/components/embedded-api-error-banner"
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { FormFooter } from "@/components/crud/form-footer"
-import { UserPlus, Contact, Briefcase } from "lucide-react"
+import { UserPlus, Contact } from "lucide-react"
 
 export interface TeacherFormData {
   id?: number
-  first_name: string
-  last_name: string
+  firstName: string
+  lastName: string
   phone: string
-  status: string
-  specialization?: string
-  experience_years?: number
-  address?: string
+  email?: string
+  subject?: string
+  isActive: boolean
 }
 
 interface TeacherFormProps {
@@ -28,34 +34,90 @@ interface TeacherFormProps {
   isEdit?: boolean
 }
 
+function buildBody(state: {
+  firstName: string
+  lastName: string
+  phone: string
+  email: string
+  subject: string
+  isActive: boolean
+}) {
+  return {
+    firstName: state.firstName.trim(),
+    lastName: state.lastName.trim(),
+    phone: state.phone.trim() || null,
+    email: state.email.trim() || null,
+    subject: state.subject.trim() || null,
+    isActive: state.isActive,
+  }
+}
+
 export function TeacherForm({ initialData, isEdit = false }: TeacherFormProps) {
   const router = useRouter()
   const { user } = useAuth()
-  const centerId = user?.administrator?.centerId
+  const centerCtx = useSuperadminCenter(user)
+  const centerId = centerCtx.effectiveCenterId
   const [loading, setLoading] = useState(false)
+  const [apiError, setApiError] = useState<EmbeddedApiErrorDescription | null>(null)
+  const [firstName, setFirstName] = useState(initialData?.firstName ?? "")
+  const [lastName, setLastName] = useState(initialData?.lastName ?? "")
+  const [phone, setPhone] = useState(initialData?.phone ?? "")
+  const [email, setEmail] = useState(initialData?.email ?? "")
+  const [subject, setSubject] = useState(initialData?.subject ?? "")
+  const [isActive, setIsActive] = useState(initialData?.isActive ?? true)
+
+  useEffect(() => {
+    if (!initialData) return
+    setFirstName(initialData.firstName ?? "")
+    setLastName(initialData.lastName ?? "")
+    setPhone(initialData.phone ?? "")
+    setEmail(initialData.email ?? "")
+    setSubject(initialData.subject ?? "")
+    setIsActive(initialData.isActive ?? true)
+  }, [initialData])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!centerId) {
+      toast.error("Markaz aniqlanmadi")
+      return
+    }
+
+    const body = buildBody({ firstName, lastName, phone, email, subject, isActive })
+    if (!body.firstName || !body.lastName) {
+      toast.error("Ism va familiya majburiy")
+      return
+    }
+    if (!body.phone) {
+      toast.error("Telefon raqami majburiy")
+      return
+    }
+
     setLoading(true)
-
-    const formData = new FormData(e.currentTarget)
-    const payload = Object.fromEntries(formData.entries())
-
+    setApiError(null)
+    const params = centerIdQuery(centerId)
     try {
       if (isEdit && initialData?.id) {
-        const endpoint = buildCenterEndpoint(`teachers/${initialData.id}`, centerId)
-        await new Promise(r => setTimeout(r, 800)) // mock API
+        await apiClient(`/teachers/${initialData.id}`, {
+          method: "PATCH",
+          body,
+          params,
+        })
         toast.success("O'qituvchi ma'lumotlari yangilandi")
       } else {
-        const endpoint = buildCenterEndpoint("teachers", centerId)
-        await new Promise(r => setTimeout(r, 800)) // mock API
+        await apiClient("/teachers", {
+          method: "POST",
+          body,
+          params,
+        })
         toast.success("O'qituvchi muvaffaqiyatli qo'shildi")
       }
-      
-      router.push("/teachers")
+      router.push(withCenterQuery("/teachers", centerId))
       router.refresh()
-    } catch (error: any) {
-      toast.error(error.message || "Xatolik yuz berdi")
+    } catch (error: unknown) {
+      const d = describeEmbeddedApiError(error)
+      setApiError(d)
+      toast.error(d.title, { description: d.description })
     } finally {
       setLoading(false)
     }
@@ -63,6 +125,8 @@ export function TeacherForm({ initialData, isEdit = false }: TeacherFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
+      <EmbeddedApiErrorBanner error={apiError} />
+
       <Card>
         <CardHeader className="bg-muted/30 border-b">
           <div className="flex items-center gap-2">
@@ -76,31 +140,41 @@ export function TeacherForm({ initialData, isEdit = false }: TeacherFormProps) {
         <CardContent className="grid gap-6 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="first_name">Ism <span className="text-red-500">*</span></Label>
-              <Input id="first_name" name="first_name" defaultValue={initialData?.first_name} required placeholder="Akmal" />
+              <Label htmlFor="firstName">Ism <span className="text-red-500">*</span></Label>
+              <Input
+                id="firstName"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                placeholder="Akmal"
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="last_name">Familiya <span className="text-red-500">*</span></Label>
-              <Input id="last_name" name="last_name" defaultValue={initialData?.last_name} required placeholder="Rasulov" />
+              <Label htmlFor="lastName">Familiya <span className="text-red-500">*</span></Label>
+              <Input
+                id="lastName"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+                placeholder="Rasulov"
+              />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="specialization">Yo'nalishi / Fani</Label>
-              <Input id="specialization" name="specialization" defaultValue={initialData?.specialization} placeholder="Ingliz tili..." />
+          <div className="space-y-2">
+            <Label htmlFor="subject">Dars beradigan fan / mutaxassislik</Label>
+            <Input
+              id="subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Masalan: Matematika, Ingliz tili"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4">
+            <div>
+              <Label>Holat</Label>
+              <p className="text-xs text-muted-foreground">Faol / nofaol</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="status">Holat</Label>
-              <Select name="status" defaultValue={initialData?.status || "ACTIVE"}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Holatni tanlang" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ACTIVE">Faol</SelectItem>
-                  <SelectItem value="INACTIVE">Nofaol</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
         </CardContent>
       </Card>
@@ -108,27 +182,35 @@ export function TeacherForm({ initialData, isEdit = false }: TeacherFormProps) {
       <Card>
         <CardHeader className="bg-muted/30 border-b">
           <div className="flex items-center gap-2">
-            <Briefcase className="size-5 text-primary" />
+            <Contact className="size-5 text-primary" />
             <div>
-              <CardTitle>Professional yondashuv</CardTitle>
-              <CardDescription>Tajriba va aloqa ma'lumotlari</CardDescription>
+              <CardTitle>Aloqa ma'lumotlari</CardTitle>
+              <CardDescription>Telefon va email</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="grid gap-6 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="experience_years">Tajriba (yil)</Label>
-              <Input id="experience_years" name="experience_years" type="number" min="0" defaultValue={initialData?.experience_years} placeholder="5" />
+              <Label htmlFor="phone">Telefon raqam <span className="text-red-500">*</span></Label>
+              <Input
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                placeholder="+998 90 123 45 67"
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefon raqam <span className="text-red-500">*</span></Label>
-              <Input id="phone" name="phone" defaultValue={initialData?.phone} required placeholder="+998 90 123 45 67" />
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="akmal@example.com"
+              />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="address">Yashash manzili</Label>
-            <Input id="address" name="address" defaultValue={initialData?.address} placeholder="Toshkent shahar, Mirzo Ulug'bek..." />
           </div>
         </CardContent>
       </Card>

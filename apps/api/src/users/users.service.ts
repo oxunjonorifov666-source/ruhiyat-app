@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SecurityObservabilityService } from '../observability/security-observability.service';
 import * as bcrypt from 'bcryptjs';
 import { AuthUser, UserRole } from '@ruhiyat/types';
+import { assertSameCenterOrSuperadmin, resolvePrincipalCenterId } from '../common/tenant-scope.util';
 
 const USER_SELECT = {
   id: true, email: true, phone: true, firstName: true, lastName: true,
@@ -21,30 +23,30 @@ const USER_LIST_SELECT = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly securityObs: SecurityObservabilityService,
+  ) {}
 
-  async findAll(query: {
-    page?: number; limit?: number; search?: string;
-    role?: string; status?: string; sortBy?: string; sortOrder?: string;
-    centerId?: number;
-  }, requester: AuthUser) {
+  async findAll(
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      role?: string;
+      status?: string;
+      sortBy?: string;
+      sortOrder?: string;
+      /** Superadmin-only filter; non-superadmin `centerId` is taken from the requester. */
+      centerId?: number;
+    },
+    requester: AuthUser,
+  ) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
 
     const where: any = {};
-
-    // Multi-tenant isolation logic
-    const targetCenterId = requester.role === UserRole.SUPERADMIN ? query.centerId : requester.centerId;
-
-    if (targetCenterId) {
-      where.OR = [
-        { administrator: { centerId: targetCenterId } },
-        { psychologist: { centerId: targetCenterId } }
-      ];
-    } else if (requester.role !== UserRole.SUPERADMIN) {
-      throw new ForbiddenException('Markaz tayinlanmagan');
-    }
 
     if (query.role) where.role = query.role;
 
@@ -57,14 +59,50 @@ export class UsersService {
       where.isBlocked = true;
     }
 
-    if (query.search) {
-      where.OR = [
-        ...(where.OR || []),
-        { email: { contains: query.search, mode: 'insensitive' } },
-        { phone: { contains: query.search } },
-        { firstName: { contains: query.search, mode: 'insensitive' } },
-        { lastName: { contains: query.search, mode: 'insensitive' } },
-      ];
+    const isSuperadmin = requester.role === UserRole.SUPERADMIN;
+    const targetCenterId = isSuperadmin ? query.centerId : requester.centerId;
+
+    if (!isSuperadmin && requester.centerId == null) {
+      throw new ForbiddenException('Markaz tayinlanmagan');
+    }
+
+    /** Tenant scope and search must not share one flat OR (would allow cross-tenant search matches). */
+    const andParts: any[] = [];
+
+    if (isSuperadmin) {
+      if (targetCenterId) {
+        const cid =
+          typeof targetCenterId === 'number' ? targetCenterId : parseInt(String(targetCenterId), 10);
+        if (Number.isFinite(cid)) {
+          andParts.push({
+            OR: [
+              { administrator: { centerId: cid } },
+              { psychologist: { centerId: cid } },
+            ],
+          });
+        }
+      }
+    } else {
+      const cid = requester.centerId as number;
+      andParts.push({
+        OR: [{ administrator: { centerId: cid } }, { psychologist: { centerId: cid } }],
+      });
+    }
+
+    if (query.search?.trim()) {
+      const s = query.search.trim();
+      andParts.push({
+        OR: [
+          { email: { contains: s, mode: 'insensitive' } },
+          { phone: { contains: s } },
+          { firstName: { contains: s, mode: 'insensitive' } },
+          { lastName: { contains: s, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (andParts.length > 0) {
+      where.AND = andParts;
     }
 
     const sortBy = query.sortBy || 'createdAt';
@@ -85,7 +123,10 @@ export class UsersService {
     // Flatten centerId for easier frontend consumption
     const flattenedData = data.map(user => ({
       ...user,
-      centerId: user.administrator?.centerId || user.psychologist?.centerId || null,
+      centerId: resolvePrincipalCenterId(
+        user.administrator?.centerId,
+        user.psychologist?.centerId,
+      ),
     }));
 
     return { data: flattenedData, total, page, limit, totalPages: Math.ceil(total / limit) };
@@ -99,12 +140,16 @@ export class UsersService {
     
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
 
-    const userCenterId = user.administrator?.centerId || user.psychologist?.centerId || null;
+    const userCenterId = resolvePrincipalCenterId(
+      user.administrator?.centerId,
+      user.psychologist?.centerId,
+    );
 
-    // Multi-tenant isolation
-    if (requester.role !== UserRole.SUPERADMIN && userCenterId !== requester.centerId) {
-      throw new ForbiddenException('Ushbu foydalanuvchi ma\'lumotlarini ko\'rishga ruxsatingiz yo\'q');
-    }
+    assertSameCenterOrSuperadmin(
+      requester,
+      userCenterId,
+      'Ushbu foydalanuvchi ma\'lumotlarini ko\'rishga ruxsatingiz yo\'q',
+    );
 
     return {
       ...user,
@@ -117,12 +162,22 @@ export class UsersService {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const where: any = {};
-    const targetCenterId = requester.role === UserRole.SUPERADMIN ? centerId : requester.centerId;
-    
-    if (targetCenterId) {
+
+    if (requester.role === UserRole.SUPERADMIN) {
+      if (centerId) {
+        where.OR = [
+          { administrator: { centerId: centerId } },
+          { psychologist: { centerId: centerId } },
+        ];
+      }
+    } else {
+      if (requester.centerId == null) {
+        throw new ForbiddenException('Markaz tayinlanmagan');
+      }
+      const cid = requester.centerId;
       where.OR = [
-        { administrator: { centerId: targetCenterId } },
-        { psychologist: { centerId: targetCenterId } }
+        { administrator: { centerId: cid } },
+        { psychologist: { centerId: cid } },
       ];
     }
 
@@ -142,6 +197,10 @@ export class UsersService {
     centerId?: number;
   }, requester: AuthUser) {
     let targetCenterId = requester.role === UserRole.SUPERADMIN ? data.centerId : requester.centerId;
+
+    if (requester.role !== UserRole.SUPERADMIN && targetCenterId == null) {
+      throw new ForbiddenException("Markaz aniqlanmadi — foydalanuvchi yaratib bo'lmaydi");
+    }
 
     if (data.email) {
       const existing = await this.prisma.user.findUnique({ where: { email: data.email } });
@@ -208,11 +267,29 @@ export class UsersService {
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     if (data.role !== undefined) updateData.role = data.role;
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: updateData,
       select: USER_SELECT,
     });
+
+    const privilegeFields = ['role', 'isActive'].filter((k) => (data as any)[k] !== undefined);
+    if (privilegeFields.length > 0) {
+      await this.securityObs.record({
+        event: 'USER_PRIVILEGE_OR_STATUS_CHANGED',
+        userId: requester.id,
+        success: true,
+        details: {
+          actorRole: requester.role,
+          targetUserId: id,
+          fields: privilegeFields,
+          newRole: data.role ?? undefined,
+          newIsActive: data.isActive ?? undefined,
+        },
+      });
+    }
+
+    return updated;
   }
 
   async block(id: number, reason: string | undefined, requester: AuthUser) {
@@ -225,7 +302,7 @@ export class UsersService {
       throw new ForbiddenException("O'zingizni bloklay olmaysiz");
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: {
         isBlocked: true,
@@ -235,6 +312,20 @@ export class UsersService {
       },
       select: USER_SELECT,
     });
+
+    await this.securityObs.record({
+      event: 'USER_BLOCKED',
+      userId: requester.id,
+      success: true,
+      details: {
+        actorRole: requester.role,
+        targetUserId: id,
+        targetRole: user.role,
+        hasReason: Boolean(reason?.trim()),
+      },
+    });
+
+    return updated;
   }
 
   async unblock(id: number, requester: AuthUser) {
@@ -244,7 +335,7 @@ export class UsersService {
       throw new ConflictException("Foydalanuvchi bloklanmagan");
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: {
         isBlocked: false,
@@ -254,6 +345,19 @@ export class UsersService {
       },
       select: USER_SELECT,
     });
+
+    await this.securityObs.record({
+      event: 'USER_UNBLOCKED',
+      userId: requester.id,
+      success: true,
+      details: {
+        actorRole: requester.role,
+        targetUserId: id,
+        targetRole: user.role,
+      },
+    });
+
+    return updated;
   }
 
   async remove(id: number, requester: AuthUser) {
@@ -267,6 +371,16 @@ export class UsersService {
     }
     
     await this.prisma.user.delete({ where: { id } });
+    await this.securityObs.record({
+      event: 'USER_DELETED',
+      userId: requester.id,
+      success: true,
+      details: {
+        actorRole: requester.role,
+        targetUserId: id,
+        targetRole: user.role,
+      },
+    });
     return { success: true, message: "Foydalanuvchi o'chirildi" };
   }
 

@@ -10,8 +10,19 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Plus, MoreHorizontal, Edit, Eye, Trash2, UserPlus, Mail, Phone, Calendar, ShieldCheck, ShieldAlert, Loader2, Users } from "lucide-react"
 import { RoleGuard } from "@/components/role-guard"
-import { buildCenterEndpoint } from "@/lib/endpoints"
+import { buildCenterEndpoint, centerIdQuery, withCenterQuery } from "@/lib/endpoints"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
+import { SuperadminCenterRequiredScreen, SuperadminCenterSelect } from "@/components/superadmin-center-select"
 import { PageHeader } from "@/components/page-header"
+import { toast } from "sonner"
+import {
+  classifyApiError,
+  describeEmbeddedApiError,
+  formatEmbeddedApiError,
+  type EmbeddedApiErrorDescription,
+} from "@/lib/api-error"
+import { EmbeddedApiErrorBanner } from "@/components/embedded-api-error-banner"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 import { 
   Sheet, 
   SheetContent, 
@@ -33,13 +44,14 @@ interface Student {
   isActive: boolean
   createdAt: string
   dateOfBirth: string | null
-  enrollments?: { id: number; course: { title: string } }[]
+  enrollments?: { id: number; course?: { name: string } | null }[]
 }
 
 export default function StudentsPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const centerId = user?.administrator?.centerId
+  const centerCtx = useSuperadminCenter(user)
+  const centerId = centerCtx.effectiveCenterId
   
   const [data, setData] = useState<Student[]>([])
   const [total, setTotal] = useState(0)
@@ -47,11 +59,13 @@ export default function StudentsPage() {
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   
   // Form state
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [saving, setSaving] = useState(false)
+  const [sheetApiError, setSheetApiError] = useState<EmbeddedApiErrorDescription | null>(null)
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -62,8 +76,10 @@ export default function StudentsPage() {
   })
 
   const fetchData = useCallback(async () => {
-    if (!centerId && user?.role !== "SUPERADMIN") return
-    setLoading(true); setError(null)
+    if (!centerId) return
+    setLoading(true)
+    setError(null)
+    setPermissionDenied(false)
     try {
       const endpoint = buildCenterEndpoint("students", centerId)
       const res = await apiClient<any>(endpoint, {
@@ -72,13 +88,18 @@ export default function StudentsPage() {
       const respData = res.data || (Array.isArray(res) ? res : [])
       const respTotal = res.total ?? (Array.isArray(res) ? res.length : 0)
       setData(respData); setTotal(respTotal)
-    } catch (e: any) { setError(e.message) }
+    } catch (e: unknown) {
+      const { permissionDenied: denied } = classifyApiError(e)
+      setError(formatEmbeddedApiError(e))
+      setPermissionDenied(denied)
+    }
     finally { setLoading(false) }
   }, [centerId, page, search])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   const openForm = (student: Student | null = null) => {
+    setSheetApiError(null)
     if (student) {
       setSelectedStudent(student)
       setForm({
@@ -107,36 +128,56 @@ export default function StudentsPage() {
     e.preventDefault()
     if (!centerId) return
     setSaving(true)
+    const params = centerIdQuery(centerId)
+    const body = {
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      email: form.email.trim() || null,
+      phone: form.phone.trim() || null,
+      dateOfBirth: form.dateOfBirth
+        ? new Date(`${form.dateOfBirth}T12:00:00`).toISOString()
+        : null,
+      isActive: form.isActive,
+    }
     try {
-      const endpoint = buildCenterEndpoint("students", centerId)
       if (selectedStudent) {
-        await apiClient(`${endpoint}/${selectedStudent.id}`, {
+        await apiClient(`/students/${selectedStudent.id}`, {
           method: "PATCH",
-          body: form
+          body,
+          params,
         })
+        toast.success("O'quvchi yangilandi")
       } else {
-        await apiClient(endpoint, {
+        await apiClient("/students", {
           method: "POST",
-          body: form
+          body,
+          params,
         })
+        toast.success("O'quvchi qo'shildi")
       }
       setIsSheetOpen(false)
       fetchData()
-    } catch (e: any) {
-      alert(e.message)
+    } catch (err: unknown) {
+      const d = describeEmbeddedApiError(err)
+      setSheetApiError(d)
+      toast.error(d.title, { description: d.description })
     } finally {
       setSaving(false)
     }
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (studentId: number) => {
     if (!centerId || !confirm("Haqiqatan ham ushbu o'quvchini o'chirmoqchimisiz?")) return
     try {
-      const endpoint = buildCenterEndpoint("students", centerId)
-      await apiClient(`${endpoint}/${id}`, { method: "DELETE" })
+      await apiClient(`/students/${studentId}`, {
+        method: "DELETE",
+        params: centerIdQuery(centerId),
+      })
+      toast.success("O'quvchi o'chirildi")
       fetchData()
-    } catch (e: any) {
-      alert(e.message)
+    } catch (err: unknown) {
+      const d = describeEmbeddedApiError(err)
+      toast.error(d.title, { description: d.description })
     }
   }
 
@@ -164,7 +205,7 @@ export default function StudentsPage() {
           {s.enrollments && s.enrollments.length > 0 ? (
             s.enrollments.map((e, i) => (
               <Badge key={i} variant="outline" className="text-[10px] py-0 h-5 font-normal">
-                {e.course.title}
+                {e.course?.name ?? "—"}
               </Badge>
             ))
           ) : (
@@ -206,7 +247,7 @@ export default function StudentsPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
               <DropdownMenuItem onClick={() => openForm(s)}><Edit className="mr-2 size-4" /> Tahrirlash</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push(`/students/${s.id}`)}><Eye className="mr-2 size-4" /> Ma'lumotlar</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push(withCenterQuery(`/students/${s.id}`, centerId))}><Eye className="mr-2 size-4" /> Ma'lumotlar</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handleDelete(s.id)} className="text-red-600"><Trash2 className="mr-2 size-4" /> O'chirish</DropdownMenuItem>
             </DropdownMenuContent>
@@ -216,17 +257,62 @@ export default function StudentsPage() {
     }
   ]
 
-  if (!centerId && user?.role !== "SUPERADMIN") return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+  if (centerCtx.needsCenterSelection) {
+    return (
+      <SuperadminCenterRequiredScreen
+        title="O'quvchilar"
+        description="Markaz bo'yicha o'quvchilar ro'yxati va boshqaruv"
+        icon={Users}
+        centers={centerCtx.centers}
+        centersLoading={centerCtx.centersLoading}
+        setCenterId={centerCtx.setCenterId}
+      />
+    )
+  }
+
+  if (!centerId) {
+    return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+  }
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="O'quvchilar"
+          description="Markaz o'quvchilari va ularning kurslardagi ishtirokini boshqaring"
+          icon={Users}
+        />
+        <AccessDeniedPlaceholder
+          title="O'quvchilarga ruxsat yo'q"
+          description="O'quvchilar ro'yxati odatda students.read / students.write ruxsatlarini talab qiladi."
+          detail={error}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="O'quvchilar"
-        description="Markaz o'quvchilari va ularning kurslardagi ishtirokini boshqaring"
+        description={`${centerCtx.centerDisplayName} — o'quvchilar va kurslardagi ishtirok`}
         icon={Users}
-        actions={[
-          { label: "Yangi o'quvchi", icon: UserPlus, onClick: () => openForm() }
-        ]}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {centerCtx.isSuperadmin && (
+              <SuperadminCenterSelect
+                centers={centerCtx.centers}
+                centersLoading={centerCtx.centersLoading}
+                value={centerCtx.effectiveCenterId}
+                onChange={centerCtx.setCenterId}
+              />
+            )}
+            <Button size="sm" onClick={() => openForm()}>
+              <UserPlus className="mr-2 size-4" />
+              Yangi o&apos;quvchi
+            </Button>
+          </div>
+        }
       />
 
       <DataTable
@@ -242,7 +328,13 @@ export default function StudentsPage() {
         searchPlaceholder="Ism, telefon yoki email bo'yicha qidirish..."
       />
 
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+      <Sheet
+        open={isSheetOpen}
+        onOpenChange={(o) => {
+          setIsSheetOpen(o)
+          if (!o) setSheetApiError(null)
+        }}
+      >
         <SheetContent className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{selectedStudent ? "O'quvchini tahrirlash" : "Yangi o'quvchi qo'shish"}</SheetTitle>
@@ -250,6 +342,8 @@ export default function StudentsPage() {
               O'quvchining shaxsiy ma'lumotlarini kiriting.
             </SheetDescription>
           </SheetHeader>
+
+          <EmbeddedApiErrorBanner error={sheetApiError} className="mt-4" />
 
           <form onSubmit={handleSave} className="space-y-5 mt-6">
             <div className="grid grid-cols-2 gap-4">

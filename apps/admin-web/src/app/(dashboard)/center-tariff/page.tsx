@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/page-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Building2, Layers, Loader2, Users, UserCog } from "lucide-react"
+import { formatEmbeddedApiError, isPermissionDeniedError } from "@/lib/api-error"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 
 interface TariffPlan {
   id: number
@@ -36,15 +38,18 @@ export default function CenterTariffPage() {
   const [data, setData] = useState<MyCenterResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setPermissionDenied(false)
     try {
       const res = await apiClient<MyCenterResponse>("/monetization/my-center")
       setData(res)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Yuklashda xatolik")
+      setError(formatEmbeddedApiError(e))
+      setPermissionDenied(isPermissionDeniedError(e))
     } finally {
       setLoading(false)
     }
@@ -58,6 +63,19 @@ export default function CenterTariffPage() {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Tarif va limitlar" description="Markaz rejangiz" icon={Layers} />
+        <AccessDeniedPlaceholder
+          title="Tarif ma'lumotlariga ruxsat yo'q"
+          description="Markaz tarifi va limitlari odatda monetizatsiya yoki markaz sozlamalari ruxsatiga bog'liq. Superadmin yoki tegishli ruxsat berilmagan bo'lsa, bu sahifa ma'lumot bermaydi."
+          detail={error}
+        />
       </div>
     )
   }

@@ -9,7 +9,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { BookOpen, UsersRound, TrendingUp, Presentation, CheckCircle, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { classifyApiError, describeEmbeddedApiError, formatEmbeddedApiError } from "@/lib/api-error"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
+import { useSuperadminCenter } from "@/hooks/use-superadmin-center"
+import { SuperadminCenterRequiredScreen, SuperadminCenterSelect } from "@/components/superadmin-center-select"
 import { useRouter } from "next/navigation"
+import { withCenterQuery } from "@/lib/endpoints"
 import { Badge } from "@/components/ui/badge"
 
 interface CourseAnalytics {
@@ -34,16 +39,21 @@ export default function CourseAnalyticsPage({ params }: { params: Promise<{ id: 
   const courseId = resolvedParams.id
 
   const { user } = useAuth()
-  const centerId = user?.administrator?.centerId
+  const centerCtx = useSuperadminCenter(user)
+  const centerId = centerCtx.effectiveCenterId
   const router = useRouter()
 
   const [loading, setLoading] = useState(true)
   const [course, setCourse] = useState<Course | null>(null)
   const [analytics, setAnalytics] = useState<CourseAnalytics | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     if (!centerId) return
     setLoading(true)
+    setPermissionDenied(false)
+    setLoadError(null)
     try {
       const [courseRes, statsRes] = await Promise.all([
         apiClient<Course>(`/courses/${courseId}?centerId=${centerId}`),
@@ -51,8 +61,15 @@ export default function CourseAnalyticsPage({ params }: { params: Promise<{ id: 
       ])
       setCourse(courseRes)
       setAnalytics(statsRes)
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      const { permissionDenied: denied } = classifyApiError(e)
+      if (denied) {
+        setPermissionDenied(true)
+      } else {
+        setLoadError(formatEmbeddedApiError(e))
+        const d = describeEmbeddedApiError(e)
+        toast.error(d.title, { description: d.description })
+      }
     } finally {
       setLoading(false)
     }
@@ -62,17 +79,55 @@ export default function CourseAnalyticsPage({ params }: { params: Promise<{ id: 
     fetchData()
   }, [fetchData])
 
-  if (!centerId) return <div className="p-8 text-center">Markaz topilmadi</div>
+  if (centerCtx.needsCenterSelection) {
+    return (
+      <SuperadminCenterRequiredScreen
+        title="Kurs tahlili"
+        description="Kurs bo'yicha tahlillar uchun markazni tanlang"
+        icon={BookOpen}
+        centers={centerCtx.centers}
+        centersLoading={centerCtx.centersLoading}
+        setCenterId={centerCtx.setCenterId}
+      />
+    )
+  }
+
+  if (!centerId) {
+    return <div className="p-8 text-center text-muted-foreground">Markaz topilmadi</div>
+  }
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" onClick={() => router.push(withCenterQuery("/courses", centerId))}>Orqaga</Button>
+        </div>
+        <PageHeader title="Kurs tahlili" description="Kurs bo'yicha ko'rsatkichlar" icon={BookOpen} />
+        <AccessDeniedPlaceholder
+          title="Kurs tahliliga ruxsat yo'q"
+          description="Kurs tafsilotlari va analitika odatda courses.read yoki tegishli ruxsatlarni talab qiladi."
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" onClick={() => router.push("/courses")}>Orqaga</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" onClick={() => router.push(withCenterQuery("/courses", centerId))}>Orqaga</Button>
+        {centerCtx.isSuperadmin && (
+          <SuperadminCenterSelect
+            centers={centerCtx.centers}
+            centersLoading={centerCtx.centersLoading}
+            value={centerCtx.effectiveCenterId}
+            onChange={centerCtx.setCenterId}
+          />
+        )}
       </div>
 
       <PageHeader
         title={`Kurs Tahlili: ${course?.title || "Yuklanmoqda..."}`}
-        description={`"${course?.code || ""}" kodi ostidagi o'quv moduli ko'rsatkichlari`}
+        description={`${centerCtx.centerDisplayName} · "${course?.code || ""}" kodi ostidagi ko'rsatkichlar`}
         icon={BookOpen}
         badge={course?.status === "PUBLISHED" ? "Faol" : "Nofaol"}
         badgeVariant={course?.status === "PUBLISHED" ? "default" : "secondary"}
@@ -82,7 +137,9 @@ export default function CourseAnalyticsPage({ params }: { params: Promise<{ id: 
         <div className="flex h-[200px] items-center justify-center">
           <Loader2 className="size-8 animate-spin text-primary" />
         </div>
-      ) : analytics && (
+      ) : loadError ? (
+        <p className="text-sm text-destructive">{loadError}</p>
+      ) : analytics ? (
         <div className="space-y-6">
           <StatsGrid columns={4}>
             <StatsCard
@@ -127,6 +184,8 @@ export default function CourseAnalyticsPage({ params }: { params: Promise<{ id: 
             </CardContent>
           </Card>
         </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Ma&apos;lumot topilmadi.</p>
       )}
     </div>
   )

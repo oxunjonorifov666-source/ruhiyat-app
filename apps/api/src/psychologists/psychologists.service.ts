@@ -351,4 +351,29 @@ export class PsychologistsService {
     }));
     return { data: mapped, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
+
+  /** Mobil ilova: bitta katalog kartasi — faqat tasdiqlangan va faol foydalanuvchili profillar. */
+  async findMobileById(id: number) {
+    const p = await this.prisma.psychologist.findFirst({
+      where: {
+        id,
+        verificationStatus: 'APPROVED',
+        isVerified: true,
+        user: { isActive: true, isBlocked: false },
+      },
+      select: {
+        ...PSYCH_LIST_SELECT,
+        bio: true,
+        avatarUrl: true,
+        education: true,
+        certifications: true,
+        licenseNumber: true,
+      },
+    });
+    if (!p) throw new NotFoundException('Psixolog topilmadi');
+    return {
+      ...p,
+      sessionPrice: p.hourlyRate != null ? Math.round(Number(p.hourlyRate)) : null,
+    };
+  }
 }

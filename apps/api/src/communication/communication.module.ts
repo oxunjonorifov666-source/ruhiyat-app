@@ -5,6 +5,7 @@ import { CommunicationController } from './communication.controller';
 import { CommunicationService } from './communication.service';
 import { ChatGateway } from './chat.gateway';
 import { MobileChatController } from './mobile-chat.controller';
+import { getAccessJwtSecretForAuth } from '../common/config/jwt-secrets.util';
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { MobileChatController } from './mobile-chat.controller';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') || 'ruhiyat-dev-secret-NOT-FOR-PRODUCTION',
+        secret: getAccessJwtSecretForAuth(config),
       }),
     }),
   ],

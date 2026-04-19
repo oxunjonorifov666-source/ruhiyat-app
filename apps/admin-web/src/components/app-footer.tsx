@@ -8,8 +8,8 @@ export function AppFooter() {
   const centerName = user?.administrator?.center?.name || "Markaz ma'lumotlari kutilmoqda"
 
   return (
-    <footer className="border-t bg-muted/20 px-6 py-8">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+    <footer className="border-t border-border/60 bg-muted/10">
+      <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-8 px-4 py-8 md:grid-cols-4 md:px-6 lg:px-8">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="text-xl font-bold tracking-tight text-primary">Ruhiyat</span>
@@ -42,13 +42,13 @@ export function AppFooter() {
 
         <div className="flex flex-col gap-3 md:col-span-2">
           <span className="text-sm font-semibold">Joylashuv (Xarita)</span>
-          <div className="w-full h-24 bg-muted rounded-md border flex items-center justify-center text-xs text-muted-foreground">
+          <div className="flex h-24 w-full items-center justify-center rounded-lg border border-border/60 bg-muted/30 text-xs text-muted-foreground">
             [Xarita moduli integratsiyasi]
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-t pt-4">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 border-t border-border/50 px-4 py-5 md:flex-row md:items-center md:justify-between md:px-6 lg:px-8">
         <div className="flex flex-col gap-1 md:flex-row md:items-center md:gap-4">
           <span className="text-xs text-muted-foreground font-medium">Sessiya yurituvchisi: {centerName}</span>
           <span className="text-xs text-muted-foreground">Tizim versiyasi: v1.0.0-enterprise</span>

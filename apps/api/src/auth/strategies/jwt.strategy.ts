@@ -2,37 +2,34 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../prisma/prisma.service';
-import { AuthUser, UserRole } from '@ruhiyat/types';
+import type { Request } from 'express';
+import { getAccessJwtSecretForAuth } from '../../common/config/jwt-secrets.util';
+import { AuthService } from '../auth.service';
+import { ACCESS_COOKIE_NAME } from '../auth-cookie.helper';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    private readonly prisma: PrismaService,
     configService: ConfigService,
+    private readonly authService: AuthService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        (req: Request) => {
+          const c = req?.cookies?.[ACCESS_COOKIE_NAME];
+          return typeof c === 'string' && c.length > 0 ? c : null;
+        },
+      ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'ruhiyat-dev-secret-NOT-FOR-PRODUCTION',
+      secretOrKey: getAccessJwtSecretForAuth(configService),
     });
   }
 
-  async validate(payload: { sub: number; role: string; cid: number | null; pms: string[] }): Promise<AuthUser> {
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-    
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('User not found or deactivated');
+  async validate(payload: { sub: number; role?: string; cid?: number | null; pms?: string[] }) {
+    if (payload.sub == null || typeof payload.sub !== 'number') {
+      throw new UnauthorizedException('Invalid token subject');
     }
-
-    // Map payload back to AuthUser shape for request.user
-    return {
-      id: user.id,
-      email: user.email,
-      phone: user.phone,
-      role: payload.role as UserRole,
-      centerId: payload.cid,
-      permissions: payload.pms,
-    };
+    return this.authService.resolvePrincipalForJwt(payload.sub);
   }
 }

@@ -5,7 +5,7 @@ import {
   GraduationCap, Calendar, CalendarCheck, History, Activity, AlertTriangle, CreditCard,
   DollarSign, ArrowLeftRight, PieChart, Settings, Smartphone, Lock,
   ScrollText, Plug, Monitor, Key, UserCheck, Flag, Ban, Eye,
-  TrendingUp, Wallet, type LucideIcon
+  TrendingUp, Wallet, Scale, type LucideIcon
 } from 'lucide-react';
 
 export interface NavItem {
@@ -100,6 +100,7 @@ export const superadminNavGroups: NavGroup[] = [
     items: [
       { title: 'Sozlamalar', href: '/settings', icon: Settings, permission: 'system.settings' },
       { title: 'Ilova sozlamalari', href: '/app-settings', icon: Smartphone, permission: 'system.settings' },
+      { title: 'Huquqiy, rozilik va AI', href: '/legal-compliance', icon: Scale, permission: 'system.settings' },
       { title: 'Xavfsizlik', href: '/security', icon: Lock, permission: 'system.settings' },
       { title: 'Audit loglari', href: '/audit-logs', icon: ScrollText, permission: 'system.audit' },
       { title: 'Integratsiyalar', href: '/integrations', icon: Plug, permission: 'system.settings' },

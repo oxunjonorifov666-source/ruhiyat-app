@@ -17,12 +17,41 @@ function isValidEmail(s: string) {
 export function LoginScreen({ navigation }: any) {
   const { login } = useAuth();
   const [mode, setMode] = useState<'phone' | 'email'>('phone');
+  const [phoneLogin, setPhoneLogin] = useState<'password' | 'otp'>('password');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (mode === 'phone' && phoneLogin === 'otp') {
+      const normalized = normalizeUzbekPhone(phone.trim());
+      if (!isValidUzbekMobile(normalized)) {
+        Alert.alert('Telefon', '+998901234567 ko‘rinishida to‘g‘ri raqam kiriting');
+        return;
+      }
+      if (!/^\d{6}$/.test(otpCode.trim())) {
+        Alert.alert('Kod', '6 raqamli SMS kodni kiriting');
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await authService.verifyLoginOtp({ phone: normalized, code: otpCode.trim() });
+        if (res.accessToken && res.refreshToken && res.user) {
+          await login(res.accessToken, res.refreshToken, res.user);
+        } else {
+          Alert.alert('Kirish', 'Kod tasdiqlanmadi');
+        }
+      } catch (e: any) {
+        Alert.alert('Kirish xatoligi', e.message || 'Kod noto‘g‘ri yoki muddati o‘tgan');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!password) {
       Alert.alert('Xatolik', 'Parolni kiriting');
       return;
@@ -59,6 +88,24 @@ export function LoginScreen({ navigation }: any) {
     }
   };
 
+  const sendLoginOtp = async () => {
+    const normalized = normalizeUzbekPhone(phone.trim());
+    if (!isValidUzbekMobile(normalized)) {
+      Alert.alert('Telefon', '+998901234567 ko‘rinishida to‘g‘ri raqam kiriting');
+      return;
+    }
+    setLoading(true);
+    try {
+      await authService.sendLoginOtp({ phone: normalized });
+      setOtpSent(true);
+      Alert.alert('SMS', 'Tasdiqlash kodi yuborildi (5 daqiqa).');
+    } catch (e: any) {
+      Alert.alert('Xatolik', e.message || 'Kod yuborilmadi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -76,31 +123,77 @@ export function LoginScreen({ navigation }: any) {
           <View style={styles.modeRow}>
             <TouchableOpacity
               style={[styles.modeBtn, mode === 'phone' && styles.modeBtnActive]}
-              onPress={() => setMode('phone')}
+              onPress={() => {
+                setMode('phone');
+                setOtpSent(false);
+                setOtpCode('');
+              }}
             >
               <Text style={[styles.modeBtnText, mode === 'phone' && styles.modeBtnTextActive]}>Telefon</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modeBtn, mode === 'email' && styles.modeBtnActive]}
-              onPress={() => setMode('email')}
+              onPress={() => {
+                setMode('email');
+                setPhoneLogin('password');
+              }}
             >
               <Text style={[styles.modeBtnText, mode === 'email' && styles.modeBtnTextActive]}>Email</Text>
             </TouchableOpacity>
           </View>
 
           {mode === 'phone' ? (
-            <View style={styles.field}>
-              <Text style={styles.label}>Telefon raqam</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="+998 90 123 45 67"
-                placeholderTextColor={Colors.textMuted}
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                autoCapitalize="none"
-              />
-            </View>
+            <>
+              <View style={styles.modeRow}>
+                <TouchableOpacity
+                  style={[styles.modeBtn, phoneLogin === 'password' && styles.modeBtnActive]}
+                  onPress={() => {
+                    setPhoneLogin('password');
+                    setOtpSent(false);
+                    setOtpCode('');
+                  }}
+                >
+                  <Text style={[styles.modeBtnText, phoneLogin === 'password' && styles.modeBtnTextActive]}>Parol</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modeBtn, phoneLogin === 'otp' && styles.modeBtnActive]}
+                  onPress={() => setPhoneLogin('otp')}
+                >
+                  <Text style={[styles.modeBtnText, phoneLogin === 'otp' && styles.modeBtnTextActive]}>SMS kod</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.field}>
+                <Text style={styles.label}>Telefon raqam</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="+998 90 123 45 67"
+                  placeholderTextColor={Colors.textMuted}
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                />
+              </View>
+              {phoneLogin === 'otp' ? (
+                <>
+                  <TouchableOpacity style={[styles.outlineBtn, loading && styles.btnDisabled]} onPress={sendLoginOtp} disabled={loading}>
+                    <Text style={styles.outlineBtnText}>{otpSent ? 'Kodni qayta yuborish' : 'Kod olish'}</Text>
+                  </TouchableOpacity>
+                  <View style={styles.field}>
+                    <Text style={styles.label}>SMS kodi</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="6 raqam"
+                      placeholderTextColor={Colors.textMuted}
+                      value={otpCode}
+                      onChangeText={setOtpCode}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                  </View>
+                </>
+              ) : null}
+            </>
           ) : (
             <View style={styles.field}>
               <Text style={styles.label}>Email</Text>
@@ -117,24 +210,27 @@ export function LoginScreen({ navigation }: any) {
             </View>
           )}
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Parol</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Parolingizni kiriting"
-              placeholderTextColor={Colors.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
+          {mode === 'email' || phoneLogin === 'password' ? (
+            <View style={styles.field}>
+              <Text style={styles.label}>Parol</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Parolingizni kiriting"
+                placeholderTextColor={Colors.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
+          ) : null}
 
-          <TouchableOpacity
-            style={styles.forgotBtn}
-            onPress={() => navigation.navigate('ForgotPassword')}
-          >
-            <Text style={styles.forgotText}>Parolni unutdingizmi?</Text>
-          </TouchableOpacity>
+          {mode === 'email' || phoneLogin === 'password' ? (
+            <TouchableOpacity style={styles.forgotBtn} onPress={() => navigation.navigate('ForgotPassword')}>
+              <Text style={styles.forgotText}>Parolni unutdingizmi?</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ height: 8 }} />
+          )}
 
           <TouchableOpacity
             style={[styles.btn, loading && styles.btnDisabled]}
@@ -223,4 +319,13 @@ const styles = StyleSheet.create({
     padding: 16, alignItems: 'center',
   },
   registerText: { color: Colors.primary, fontSize: 16, fontWeight: '600' },
+  outlineBtn: {
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  outlineBtnText: { color: Colors.primary, fontWeight: '700', fontSize: 14 },
 });

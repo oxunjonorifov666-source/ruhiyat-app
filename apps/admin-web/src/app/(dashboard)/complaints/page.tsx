@@ -32,6 +32,9 @@ import {
   Loader2, RefreshCw, Calendar, Clock, CheckCircle2, XCircle, UserRound, Inbox, Flame,
 } from "lucide-react"
 import { toast } from "sonner"
+import { describeEmbeddedApiError, isPermissionDeniedError, type EmbeddedApiErrorDescription } from "@/lib/api-error"
+import { EmbeddedApiErrorBanner } from "@/components/embedded-api-error-banner"
+import { AccessDeniedPlaceholder } from "@/components/access-denied-placeholder"
 import { useAuth } from "@/components/auth-provider"
 import { useDebounce } from "@/hooks/use-debounce"
 import type { AuthUser } from "@/lib/auth"
@@ -117,12 +120,15 @@ export default function ComplaintsPage() {
   const [responseKind, setResponseKind] = useState<"resolve" | "reject">("resolve")
   const [responseNote, setResponseNote] = useState("")
   const [actionLoading, setActionLoading] = useState(false)
+  const [permissionDenied, setPermissionDenied] = useState(false)
+  const [detailFetchError, setDetailFetchError] = useState<EmbeddedApiErrorDescription | null>(null)
 
   const limit = 20
   const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setPermissionDenied(false)
     try {
       const params: Record<string, string | number | undefined> = { page, limit }
       if (debouncedSearch) params.search = debouncedSearch
@@ -137,8 +143,13 @@ export default function ComplaintsPage() {
       setRows(listRes.data)
       setTotal(listRes.total)
       setStats(statsRes)
-    } catch (e: any) {
-      toast.error(e?.message || "Shikoyatlarni yuklab bo'lmadi")
+    } catch (e: unknown) {
+      if (isPermissionDeniedError(e)) {
+        setPermissionDenied(true)
+      } else {
+        const d = describeEmbeddedApiError(e)
+        toast.error(d.title, { description: d.description })
+      }
     } finally {
       setLoading(false)
     }
@@ -148,15 +159,19 @@ export default function ComplaintsPage() {
   useEffect(() => { setPage(1) }, [debouncedSearch, statusFilter, priorityFilter, targetFilter])
 
   const openDetail = useCallback(async (c: Complaint) => {
+    setDetailFetchError(null)
+    setSheetOpen(true)
     try {
       const detail = await apiClient<ComplaintDetail>(`/complaints/${c.id}`, {
         params: centerParams(user, c),
       })
       setSelected(detail)
-    } catch {
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      setDetailFetchError(d)
       setSelected(c as ComplaintDetail)
+      toast.error(d.title, { description: d.description })
     }
-    setSheetOpen(true)
   }, [user])
 
   const patchStatus = async (c: Complaint, status: "IN_REVIEW") => {
@@ -170,8 +185,9 @@ export default function ComplaintsPage() {
       toast.success("Holat yangilandi")
       setSheetOpen(false)
       fetchData()
-    } catch (e: any) {
-      toast.error(e?.message || "Xatolik")
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     } finally {
       setActionLoading(false)
     }
@@ -192,11 +208,28 @@ export default function ComplaintsPage() {
       setResponseNote("")
       setSheetOpen(false)
       fetchData()
-    } catch (e: any) {
-      toast.error(e?.message || "Xatolik")
+    } catch (e: unknown) {
+      const d = describeEmbeddedApiError(e)
+      toast.error(d.title, { description: d.description })
     } finally {
       setActionLoading(false)
     }
+  }
+
+  if (permissionDenied) {
+    return (
+      <div className="space-y-6 pb-10">
+        <PageHeader
+          title="Shikoyatlar"
+          description="Foydalanuvchilar yuborgan shikoyatlar (complaints jadvali) — ko'rib chiqish va javob berish"
+          icon={MessageSquareWarning}
+        />
+        <AccessDeniedPlaceholder
+          title="Shikoyatlarni ko'rishga ruxsat yo'q"
+          description="Shikoyatlar moduli markaz yoki platforma darajasidagi maxsus ruxsatni talab qilishi mumkin. Bu ruxsat bo'lmasa, ro'yxat ochilmaydi."
+        />
+      </div>
+    )
   }
 
   return (
@@ -394,7 +427,13 @@ export default function ComplaintsPage() {
         </CardContent>
       </Card>
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={(o) => {
+          setSheetOpen(o)
+          if (!o) setDetailFetchError(null)
+        }}
+      >
         <SheetContent className="sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Shikoyat</SheetTitle>
@@ -403,6 +442,8 @@ export default function ComplaintsPage() {
               {selected?.center?.name ? ` · ${selected.center.name}` : ""}
             </SheetDescription>
           </SheetHeader>
+
+          <EmbeddedApiErrorBanner error={detailFetchError} className="mt-4" />
 
           {selected && (
             <div className="space-y-5 mt-6">

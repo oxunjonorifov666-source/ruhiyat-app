@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { apiClient } from "@/lib/api-client"
 
 interface UseApiDataOptions<T> {
@@ -27,6 +27,7 @@ export function useApiData<T = any>(options: UseApiDataOptions<T>): UseApiDataRe
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
   const fetchIdRef = useRef(0)
+  const paramsKey = useMemo(() => JSON.stringify(params ?? {}), [params])
 
   const fetchData = useCallback(async () => {
     if (!enabled) return
@@ -49,7 +50,7 @@ export function useApiData<T = any>(options: UseApiDataOptions<T>): UseApiDataRe
         setLoading(false)
       }
     }
-  }, [path, JSON.stringify(params), enabled])
+  }, [path, paramsKey, enabled])
 
   useEffect(() => {
     mountedRef.current = true
